@@ -8,3 +8,8 @@
 !.gemini/
 .gemini/*
 !.gemini/skills
+
+# Stray runtime artifacts (Elixir writes this when the VM crashes on boot)
+erl_crash.dump
+
+# docs/ is the committed source of truth (P00/D01/D02/O01/P03) — do NOT ignore it.
