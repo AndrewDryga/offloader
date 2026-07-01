@@ -31,7 +31,8 @@ defmodule Offloader.MixProject do
       {:bandit, "~> 1.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:yaml_elixir, "~> 2.9"}
     ]
   end
 
