@@ -73,6 +73,9 @@ Before promising an external deployment, prove:
 7. Cold load, warm restart, memory, disk, p95, and p99 measurements.
 8. Standalone container starts from empty and warm cache.
 
+The authoritative, citeable version — every gate mapped to its owning task and
+`Q01` audits the release against it.
+
 ## Development gate
 
 The exact gate will harden as components land. The intended V1 gate is:
