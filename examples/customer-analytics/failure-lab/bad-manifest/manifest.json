@@ -1,0 +1,21 @@
+{
+  "dataset_id": "customer_usage",
+  "snapshot_id": "",
+  "created_at": "2026-06-01T06:12:00Z",
+  "watermark": "2026-06-01T00:00:00Z",
+  "schema": [
+    { "name": "usage_date", "type": "DATE" },
+    { "name": "tenant_id", "type": "VARCHAR" },
+    { "name": "tenant_id", "type": "VARCHAR" },
+    { "name": "active_users", "type": "TIMESTAMP_WITH_QUUX" }
+  ],
+  "files": [{ "path": "customer_usage.csv", "format": "csv" }],
+  "partition_columns": [],
+  "sort_columns": [],
+  "row_count": 36,
+  "size_bytes": 2433,
+  "upstream_run_id": "run_0007",
+  "schema_version": 1,
+  "data_quality_status": "passed",
+  "compatibility_policy": "additive_only"
+}

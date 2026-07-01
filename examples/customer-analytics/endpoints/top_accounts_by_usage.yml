@@ -1,0 +1,41 @@
+# Endpoint contract: the busiest accounts by API calls over a date range (ranking).
+# Exercises limit/pagination bounds — a request over max_limit is rejected.
+name: top_accounts_by_usage
+version: 1
+owner: analytics-platform@example.com
+description: Top accounts ranked by total API calls over a date range.
+dataset: customer_usage
+serving_mode: local_table
+
+freshness:
+  max_staleness_minutes: 120
+
+tenant:
+  column: tenant_id
+
+params:
+  - { name: from, type: date, required: true }
+  - { name: to, type: date, required: true }
+  # integer with an upper bound; a request asking for more than `max` is rejected.
+  - { name: limit, type: integer, required: false, default: 10, max: 50 }
+
+query:
+  group_by: [account_id]
+  select:
+    - { as: account_id, column: account_id }
+    - { as: api_calls_total, column: api_calls, agg: sum }
+    - { as: active_users_total, column: active_users, agg: sum }
+  filters:
+    - { column: usage_date, op: gte, param: from }
+    - { column: usage_date, op: lte, param: to }
+  order_by:
+    - { column: api_calls_total, dir: desc }
+
+columns: [account_id, api_calls_total, active_users_total]
+
+pagination:
+  default_limit: 10
+  max_limit: 50
+
+cache:
+  policy: snapshot

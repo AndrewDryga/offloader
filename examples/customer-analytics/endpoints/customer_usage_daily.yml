@@ -1,0 +1,46 @@
+# Endpoint contract: daily usage rows for a single account (a time series).
+# No aggregation — a filtered, projected row read.
+name: customer_usage_daily
+version: 1
+owner: analytics-platform@example.com
+description: Per-day usage rows for one account, optionally filtered to a product area.
+dataset: customer_usage
+serving_mode: local_table
+
+freshness:
+  max_staleness_minutes: 120
+
+tenant:
+  column: tenant_id
+
+params:
+  - { name: account_id, type: string, required: true }
+  - { name: from, type: date, required: true }
+  - { name: to, type: date, required: true }
+  # enum param: the compiler rejects any value outside this set (bad-param failure lab).
+  - { name: product_area, type: enum, required: false, enum: [dashboards, api, exports] }
+
+query:
+  select:
+    - { as: usage_date, column: usage_date }
+    - { as: account_id, column: account_id }
+    - { as: product_area, column: product_area }
+    - { as: active_users, column: active_users }
+    - { as: api_calls, column: api_calls }
+  filters:
+    - { column: account_id, op: eq, param: account_id }
+    - { column: usage_date, op: gte, param: from }
+    - { column: usage_date, op: lte, param: to }
+    - { column: product_area, op: eq, param: product_area }
+  order_by:
+    - { column: usage_date, dir: asc }
+
+# `storage_gb` and `plan` are deliberately excluded from this endpoint's allowlist.
+columns: [usage_date, account_id, product_area, active_users, api_calls]
+
+pagination:
+  default_limit: 100
+  max_limit: 500
+
+cache:
+  policy: snapshot

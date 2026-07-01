@@ -1,0 +1,47 @@
+# Endpoint contract: aggregated usage totals per account over a date range.
+# The contract is the public surface; the compiler (G05) turns it into a safe,
+# parameterized DuckDB query. Consumers never send SQL.
+name: customer_usage_summary
+version: 1
+owner: analytics-platform@example.com
+description: Total active users, API calls, and average storage per account over a date range.
+dataset: customer_usage
+serving_mode: local_table
+
+freshness:
+  max_staleness_minutes: 120
+
+# Tenant isolation: the compiler inserts `tenant_id = <key's tenant>` after auth.
+# It cannot be supplied or overridden by a request param.
+tenant:
+  column: tenant_id
+
+params:
+  - { name: account_id, type: string, required: false }
+  - { name: from, type: date, required: true }
+  - { name: to, type: date, required: true }
+
+query:
+  group_by: [account_id]
+  select:
+    - { as: account_id, column: account_id }
+    - { as: active_users_total, column: active_users, agg: sum }
+    - { as: api_calls_total, column: api_calls, agg: sum }
+    - { as: storage_gb_avg, column: storage_gb, agg: avg }
+  filters:
+    - { column: account_id, op: eq, param: account_id }
+    - { column: usage_date, op: gte, param: from }
+    - { column: usage_date, op: lte, param: to }
+  order_by:
+    - { column: api_calls_total, dir: desc }
+
+# Column allowlist: the only columns a response may contain. `plan`, `tenant_id`,
+# and raw daily rows are intentionally NOT exposed here.
+columns: [account_id, active_users_total, api_calls_total, storage_gb_avg]
+
+pagination:
+  default_limit: 50
+  max_limit: 100
+
+cache:
+  policy: snapshot

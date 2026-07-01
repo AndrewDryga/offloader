@@ -1,0 +1,14 @@
+# Offloader example project — B2B SaaS customer usage analytics.
+#
+# This is the file OFFLOADER_CONFIG points at. It wires together the dataset
+# contracts, endpoint contracts, and API keys that make up one deployment.
+# Paths are relative to this file's directory.
+version: 1
+
+datasets_dir: datasets
+endpoints_dir: endpoints
+keys: keys/keys.yml
+
+# Local mode reads manifests and data files from disk (this repo). Switching to a
+# remote source adapter (S3/GCS) changes only the source, not the contracts above.
+object_store_mode: local

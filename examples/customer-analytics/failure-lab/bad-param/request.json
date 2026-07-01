@@ -1,0 +1,17 @@
+{
+  "description": "product_area is an enum; 'billing' is not a member, so the compiler must reject the request before any query runs.",
+  "endpoint": "customer_usage_daily",
+  "key_id": "demo_acme",
+  "bearer": "offl_demo_acme_key",
+  "params": {
+    "account_id": "acct_apollo",
+    "from": "2026-05-30",
+    "to": "2026-06-01",
+    "product_area": "billing"
+  },
+  "expected": {
+    "status": 422,
+    "error_family": "invalid_param",
+    "must_not_reveal": "whether other product areas or datasets exist"
+  }
+}

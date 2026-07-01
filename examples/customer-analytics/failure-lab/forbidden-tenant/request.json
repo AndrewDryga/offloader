@@ -1,0 +1,22 @@
+{
+  "description": "The globex key tries to read acme's data by smuggling a tenant_id param. The gateway binds tenant from the KEY (tenant_globex) and ignores the param, so acct_apollo (a tenant_acme account) returns zero rows — the tenant filter cannot be overridden.",
+  "endpoint": "customer_usage_summary",
+  "key_id": "demo_globex",
+  "bearer": "offl_demo_globex_key",
+  "params": {
+    "from": "2026-05-30",
+    "to": "2026-06-01",
+    "tenant_id": "tenant_acme",
+    "account_id": "acct_apollo"
+  },
+  "expected": {
+    "status": 200,
+    "invariant": "response scoped to tenant_globex; the tenant_id param is ignored; acct_apollo returns no rows",
+    "must_not_reveal": "that acct_apollo or tenant_acme exists"
+  },
+  "variant_endpoint_scope": {
+    "note": "Same key against customer_usage_daily (NOT in demo_globex's endpoint allowlist) must fail closed.",
+    "endpoint": "customer_usage_daily",
+    "expected": { "status": 403, "error_family": "forbidden", "must_not_reveal": "that the endpoint exists" }
+  }
+}

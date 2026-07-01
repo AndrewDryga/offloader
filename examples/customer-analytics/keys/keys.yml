@@ -1,0 +1,28 @@
+# API key fixtures. Keys are matched by the SHA-256 hash of the bearer token; the
+# plaintext token is NEVER stored (docs/security-model.md — "hashed at rest").
+#
+# Demo tokens (non-secret, for local use only) and their hashes:
+#   demo_acme     bearer: offl_demo_acme_key
+#   demo_globex   bearer: offl_demo_globex_key
+#   demo_revoked  bearer: offl_demo_revoked_key   (status: revoked -> always denied)
+#
+# A key is scoped to an endpoint allowlist and bound to exactly one tenant. The
+# gateway (G06) inserts that tenant into every query; the caller cannot change it.
+keys:
+  - id: demo_acme
+    hash: "745ce437a64ab1f020c303be50aa3785e742b72e61533d692f7aa024ff16b121"
+    tenant: tenant_acme
+    endpoints: [customer_usage_summary, customer_usage_daily, top_accounts_by_usage]
+    status: active
+
+  - id: demo_globex
+    hash: "5aac0961f00149c0239ccbbc20aea5dbdc8bfc031a025f72df122fd204fe55f1"
+    tenant: tenant_globex
+    endpoints: [customer_usage_summary]
+    status: active
+
+  - id: demo_revoked
+    hash: "db0039d29f2de66328bcbc8d4f33530d3ff3f1fa36ce658c9c9ec4b890920572"
+    tenant: tenant_initech
+    endpoints: [customer_usage_summary]
+    status: revoked

@@ -1,0 +1,26 @@
+# Dataset contract: the schema the gateway EXPECTS. The manifest declares what a
+# snapshot actually SHIPPED; refresh (G08) compares the two against
+# compatibility_policy, so a breaking producer change is rejected before it serves.
+id: customer_usage
+description: >-
+  Daily product-usage rollup for a B2B SaaS product. One row per
+  (usage_date, tenant_id, account_id, product_area).
+
+# Where the current snapshot manifest lives in local (OFFLOADER_OBJECT_STORE_MODE=local)
+# mode. Remote (S3/GCS) source adapters resolve the same manifest shape from a bucket.
+manifest: data/customer_usage/manifest.json
+
+# The column every endpoint on this dataset filters by. The value is bound from the
+# caller's API key, never from a request param — see docs/security-model.md.
+tenant_column: tenant_id
+
+# Expected schema (the contract). DuckDB type names.
+schema:
+  - { name: usage_date, type: DATE }
+  - { name: tenant_id, type: VARCHAR }
+  - { name: account_id, type: VARCHAR }
+  - { name: product_area, type: VARCHAR }
+  - { name: active_users, type: INTEGER }
+  - { name: api_calls, type: BIGINT }
+  - { name: storage_gb, type: DOUBLE }
+  - { name: plan, type: VARCHAR }

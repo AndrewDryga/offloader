@@ -1,0 +1,28 @@
+{
+  "dataset_id": "customer_usage",
+  "snapshot_id": "2026-05-01T00:00:00Z_r0001",
+  "created_at": "2026-05-01T06:12:00Z",
+  "watermark": "2026-05-01T00:00:00Z",
+  "schema": [
+    { "name": "usage_date", "type": "DATE" },
+    { "name": "tenant_id", "type": "VARCHAR" },
+    { "name": "account_id", "type": "VARCHAR" },
+    { "name": "product_area", "type": "VARCHAR" },
+    { "name": "active_users", "type": "INTEGER" },
+    { "name": "api_calls", "type": "BIGINT" },
+    { "name": "storage_gb", "type": "DOUBLE" },
+    { "name": "plan", "type": "VARCHAR" }
+  ],
+  "files": [
+    { "path": "../../data/customer_usage/customer_usage.csv", "format": "csv", "row_count": 36, "size_bytes": 2433 }
+  ],
+  "partition_columns": [],
+  "sort_columns": ["usage_date", "tenant_id", "account_id", "product_area"],
+  "row_count": 36,
+  "size_bytes": 2433,
+  "producer": "example-usage-pipeline",
+  "upstream_run_id": "run_0001",
+  "schema_version": 1,
+  "data_quality_status": "passed",
+  "compatibility_policy": "additive_only"
+}
