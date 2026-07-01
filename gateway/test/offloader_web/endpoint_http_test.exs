@@ -97,6 +97,38 @@ defmodule OffloaderWeb.EndpointHTTPTest do
     assert json_response(conn, 422)["error"]["family"] == "invalid_param"
   end
 
+  test "column allowlist: the response never includes non-allowlisted columns" do
+    # customer_usage_daily's allowlist excludes `plan` and `storage_gb` on purpose.
+    query = %{"account_id" => "acct_apollo", "from" => "2026-05-30", "to" => "2026-06-01"}
+    body = json_response(get_endpoint("customer_usage_daily", query, "offl_demo_acme_key"), 200)
+
+    for row <- body["data"] do
+      refute Map.has_key?(row, "plan")
+      refute Map.has_key?(row, "storage_gb")
+
+      assert Map.keys(row) |> Enum.sort() == [
+               "account_id",
+               "active_users",
+               "api_calls",
+               "product_area",
+               "usage_date"
+             ]
+    end
+  end
+
+  test "trying to widen the projection via a bogus param is rejected, not honored" do
+    query = %{"from" => "2026-05-30", "to" => "2026-06-01", "columns" => "plan"}
+    conn = get_endpoint("customer_usage_summary", query, "offl_demo_acme_key")
+    assert json_response(conn, 422)["error"]["family"] == "invalid_param"
+  end
+
+  test "no docs/schema/diagnostics are reachable on the API port" do
+    for path <- ["/docs", "/v1/docs", "/schema", "/diagnostics", "/metrics"] do
+      conn = get(build_conn(), path)
+      assert conn.status == 404, "#{path} must not be served on the API port"
+    end
+  end
+
   test "tenant scoping: globex sees only its own accounts over HTTP" do
     query = %{"from" => "2026-05-30", "to" => "2026-06-01"}
     acme = json_response(get_endpoint("customer_usage_summary", query, "offl_demo_acme_key"), 200)

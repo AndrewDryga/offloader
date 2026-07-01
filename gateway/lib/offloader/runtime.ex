@@ -15,7 +15,7 @@ defmodule Offloader.Runtime do
   use GenServer
   require Logger
 
-  alias Offloader.{ApiError, Catalog, Compiler, Config, Engine, Manifest}
+  alias Offloader.{ApiError, Auth, Catalog, Compiler, Config, Engine, Manifest}
 
   defstruct [:catalog, :engine, :snapshots]
 
@@ -57,20 +57,9 @@ defmodule Offloader.Runtime do
 
   @impl true
   def handle_call({:authorize, token, endpoint_name}, _from, state) do
-    hash = :crypto.hash(:sha256, token) |> Base.encode16(case: :lower)
-    key = Enum.find(state.catalog.keys, &(&1.status == "active" and &1.hash == hash))
-
     reply =
-      cond do
-        is_nil(key) ->
-          {:error, ApiError.new(:unauthorized, "invalid or revoked API key")}
-
-        # Uniform "not found": never reveal that the endpoint exists but is out of scope.
-        endpoint_name not in key.endpoints ->
-          {:error, ApiError.new(:not_found, "endpoint not found")}
-
-        true ->
-          {:ok, key.tenant}
+      with {:ok, key} <- Auth.authenticate(state.catalog.keys, token) do
+        Auth.authorize(key, endpoint_name)
       end
 
     {:reply, reply, state}

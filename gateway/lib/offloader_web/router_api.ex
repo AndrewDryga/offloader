@@ -11,6 +11,11 @@ defmodule OffloaderWeb.ApiRouter do
     plug :accepts, ["json"]
   end
 
+  # Consumer traffic: authenticate + authorize before any controller runs.
+  pipeline :authenticated do
+    plug OffloaderWeb.Plugs.ApiAuth
+  end
+
   scope "/", OffloaderWeb do
     pipe_through :api
 
@@ -19,9 +24,9 @@ defmodule OffloaderWeb.ApiRouter do
   end
 
   scope "/v1", OffloaderWeb do
-    pipe_through :api
+    pipe_through [:api, :authenticated]
 
-    # Named product endpoints. Auth + tenant enforcement live in the controller/runtime.
+    # Named product endpoints. Auth/tenant enforcement is guaranteed by the pipeline.
     get "/endpoints/:name", EndpointController, :show
   end
 end
