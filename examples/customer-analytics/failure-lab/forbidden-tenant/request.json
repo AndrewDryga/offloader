@@ -10,13 +10,14 @@
     "account_id": "acct_apollo"
   },
   "expected": {
-    "status": 200,
-    "invariant": "response scoped to tenant_globex; the tenant_id param is ignored; acct_apollo returns no rows",
+    "status": 422,
+    "error_family": "invalid_param",
+    "invariant": "tenant_id is not a declared param, so the request is rejected outright — the tenant filter (bound from the key) can never be reached or overridden",
     "must_not_reveal": "that acct_apollo or tenant_acme exists"
   },
   "variant_endpoint_scope": {
     "note": "Same key against customer_usage_daily (NOT in demo_globex's endpoint allowlist) must fail closed.",
     "endpoint": "customer_usage_daily",
-    "expected": { "status": 403, "error_family": "forbidden", "must_not_reveal": "that the endpoint exists" }
+    "expected": { "status": 404, "error_family": "not_found", "must_not_reveal": "that the endpoint exists — indistinguishable from an unknown endpoint" }
   }
 }

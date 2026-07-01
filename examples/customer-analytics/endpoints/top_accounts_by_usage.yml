@@ -16,8 +16,8 @@ tenant:
 params:
   - { name: from, type: date, required: true }
   - { name: to, type: date, required: true }
-  # integer with an upper bound; a request asking for more than `max` is rejected.
-  - { name: limit, type: integer, required: false, default: 10, max: 50 }
+  # Result size is controlled by the built-in `limit`/`offset` pagination below
+  # (default 10, max 50); a request over max_limit is rejected as invalid_param.
 
 query:
   group_by: [account_id]

@@ -17,4 +17,11 @@ defmodule OffloaderWeb.ApiRouter do
     # Explicitly public: an unauthenticated liveness probe for load balancers.
     get "/healthz", HealthController, :healthz
   end
+
+  scope "/v1", OffloaderWeb do
+    pipe_through :api
+
+    # Named product endpoints. Auth + tenant enforcement live in the controller/runtime.
+    get "/endpoints/:name", EndpointController, :show
+  end
 end

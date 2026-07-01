@@ -13,7 +13,7 @@ adversarial suite (S01), and the "one failure example" in the quickstart (D01).
 | `unsupported-schema-change/manifest.json` | valid, but `api_calls` narrowed `BIGINT`→`INTEGER` (type narrowing is breaking) vs the dataset contract under `additive_only` | compatibility check on refresh (G08) | refresh rejected; **previous good snapshot preserved** |
 | `missing-file/manifest.json` | valid, but `files[0].path` points at a file that does not exist | validator / materializer (G03/G04) | rejected before materialization; snapshot not swapped in |
 | `bad-param/request.json` | `product_area=billing` — not in the endpoint's enum | endpoint compiler (G05) | `422 invalid_param`; no query runs; existence of other values not revealed |
-| `forbidden-tenant/request.json` | globex key passes `tenant_id=tenant_acme` to read another tenant | tenant enforcement (G06) | tenant bound from the key; param ignored; cross-tenant rows return empty. Endpoint-scope variant: `403 forbidden` |
+| `forbidden-tenant/request.json` | globex key passes `tenant_id=tenant_acme` to read another tenant | compiler + tenant enforcement (G05/G06) | `422 invalid_param` — `tenant_id` is not a declared param, so it's rejected before the query; the key-bound tenant filter can't be overridden. Endpoint-scope variant: `404 not_found` (same as unknown — no existence leak) |
 
 ## Notes
 

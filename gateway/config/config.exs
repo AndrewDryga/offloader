@@ -14,6 +14,8 @@ config :offloader, OffloaderWeb.AdminEndpoint,
   adapter: Bandit.PhoenixAdapter,
   render_errors: [formats: [json: OffloaderWeb.ErrorJSON], layout: false]
 
+config :offloader, :env, config_env()
+
 config :phoenix, :json_library, Jason
 
 config :logger, :default_formatter,
