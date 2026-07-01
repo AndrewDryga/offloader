@@ -14,8 +14,8 @@
 
 check: gateway-check tools-check docs-check ## Fast local gate: every component check that exists
 
-gateway-check: ## Gateway (Elixir/Phoenix) gate — wired by G01
-	@echo "  skip     gateway-check: no Phoenix app yet (lands in G01)"
+gateway-check: ## Gateway (Elixir/Phoenix) gate: deps, compile (warnings-as-errors), format, test
+	cd gateway && mix deps.get && mix compile --warnings-as-errors && mix format --check-formatted && mix test
 
 tools-check: ## Helper tooling (Go) gate — wired by C01
 	@echo "  skip     tools-check: no Go module yet (lands in C01)"

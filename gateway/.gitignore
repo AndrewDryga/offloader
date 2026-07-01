@@ -1,0 +1,15 @@
+# Build and dependency artifacts
+/_build/
+/cover/
+/deps/
+/doc/
+/.fetch
+erl_crash.dump
+*.ez
+
+# Release tarballs
+offloader-*.tar
+
+# Language servers
+/.elixir_ls/
+/.lexical/
