@@ -32,7 +32,8 @@ defmodule Offloader.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.4"},
-      {:yaml_elixir, "~> 2.9"}
+      {:yaml_elixir, "~> 2.9"},
+      {:duckdbex, "~> 0.4"}
     ]
   end
 
