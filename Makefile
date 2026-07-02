@@ -17,8 +17,12 @@ check: gateway-check tools-check docs-check ## Fast local gate: every component 
 gateway-check: ## Gateway (Elixir/Phoenix) gate: deps, compile (warnings-as-errors), format, test
 	cd gateway && mix deps.get && mix compile --warnings-as-errors && mix format --check-formatted && mix test
 
-tools-check: ## Helper tooling (Go) gate — wired by C01
-	@echo "  skip     tools-check: no Go module yet (lands in C01)"
+tools-check: ## Helper tooling (Go) gate: gofmt, vet, tidy, race tests
+	@test -z "$$(gofmt -l -s tools/)" || { echo "gofmt: run 'gofmt -s -w tools/'"; gofmt -l -s tools/; exit 1; }
+	cd tools && go vet ./...
+	cd tools && go mod tidy
+	git diff --exit-code -- tools/go.mod tools/go.sum
+	cd tools && go test -race -count=1 ./...
 
 docs-check: ## Docs checks — wired by the docs tasks (D01, D02)
 	@echo "  skip     docs-check: no automated docs checks yet (lands in D01/D02)"
