@@ -21,7 +21,7 @@ defmodule Offloader.Runtime do
 
   alias Offloader.{ApiError, Auth, Catalog, Compiler, Config, Engine, Manifest}
 
-  defstruct [:catalog, :engine, :snapshots, :refresh_interval_ms]
+  defstruct [:catalog, :engine, :snapshots, :cache_dir, :refresh_interval_ms]
 
   # ── public API ────────────────────────────────────────────────────────────────
 
@@ -63,6 +63,14 @@ defmodule Offloader.Runtime do
   def snapshot_state(server \\ __MODULE__, dataset_id),
     do: GenServer.call(server, {:snapshot_state, dataset_id})
 
+  @doc "True once every dataset has an active snapshot serving."
+  @spec ready?(GenServer.server()) :: boolean()
+  def ready?(server \\ __MODULE__), do: GenServer.call(server, :ready?)
+
+  @doc "The full operator diagnostics map (never contains secrets or raw credentialed paths)."
+  @spec diagnostics(GenServer.server()) :: map()
+  def diagnostics(server \\ __MODULE__), do: GenServer.call(server, :diagnostics)
+
   # ── GenServer ─────────────────────────────────────────────────────────────────
 
   @impl true
@@ -76,6 +84,7 @@ defmodule Offloader.Runtime do
         catalog: catalog,
         engine: engine,
         snapshots: %{},
+        cache_dir: cache_dir,
         refresh_interval_ms: opts[:refresh_interval_ms]
       }
 
@@ -130,6 +139,19 @@ defmodule Offloader.Runtime do
   @impl true
   def handle_call({:snapshot_state, dataset_id}, _from, state) do
     {:reply, Map.get(state.snapshots, dataset_id), state}
+  end
+
+  @impl true
+  def handle_call(:ready?, _from, state) do
+    ready =
+      Enum.all?(Map.keys(state.catalog.datasets), &match?(%{active: %{}}, state.snapshots[&1]))
+
+    {:reply, ready, state}
+  end
+
+  @impl true
+  def handle_call(:diagnostics, _from, state) do
+    {:reply, build_diagnostics(state), state}
   end
 
   @impl true
@@ -206,6 +228,85 @@ defmodule Offloader.Runtime do
         :ok = Engine.swap(state.engine, dataset_id, previous.table)
         new_entry = %{entry | active: previous, previous: entry.active}
         {put_snapshot(state, dataset_id, new_entry), {:ok, previous.snapshot_id}}
+    end
+  end
+
+  # ── diagnostics ─────────────────────────────────────────────────────────────────
+
+  # A redacted operator view: snapshot state, source reachability, disk, DuckDB, and
+  # versions. Contains only ids/statuses/counts — never API keys, tokens, or paths
+  # beyond the local cache directory.
+  defp build_diagnostics(state) do
+    %{
+      build_version: Offloader.version(),
+      config_version: state.catalog.version,
+      object_store_mode: state.catalog.object_store_mode,
+      duckdb_status: duckdb_status(state.engine),
+      pool: %{connections: 1, saturated: false},
+      disk: disk_free(state.cache_dir),
+      ready:
+        Enum.all?(Map.keys(state.catalog.datasets), &match?(%{active: %{}}, state.snapshots[&1])),
+      datasets:
+        Enum.map(state.catalog.datasets, fn {id, dataset} ->
+          dataset_diagnostics(state, id, dataset)
+        end)
+    }
+  end
+
+  defp dataset_diagnostics(state, id, dataset) do
+    entry = current_entry(state, id)
+    manifest_path = Path.join(state.catalog.config_dir, dataset.manifest)
+
+    %{
+      dataset: id,
+      active_snapshot: snapshot_summary(entry.active),
+      last_good_snapshot: snapshot_summary(entry.active),
+      last_attempted: attempt_summary(entry.last_attempted),
+      refresh_error: refresh_error(entry.last_attempted),
+      source_reachable: File.exists?(manifest_path),
+      manifest_valid: entry.last_attempted && entry.last_attempted.status == :ok,
+      stale: stale?(entry.active)
+    }
+  end
+
+  defp snapshot_summary(nil), do: nil
+
+  defp snapshot_summary(%{snapshot_id: id, watermark: wm}),
+    do: %{snapshot_id: id, watermark: wm, age_seconds: watermark_age_seconds(wm)}
+
+  defp attempt_summary(nil), do: nil
+
+  defp attempt_summary(%{snapshot_id: id, status: status, at: at}),
+    do: %{snapshot_id: id, status: status, at: DateTime.to_iso8601(at)}
+
+  defp refresh_error(%{status: status, error: error}) when status != :ok, do: error
+  defp refresh_error(_), do: nil
+
+  defp stale?(nil), do: nil
+
+  defp stale?(%{watermark: wm}) do
+    case watermark_age_seconds(wm) do
+      age when is_integer(age) -> age > 24 * 3600
+      _ -> nil
+    end
+  end
+
+  defp duckdb_status(engine) do
+    case Engine.execute(engine, "SELECT 1", []) do
+      {:ok, _} -> "ok"
+      _ -> "error"
+    end
+  end
+
+  # Free bytes on the cache filesystem via `df -Pk` (portable macOS/Linux). Best-effort.
+  defp disk_free(dir) do
+    with true <- is_binary(dir) and File.exists?(dir),
+         {out, 0} <- System.cmd("df", ["-Pk", dir], stderr_to_stdout: true),
+         [_header, data | _] <- String.split(out, "\n"),
+         [_fs, _blocks, _used, avail_kb | _] <- String.split(data, ~r/\s+/) do
+      %{cache_dir_free_bytes: String.to_integer(avail_kb) * 1024}
+    else
+      _ -> %{cache_dir_free_bytes: nil}
     end
   end
 

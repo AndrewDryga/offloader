@@ -25,4 +25,8 @@ defmodule Offloader.Config do
   """
   @spec object_store_mode() :: String.t()
   def object_store_mode, do: Application.get_env(:offloader, :object_store_mode)
+
+  @doc "Admin token (`OFFLOADER_ADMIN_TOKEN`) gating the admin `/diagnostics` route, or nil."
+  @spec admin_token() :: String.t() | nil
+  def admin_token, do: Application.get_env(:offloader, :admin_token)
 end

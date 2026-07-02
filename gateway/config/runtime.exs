@@ -9,7 +9,9 @@ config :offloader,
   config_path: System.get_env("OFFLOADER_CONFIG"),
   cache_dir:
     System.get_env("OFFLOADER_CACHE_DIR") || Path.join(System.tmp_dir!(), "offloader-cache"),
-  object_store_mode: System.get_env("OFFLOADER_OBJECT_STORE_MODE") || "local"
+  object_store_mode: System.get_env("OFFLOADER_OBJECT_STORE_MODE") || "local",
+  # Gates the admin /diagnostics route. Unset => diagnostics fail closed (403).
+  admin_token: System.get_env("OFFLOADER_ADMIN_TOKEN")
 
 # Optional log level override (e.g. OFFLOADER_LOG_LEVEL=debug). Unknown values are
 # ignored rather than crashing the boot.

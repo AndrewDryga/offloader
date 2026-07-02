@@ -1,0 +1,71 @@
+# Example Prometheus alerting rules for Offloader.
+#
+# These fire on the gauges the admin `/metrics` endpoint exposes (see
+# gateway/lib/offloader/metrics.ex). Copy into your Prometheus rule files and tune
+# thresholds/`for` durations to your freshness tolerance and disk sizing. Each alert
+# names the likely owner so an operator can classify the incident quickly
+groups:
+  - name: offloader
+    rules:
+      - alert: OffloaderDown
+        expr: absent(offloader_up) or offloader_up != 1
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Offloader is not serving"
+          owner: "offloader"
+          action: "Check the container/process and admin /status; see 'Gateway does not start' runbook."
+
+      - alert: OffloaderNotReady
+        expr: offloader_ready != 1
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Offloader has no active snapshot for at least one dataset"
+          owner: "offloader-or-upstream"
+          action: "Check admin /diagnostics last_attempted + refresh_error; classify as Offloader vs upstream data."
+
+      - alert: OffloaderSnapshotStale
+        expr: offloader_snapshot_stale == 1
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Dataset {{ $labels.dataset }} snapshot is stale"
+          owner: "upstream-data"
+          action: "The producer has not published a fresh manifest; check the upstream pipeline. Offloader keeps serving the last good snapshot."
+
+      - alert: OffloaderRefreshFailing
+        expr: offloader_refresh_ok == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Refresh of {{ $labels.dataset }} is failing"
+          owner: "upstream-data-or-offloader"
+          action: "See /diagnostics refresh_error: a rejected manifest is upstream; a failed materialization may be Offloader/disk."
+
+      - alert: OffloaderSourceUnreachable
+        expr: offloader_source_reachable == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Dataset {{ $labels.dataset }} source is unreachable"
+          owner: "customer-environment"
+          action: "Check network/IAM/object-store access from the container; this is usually an environment issue."
+
+      - alert: OffloaderDiskLow
+        expr: offloader_cache_disk_free_bytes < 1073741824
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Offloader cache filesystem has < 1 GiB free"
+          owner: "customer-environment"
+          action: "Grow the cache volume or clear old snapshots; low disk can fail materialization."
+
+      - alert: OffloaderDuckDBDown
+        expr: offloader_duckdb_up != 1
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "DuckDB is not answering queries"
+          owner: "offloader"
+          action: "Check /diagnostics duckdb_status and the cache volume; consider cache quarantine/rebuild."

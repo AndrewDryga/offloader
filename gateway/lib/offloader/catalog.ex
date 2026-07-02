@@ -11,7 +11,7 @@ defmodule Offloader.Catalog do
   alias Offloader.Catalog.{Dataset, Endpoint, Error, Key, Parse}
 
   @enforce_keys [:config_dir, :datasets, :endpoints, :keys]
-  defstruct [:config_dir, :object_store_mode, :datasets, :endpoints, :keys]
+  defstruct [:config_dir, :version, :object_store_mode, :datasets, :endpoints, :keys]
 
   @project_keys ~w(version datasets_dir endpoints_dir keys object_store_mode)
 
@@ -53,6 +53,7 @@ defmodule Offloader.Catalog do
         {:ok,
          %__MODULE__{
            config_dir: dir,
+           version: project["version"],
            object_store_mode: project["object_store_mode"],
            datasets: datasets,
            endpoints: endpoints,

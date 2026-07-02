@@ -18,13 +18,24 @@ defmodule OffloaderWeb.HealthController do
     json(conn, %{status: "ok"})
   end
 
-  @doc "Admin-port readiness: the instance can serve. Snapshot readiness added in G08."
+  @doc "Admin-port readiness: 200 once every dataset has an active snapshot, else 503."
   def ready(conn, _params) do
-    json(conn, %{status: "ok", ready: true})
+    ready = runtime_ready?()
+    conn |> put_status(if(ready, do: 200, else: 503)) |> json(%{status: "ok", ready: ready})
   end
 
   @doc "Admin-port status: service identity and build version."
   def status(conn, _params) do
-    json(conn, %{status: "ok", service: "offloader", version: Offloader.version()})
+    json(conn, %{
+      status: "ok",
+      service: "offloader",
+      version: Offloader.version(),
+      ready: runtime_ready?()
+    })
+  end
+
+  # Ready iff the runtime is up and every dataset has an active snapshot.
+  defp runtime_ready? do
+    is_pid(Process.whereis(Offloader.Runtime)) and Offloader.Runtime.ready?()
   end
 end

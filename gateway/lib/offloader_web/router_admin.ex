@@ -11,11 +11,28 @@ defmodule OffloaderWeb.AdminRouter do
     plug :accepts, ["json"]
   end
 
+  # Sensitive diagnostics require the admin token; health/status/metrics stay open
+  # for orchestrator probes and Prometheus scraping on the (private) admin port.
+  pipeline :admin_authenticated do
+    plug OffloaderWeb.Plugs.AdminAuth
+  end
+
   scope "/", OffloaderWeb do
     pipe_through :admin
 
     get "/live", HealthController, :live
     get "/ready", HealthController, :ready
     get "/status", HealthController, :status
+  end
+
+  # /metrics returns Prometheus text — no JSON accepts constraint, so any scraper works.
+  scope "/", OffloaderWeb do
+    get "/metrics", DiagnosticsController, :metrics
+  end
+
+  scope "/", OffloaderWeb do
+    pipe_through [:admin, :admin_authenticated]
+
+    get "/diagnostics", DiagnosticsController, :diagnostics
   end
 end
