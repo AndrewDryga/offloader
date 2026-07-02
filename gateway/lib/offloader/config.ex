@@ -20,8 +20,10 @@ defmodule Offloader.Config do
   @doc ~S"""
   Object-store access mode (`OFFLOADER_OBJECT_STORE_MODE`), default `"local"`.
 
-  `"local"` reads manifests and Parquet files from the local filesystem; remote
-  source adapters (S3/GCS) are added by later tasks and reuse the same contract.
+  `"local"` reads manifests and Parquet files from the local filesystem. Remote
+  snapshots need no mode switch: a manifest file path that is an `s3://`/`gs://`/
+  `https://` URL is read directly via DuckDB httpfs, with credentials from
+  `object_store/0` (`OFFLOADER_S3_*`). See `Offloader.ObjectStore`.
   """
   @spec object_store_mode() :: String.t()
   def object_store_mode, do: Application.get_env(:offloader, :object_store_mode)

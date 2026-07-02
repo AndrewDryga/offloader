@@ -41,8 +41,11 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
 - **Disk:** the cache volume holds the DuckDB file(s); size it for your largest
   snapshot plus a retained previous snapshot, plus margin. `offloader_cache_disk_free_bytes`
   alerts before it fills.
-- **CPU:** reads are served from a materialized table; a single-connection engine
-  serializes queries in V1 (a read pool is on the roadmap). Watch p95 with the harness.
+- **CPU:** reads are served from a materialized table across a pool of DuckDB read
+  connections (`OFFLOADER_POOL_SIZE`, default 16), and each request runs in its own
+  process — concurrent queries scale with the pool, not a single mailbox. When every
+  connection is busy a request is shed as `503` rather than queueing unboundedly;
+  raise the pool size (and CPU) if you see that under load. Watch p95 with the harness.
 
 ## Security model
 
