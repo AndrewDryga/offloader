@@ -1,3 +1,13 @@
+defmodule Offloader.Engine.Error do
+  @moduledoc "A wrapped engine error with a stable reason atom and the underlying message."
+  @enforce_keys [:reason, :message]
+  defstruct [:reason, :message]
+
+  @type t :: %__MODULE__{reason: atom(), message: String.t()}
+
+  def new(reason, message), do: %__MODULE__{reason: reason, message: message}
+end
+
 defmodule Offloader.Engine do
   @moduledoc """
   The DuckDB materialization + query boundary. Narrow on purpose: load a validated
@@ -176,14 +186,4 @@ defmodule Offloader.Engine do
 
   defp normalize({hi, lo}) when is_integer(hi) and is_integer(lo), do: hi * @hugeint_base + lo
   defp normalize(value), do: value
-end
-
-defmodule Offloader.Engine.Error do
-  @moduledoc "A wrapped engine error with a stable reason atom and the underlying message."
-  @enforce_keys [:reason, :message]
-  defstruct [:reason, :message]
-
-  @type t :: %__MODULE__{reason: atom(), message: String.t()}
-
-  def new(reason, message), do: %__MODULE__{reason: reason, message: message}
 end
