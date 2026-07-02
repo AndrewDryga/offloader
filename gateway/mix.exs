@@ -9,7 +9,20 @@ defmodule Offloader.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      releases: releases()
+    ]
+  end
+
+  # The production release bundles ERTS, so the runtime image needs no Erlang/Elixir —
+  # only the C libraries the DuckDB NIF and crypto depend on. Config is read at boot
+  # from env vars (config/runtime.exs), never baked into the image.
+  defp releases do
+    [
+      offloader: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent]
+      ]
     ]
   end
 

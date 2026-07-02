@@ -1,0 +1,11 @@
+# Only source + config are needed to build the release.
+_build/
+deps/
+cover/
+doc/
+.elixir_ls/
+.lexical/
+test/
+*.duckdb
+erl_crash.dump
+priv/static/
