@@ -105,6 +105,28 @@ defmodule Offloader.EngineTest do
     assert {:error, %Error{reason: :unknown_table}} = Engine.known_columns(eng, "snap")
   end
 
+  test "a writer call on a stopped engine returns an error, never raises (crash-safe boot)" do
+    {eng, _dir} = start_engine()
+    Engine.stop(eng)
+
+    # A slow/failed writer must surface as {:error, ...} so one bad dataset can't crash
+    # the caller (boot / a refresh worker) with an unhandled exit.
+    assert {:error, %Error{reason: :engine_unavailable}} = Engine.swap(eng, "a", "b")
+    assert {:error, %Error{reason: :engine_unavailable}} = Engine.drop(eng, "x")
+
+    manifest = %Manifest{
+      dataset_id: "customer_usage",
+      snapshot_id: "s1",
+      created_at: "2026-01-01T00:00:00Z",
+      watermark: "2026-01-01T00:00:00Z",
+      schema: [],
+      files: [%{"path" => "x.csv", "format" => "csv"}],
+      dir: System.tmp_dir!()
+    }
+
+    assert {:error, %Error{reason: :engine_unavailable}} = Engine.materialize(eng, "t", manifest)
+  end
+
   test "materialized snapshots survive a restart (warm cache)" do
     {eng, dir} = start_engine()
     {:ok, _} = Engine.materialize(eng, "warm", manifest())

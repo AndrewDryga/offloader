@@ -59,6 +59,15 @@ defmodule Offloader.Engine do
   @default_pool_size 16
   # Full scans through the pool before giving up (with a 1ms yield between cycles).
   @max_checkout_cycles 50
+  # All writer calls serialize on one connection and can queue behind a long
+  # materialize, and DDL can block on a DuckDB checkpoint once the persistent DB is
+  # large (dozens of datasets). So NO writer call uses the 5s GenServer default — and
+  # a call that DOES exceed its budget returns {:error, timeout} rather than raising,
+  # so a slow dataset can never crash a caller (boot, a refresh worker).
+  @writer_timeout 120_000
+  # Materializing a big table over the network (dozens of parquet parts from GCS) can
+  # take minutes; give it a generous ceiling.
+  @materialize_timeout 600_000
 
   defstruct [:db, :writer, :cache_dir, :pool]
 
@@ -82,11 +91,12 @@ defmodule Offloader.Engine do
   @spec materialize(GenServer.server(), String.t(), Manifest.t()) ::
           {:ok, map()} | {:error, Error.t()}
   def materialize(server, table, %Manifest{} = manifest),
-    do: GenServer.call(server, {:materialize, table, manifest}, 120_000)
+    do: writer_call(server, {:materialize, table, manifest}, @materialize_timeout)
 
   @doc "Atomically point `active` (a view) at `table`, so readers see the new snapshot at once."
   @spec swap(GenServer.server(), String.t(), String.t()) :: :ok | {:error, Error.t()}
-  def swap(server, active, table), do: GenServer.call(server, {:swap, active, table})
+  def swap(server, active, table),
+    do: writer_call(server, {:swap, active, table}, @writer_timeout)
 
   @doc """
   Run a compiled SQL string with bound value params, on a pooled read connection in
@@ -105,11 +115,24 @@ defmodule Offloader.Engine do
 
   @doc "List a materialized table's column names in order."
   @spec known_columns(GenServer.server(), String.t()) :: {:ok, [String.t()]} | {:error, Error.t()}
-  def known_columns(server, table), do: GenServer.call(server, {:known_columns, table})
+  def known_columns(server, table),
+    do: writer_call(server, {:known_columns, table}, @writer_timeout)
 
   @doc "Drop a snapshot table (cleanup after a swap or in tests)."
   @spec drop(GenServer.server(), String.t()) :: :ok | {:error, Error.t()}
-  def drop(server, table), do: GenServer.call(server, {:drop, table})
+  def drop(server, table), do: writer_call(server, {:drop, table}, @writer_timeout)
+
+  # A writer call that turns a timeout / down-engine into a stable {:error, Error{}},
+  # never a raised exit — so one slow dataset can't take down its caller.
+  defp writer_call(server, message, timeout) do
+    GenServer.call(server, message, timeout)
+  catch
+    :exit, {:timeout, _} ->
+      {:error, Error.new(:timeout, "engine writer timed out after #{timeout}ms")}
+
+    :exit, reason ->
+      {:error, Error.new(:engine_unavailable, "engine call failed: #{inspect(reason)}")}
+  end
 
   @doc "Pool statistics for diagnostics: %{connections, busy, saturated}."
   @spec pool_stats(GenServer.server()) :: map()

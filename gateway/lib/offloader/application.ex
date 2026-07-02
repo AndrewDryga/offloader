@@ -9,6 +9,8 @@ defmodule Offloader.Application do
     children =
       [
         Offloader.Telemetry,
+        # Accumulates per-endpoint request counters + latency histogram for /metrics.
+        Offloader.Metrics.Requests,
         # Refresh workers register here, keyed {runtime_pid, dataset_id} — scoped so
         # concurrently-running runtimes (tests) never collide.
         {Registry, keys: :unique, name: Offloader.Refresh.Registry},

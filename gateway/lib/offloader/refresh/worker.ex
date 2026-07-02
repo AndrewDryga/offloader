@@ -52,6 +52,8 @@ defmodule Offloader.Refresh.Worker do
       interval_ms: interval_ms(Keyword.fetch!(opts, :dataset), opts[:refresh_interval_ms])
     }
 
+    # The Runtime does the initial (boot) load synchronously; the worker owns only the
+    # ongoing poll loop, scheduled at the dataset's interval.
     schedule(state)
     {:ok, state}
   end

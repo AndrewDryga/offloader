@@ -21,6 +21,7 @@ defmodule Offloader.Metrics do
         version: diag[:build_version],
         config_version: to_string(diag[:config_version])
       }),
+      pool_gauges(diag),
       disk_gauge(diag),
       dataset_gauges(diag)
     ]
@@ -28,6 +29,16 @@ defmodule Offloader.Metrics do
     |> Enum.join("\n")
     |> Kernel.<>("\n")
   end
+
+  # The DuckDB read pool: how many connections and how many are busy right now — the
+  # signal for "am I shedding load as 503s?" (busy == connections under sustained load).
+  defp pool_gauges(%{pool: %{connections: conns, busy: busy}})
+       when is_integer(conns) and is_integer(busy) do
+    gauge("offloader_pool_connections", "DuckDB read-pool size", to_string(conns)) ++
+      gauge("offloader_pool_busy", "DuckDB read-pool connections in use", to_string(busy))
+  end
+
+  defp pool_gauges(_diag), do: []
 
   defp dataset_gauges(diag) do
     datasets = diag[:datasets] || []

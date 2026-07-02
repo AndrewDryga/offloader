@@ -74,6 +74,22 @@ defmodule OffloaderWeb.DiagnosticsHTTPTest do
     assert body =~ "offloader_ready 1"
     assert body =~ ~s(offloader_snapshot_age_seconds{dataset="customer_usage"})
     assert body =~ ~s(offloader_refresh_ok{dataset="customer_usage"} 1)
+    # the DuckDB read-pool gauges
+    assert body =~ "offloader_pool_connections "
+    assert body =~ "offloader_pool_busy "
+  end
+
+  test "/metrics includes per-endpoint request counters + latency histogram" do
+    Offloader.Metrics.Requests.reset()
+
+    :telemetry.execute([:offloader, :request, :stop], %{duration_ms: 8}, %{
+      endpoint: "customer_usage_summary",
+      status: :ok
+    })
+
+    body = get_admin("/metrics").resp_body
+    assert body =~ ~s(offloader_requests_total{endpoint="customer_usage_summary",status="ok"} 1)
+    assert body =~ ~s(offloader_request_duration_ms_count{endpoint="customer_usage_summary"} 1)
   end
 
   test "diagnostics and metrics never emit API keys or hashes (redaction)" do

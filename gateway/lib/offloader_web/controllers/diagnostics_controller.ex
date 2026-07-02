@@ -9,6 +9,7 @@ defmodule OffloaderWeb.DiagnosticsController do
   use OffloaderWeb, :controller
 
   alias Offloader.{Metrics, Runtime}
+  alias Offloader.Metrics.Requests
 
   def diagnostics(conn, _params) do
     if runtime_up?() do
@@ -19,14 +20,15 @@ defmodule OffloaderWeb.DiagnosticsController do
   end
 
   def metrics(conn, _params) do
-    body =
+    # Snapshot/pool gauges from diagnostics + accumulated request counters/histogram.
+    snapshot =
       if runtime_up?(),
         do: Metrics.to_prometheus(Runtime.diagnostics()),
         else: "offloader_up 1\noffloader_ready 0\n"
 
     conn
     |> put_resp_content_type("text/plain; version=0.0.4")
-    |> send_resp(200, body)
+    |> send_resp(200, snapshot <> Requests.to_prometheus())
   end
 
   defp runtime_up?, do: is_pid(Process.whereis(Runtime))

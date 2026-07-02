@@ -181,6 +181,11 @@ defmodule Offloader.Runtime do
       # Publish the read context before the initial refresh so reads resolve at once.
       :persistent_term.put({__MODULE__, self()}, context_of(state))
 
+      # Warm-start from disk first (already-materialized datasets serve at once), then
+      # a per-dataset initial refresh — fault-isolated: a slow/failing source records
+      # an attempt and boot moves on (engine calls return {:error}, never raise), so
+      # one bad dataset can neither crash nor wedge the gateway. Workers own refresh
+      # after boot.
       state =
         state
         |> seed_from_sidecar()
@@ -231,10 +236,7 @@ defmodule Offloader.Runtime do
     Enum.reduce(Map.keys(state.catalog.datasets), state, fn id, acc ->
       dataset = acc.catalog.datasets[id]
       active = current_entry(acc, id).active
-
-      outcome =
-        Refresh.perform(acc.engine, dataset, active, how(dataset, acc), force: false)
-
+      outcome = Refresh.perform(acc.engine, dataset, active, how(dataset, acc), force: false)
       apply_outcome(acc, id, outcome)
     end)
   end
