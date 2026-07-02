@@ -108,6 +108,7 @@ docker run \
 
 ## Planning
 
+- [Quickstart — the first hour](docs/quickstart.md)
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Security model](docs/security-model.md)
