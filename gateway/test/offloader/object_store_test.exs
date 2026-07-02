@@ -113,6 +113,31 @@ defmodule Offloader.ObjectStoreTest do
     end
   end
 
+  describe "bearer boot resilience" do
+    test "configure defers (returns :ok) when the GCS token source is down — no crash-loop" do
+      # A token cache that always fails, injected via the same seam the client uses.
+      {:ok, cache} =
+        Offloader.Gcs.TokenCache.start_link(name: nil, fetcher: fn -> {:error, [:down]} end)
+
+      prev = Application.get_env(:offloader, :gcs_token_cache)
+      Application.put_env(:offloader, :gcs_token_cache, cache)
+
+      on_exit(fn ->
+        if prev,
+          do: Application.put_env(:offloader, :gcs_token_cache, prev),
+          else: Application.delete_env(:offloader, :gcs_token_cache)
+
+        if Process.alive?(cache), do: GenServer.stop(cache)
+      end)
+
+      {:ok, db} = Duckdbex.open()
+      {:ok, conn} = Duckdbex.connection(db)
+
+      # Deferred, NOT an error — so the engine boots instead of crash-looping.
+      assert :ok = ObjectStore.configure(conn, %{type: "gcs_bearer"})
+    end
+  end
+
   describe "from_env/1" do
     test "builds a config only when a supported type is set" do
       assert ObjectStore.from_env(%{type: "s3", key_id: "k", secret: "s"}).type == "s3"

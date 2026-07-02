@@ -15,6 +15,8 @@ defmodule Offloader.ObjectStore do
   local mode, so nothing changes for filesystem deployments.
   """
 
+  require Logger
+
   alias Offloader.Sql
 
   @type t :: %{
@@ -42,11 +44,24 @@ defmodule Offloader.ObjectStore do
     # secret — and scrub against `resolved`, since that is the map whose credential the
     # DDL embedded and could echo back in an error. A resolve failure carries no
     # credential, so it needs no scrub.
-    with {:ok, resolved} <- resolve_credentials(config) do
-      case apply_secret(conn, resolved) do
-        :ok -> :ok
-        {:error, reason} -> {:error, redact(reason, resolved)}
-      end
+    case resolve_credentials(config) do
+      {:ok, resolved} ->
+        case apply_secret(conn, resolved) do
+          :ok -> :ok
+          {:error, reason} -> {:error, redact(reason, resolved)}
+        end
+
+      # Bearer mode couldn't get a token right now. DON'T fail the connection — that
+      # would crash-loop the whole engine on a transient token-source blip at boot.
+      # Boot without the secret; remote reads 401 until the periodic writer refresh
+      # (and pool reconnect) register a token once the source recovers.
+      {:defer, reason} ->
+        Logger.warning(
+          "object store: GCS token unavailable, deferring credential — remote reads " <>
+            "will fail until it recovers (#{inspect(reason)})"
+        )
+
+        :ok
     end
   end
 
@@ -66,8 +81,12 @@ defmodule Offloader.ObjectStore do
         {:ok, config}
 
       _ ->
-        with {:ok, token} <- Offloader.Gcs.TokenCache.get() do
-          {:ok, Map.put(config, :token, token)}
+        # Same overridable seam the GCS client uses, so tests inject a fake cache.
+        cache = Application.get_env(:offloader, :gcs_token_cache, Offloader.Gcs.TokenCache)
+
+        case Offloader.Gcs.TokenCache.get(cache) do
+          {:ok, token} -> {:ok, Map.put(config, :token, token)}
+          {:error, reason} -> {:defer, reason}
         end
     end
   end

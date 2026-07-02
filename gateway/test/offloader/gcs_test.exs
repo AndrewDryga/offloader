@@ -158,6 +158,25 @@ defmodule Offloader.GcsTest do
       assert {:error, [:nope]} = TokenCache.get(cache)
       GenServer.stop(cache)
     end
+
+    test "refresh_after_ms tracks the token TTL (floor 60s, cap 15m)" do
+      # no token yet → the 60s floor
+      {:ok, cache} = TokenCache.start_link(name: nil, fetcher: fn -> {:error, [:x]} end)
+      assert TokenCache.refresh_after_ms(cache) == 60_000
+      GenServer.stop(cache)
+
+      # a 3600s token → (3600 - 300 buffer) capped at the 15-min ceiling
+      {:ok, c2} = TokenCache.start_link(name: nil, fetcher: fn -> {:ok, "t", 3600} end)
+      {:ok, _} = TokenCache.get(c2)
+      assert TokenCache.refresh_after_ms(c2) == 900_000
+      GenServer.stop(c2)
+
+      # a 400s token → ~100s (400 - 300 buffer), above the floor, below the cap
+      {:ok, c3} = TokenCache.start_link(name: nil, fetcher: fn -> {:ok, "t", 400} end)
+      {:ok, _} = TokenCache.get(c3)
+      assert TokenCache.refresh_after_ms(c3) in 95_000..105_000
+      GenServer.stop(c3)
+    end
   end
 
   describe "Client against the stub API" do

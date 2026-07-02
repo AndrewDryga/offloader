@@ -192,8 +192,16 @@ defmodule Offloader.Engine do
     {:noreply, state}
   end
 
+  # Re-register the writer secret before the CURRENT token expires — driven by the
+  # token's real lifetime (a metadata-server token can have only minutes left), not a
+  # fixed timer that would leave the writer with an expired secret.
   defp schedule_secret_refresh(%{type: "gcs_bearer"}),
-    do: Process.send_after(self(), :refresh_object_store, :timer.minutes(15))
+    do:
+      Process.send_after(
+        self(),
+        :refresh_object_store,
+        Offloader.Gcs.TokenCache.refresh_after_ms()
+      )
 
   defp schedule_secret_refresh(_), do: :ok
 

@@ -11,6 +11,8 @@ defmodule Offloader.Application do
         Offloader.Telemetry,
         # Accumulates per-endpoint request counters + latency histogram for /metrics.
         Offloader.Metrics.Requests,
+        # Fire-and-forget cleanup (superseded-snapshot table drops) off the Runtime mailbox.
+        {Task.Supervisor, name: Offloader.TaskSupervisor},
         # Refresh workers register here, keyed {runtime_pid, dataset_id} — scoped so
         # concurrently-running runtimes (tests) never collide.
         {Registry, keys: :unique, name: Offloader.Refresh.Registry},

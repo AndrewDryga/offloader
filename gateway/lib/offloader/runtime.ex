@@ -100,7 +100,9 @@ defmodule Offloader.Runtime do
   @doc "Roll a dataset back to its previous good snapshot. {:ok, snapshot_id} or {:error, :no_previous}."
   @spec rollback(GenServer.server(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def rollback(server \\ __MODULE__, dataset_id),
-    do: GenServer.call(server, {:rollback, dataset_id})
+    # The handler runs a writer swap (120s budget), so the CALL must allow at least
+    # that — the 5s default would crash the caller for an action that still applies.
+    do: GenServer.call(server, {:rollback, dataset_id}, 120_000)
 
   @doc "The snapshot state for a dataset: %{active, previous, last_attempted}."
   @spec snapshot_state(GenServer.server(), String.t()) :: map() | nil
@@ -166,7 +168,14 @@ defmodule Offloader.Runtime do
     with {:ok, catalog} <- Catalog.load(config_path),
          {:ok, engine} <-
            Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()),
-         {:ok, worker_sup} <- DynamicSupervisor.start_link(strategy: :one_for_one) do
+         # High restart intensity: with dozens of datasets, a transient burst of worker
+         # crashes must not exceed the supervisor's tolerance and take down serving.
+         {:ok, worker_sup} <-
+           DynamicSupervisor.start_link(
+             strategy: :one_for_one,
+             max_restarts: 1000,
+             max_seconds: 10
+           ) do
       state = %__MODULE__{
         catalog: catalog,
         engine: engine,
@@ -269,8 +278,12 @@ defmodule Offloader.Runtime do
 
   defp apply_outcome(state, dataset_id, {:swapped, snap, attempt}) do
     entry = current_entry(state, dataset_id)
-    # Retain exactly one previous snapshot for rollback; drop older tables.
-    drop_table(state.engine, entry.previous, entry.active)
+    # Retain exactly one previous snapshot for rollback; drop older tables. This is
+    # fire-and-forget: dropping the superseded table is a WRITER call that can queue
+    # behind a concurrent multi-minute materialize, and the Runtime must NOT block on
+    # it here — otherwise every other worker's apply_refresh call times out, the
+    # workers crash, and the DynamicSupervisor cascade takes down serving.
+    drop_table_async(state.engine, entry.previous, entry.active)
 
     state =
       put_snapshot(state, dataset_id, %{
@@ -482,11 +495,15 @@ defmodule Offloader.Runtime do
     %{state | snapshots: Map.put(state.snapshots, dataset_id, entry)}
   end
 
-  # Drop a table unless it is still the active or previous one we are keeping.
-  defp drop_table(_engine, nil, _keep), do: :ok
+  # Drop a superseded table off the Runtime's mailbox (a slow writer call must not
+  # block apply_refresh) — cleanup only, so a failed drop just leaves a stale table.
+  defp drop_table_async(_engine, nil, _keep), do: :ok
 
-  defp drop_table(engine, %{table: table}, keep) do
-    unless keep && table == keep.table, do: Engine.drop(engine, table)
+  defp drop_table_async(engine, %{table: table}, keep) do
+    unless keep && table == keep.table do
+      Task.Supervisor.start_child(Offloader.TaskSupervisor, fn -> Engine.drop(engine, table) end)
+    end
+
     :ok
   end
 

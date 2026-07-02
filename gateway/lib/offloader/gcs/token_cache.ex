@@ -30,6 +30,16 @@ defmodule Offloader.Gcs.TokenCache do
   @spec refresh(GenServer.server()) :: {:ok, String.t()} | {:error, term()}
   def refresh(server \\ __MODULE__), do: GenServer.call(server, :refresh, 30_000)
 
+  @doc """
+  Milliseconds until the cached token should be re-registered — how long the current
+  token stays valid (per its own TTL), floored so a caller never busy-loops and
+  capped so a token with no reported lifetime is still re-checked periodically. Lets
+  the engine drive its writer secret-refresh cadence off the REAL token lifetime
+  instead of a fixed timer (a metadata-server token can have only minutes left).
+  """
+  @spec refresh_after_ms(GenServer.server()) :: pos_integer()
+  def refresh_after_ms(server \\ __MODULE__), do: GenServer.call(server, :refresh_after_ms)
+
   # ── GenServer ─────────────────────────────────────────────────────────────────
 
   @impl true
@@ -49,6 +59,22 @@ defmodule Offloader.Gcs.TokenCache do
 
   @impl true
   def handle_call(:refresh, _from, state), do: fetch_and_reply(state)
+
+  @impl true
+  def handle_call(:refresh_after_ms, _from, state) do
+    # Time until the cached token needs refetching; at least 60s (no busy loop), at
+    # most 15 min (re-check even a long-lived token). No token cached → the 60s floor
+    # (monotonic time can be negative, so use the token, not expires_at, as the guard).
+    ms =
+      if is_nil(state.token) do
+        60_000
+      else
+        seconds = state.expires_at |> Kernel.-(now()) |> max(0) |> min(900) |> max(60)
+        seconds * 1000
+      end
+
+    {:reply, ms, state}
+  end
 
   defp fetch_and_reply(state) do
     case state.fetcher.() do
