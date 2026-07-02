@@ -79,12 +79,20 @@ defmodule Offloader.Compiler do
           end
 
         :error ->
-          if param.required,
-            do:
+          cond do
+            param.required ->
               {:halt,
                {:error,
-                ApiError.new(:invalid_param, "missing required param #{inspect(param.name)}")}},
-            else: {:cont, {:ok, acc}}
+                ApiError.new(:invalid_param, "missing required param #{inspect(param.name)}")}}
+
+            # An omitted optional param with a declared default still filters, bound to
+            # the default (already validated + coerced at config load).
+            not is_nil(param.default) ->
+              {:cont, {:ok, Map.put(acc, param.name, param.default)}}
+
+            true ->
+              {:cont, {:ok, acc}}
+          end
       end
     end)
   end

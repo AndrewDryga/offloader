@@ -283,11 +283,52 @@ defmodule Offloader.Catalog.Endpoint do
   defp one_param_errors(p, path, file) when is_map(p) do
     Parse.unknown_keys(p, ~w(name type required default enum max), file, path) ++
       name_err(p["name"], path, file) ++
-      type_err(p, path, file)
+      type_err(p, path, file) ++
+      default_err(p, path, file)
   end
 
   defp one_param_errors(_p, path, file),
     do: [Error.new(file, path, :invalid_type, "param must be a mapping")]
+
+  # A declared default must satisfy the param's own type, so a bad default is a config
+  # error at load — not a runtime surprise when the param is first omitted.
+  defp default_err(%{"default" => nil}, _path, _file), do: []
+
+  defp default_err(%{"default" => default} = p, path, file) do
+    valid? =
+      case p["type"] do
+        "string" -> is_binary(default)
+        "date" -> is_binary(default) and match?({:ok, _}, Date.from_iso8601(default))
+        "integer" -> valid_integer_default?(default, p["max"])
+        "enum" -> is_list(p["enum"]) and Enum.member?(p["enum"], default)
+        _ -> true
+      end
+
+    if valid?,
+      do: [],
+      else: [
+        Error.new(
+          file,
+          Parse.join(path, "default"),
+          :invalid_default,
+          "default #{inspect(default)} does not satisfy the param's type",
+          "the default is used verbatim when the param is omitted"
+        )
+      ]
+  end
+
+  defp default_err(_p, _path, _file), do: []
+
+  defp valid_integer_default?(default, max) do
+    n =
+      cond do
+        is_integer(default) -> default
+        is_binary(default) -> with({v, ""} <- Integer.parse(default), do: v)
+        true -> :error
+      end
+
+    is_integer(n) and (is_nil(max) or n <= max)
+  end
 
   defp name_err(name, path, file) do
     if is_binary(name) and Identifier.valid?(name),
@@ -803,11 +844,20 @@ defmodule Offloader.Catalog.Endpoint.Param do
       name: p["name"],
       type: p["type"],
       required: p["required"] == true,
-      default: p["default"],
+      default: normalize_default(p["type"], p["default"]),
       enum: p["enum"],
       max: p["max"]
     }
   end
+
+  # Store the default in its coerced form (validated at parse), so the compiler can
+  # bind it directly when the param is omitted.
+  defp normalize_default("integer", default) when is_binary(default) do
+    {n, ""} = Integer.parse(default)
+    n
+  end
+
+  defp normalize_default(_type, default), do: default
 end
 
 defmodule Offloader.Catalog.Endpoint.Select do
