@@ -1,0 +1,23 @@
+{
+  "dataset_id": "champion_stats",
+  "snapshot_id": "2026-07-01T00:00:00Z_r0001",
+  "created_at": "2026-07-01T00:05:00Z",
+  "watermark": "2026-07-01T00:00:00Z",
+  "schema": [
+    { "name": "champion_id", "type": "VARCHAR" },
+    { "name": "patch", "type": "VARCHAR" },
+    { "name": "data", "type": "JSON" }
+  ],
+  "files": [
+    { "path": "champion_stats.parquet", "format": "parquet", "row_count": 3, "size_bytes": 1135 }
+  ],
+  "partition_columns": [],
+  "sort_columns": ["champion_id"],
+  "row_count": 3,
+  "size_bytes": 1135,
+  "producer": "example-champion-pipeline",
+  "upstream_run_id": "run_0001",
+  "schema_version": 1,
+  "data_quality_status": "passed",
+  "compatibility_policy": "additive_only"
+}

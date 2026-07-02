@@ -68,7 +68,11 @@ func safeIdent(s string) bool { return identRe.MatchString(s) }
 var supportedTypes = map[string]bool{
 	"DATE": true, "TIMESTAMP": true, "VARCHAR": true, "INTEGER": true,
 	"BIGINT": true, "DOUBLE": true, "BOOLEAN": true,
+	// JSON is a logical type for a nested (STRUCT/MAP/LIST) column served via to_json.
+	"JSON": true,
 }
+
+const supportedTypesHint = "one of: DATE TIMESTAMP VARCHAR INTEGER BIGINT DOUBLE BOOLEAN JSON"
 
 func duplicates(names []string) []string {
 	seen := map[string]int{}

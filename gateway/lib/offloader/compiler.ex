@@ -46,10 +46,10 @@ defmodule Offloader.Compiler do
   Compile `endpoint` + `request` params (string-keyed) for `tenant`, reading from
   `source`. Returns {:ok, %Plan{}} or {:error, %ApiError{}}.
   """
-  @spec compile(Endpoint.t(), map(), String.t(), source()) ::
+  @spec compile(Endpoint.t(), map(), String.t() | nil, source()) ::
           {:ok, Plan.t()} | {:error, ApiError.t()}
   def compile(%Endpoint{} = endpoint, request, tenant, source)
-      when is_map(request) and is_binary(tenant) do
+      when is_map(request) and (is_binary(tenant) or is_nil(tenant)) do
     with :ok <- reject_unknown(endpoint, request),
          {:ok, coerced} <- coerce_params(endpoint, request),
          {:ok, limit} <- coerce_limit(endpoint, request),
@@ -161,28 +161,34 @@ defmodule Offloader.Compiler do
   defp build(endpoint, coerced, tenant, source, limit, offset) do
     projection = Enum.map_join(endpoint.select, ", ", &select_sql/1)
 
-    # WHERE: tenant is always $1; present filters follow as $2, $3, …
+    # A tenant endpoint pins the tenant filter to $1 (from the API key, never a
+    # request); a public (non-tenant) endpoint has none, and filters start at $1.
+    {tenant_sql, tenant_params, first_filter_idx} =
+      if endpoint.tenant_column,
+        do: {[~s(#{ident(endpoint.tenant_column)} = $1)], [tenant], 2},
+        else: {[], [], 1}
+
     present = for f <- endpoint.filters, Map.has_key?(coerced, f.param), do: f
 
     {filter_sqls, filter_params} =
       present
-      |> Enum.with_index(2)
+      |> Enum.with_index(first_filter_idx)
       |> Enum.reduce({[], []}, fn {f, idx}, {sqls, params} ->
         cast = if date_param?(endpoint, f.param), do: "::DATE", else: ""
         sql = ~s(#{ident(f.column)} #{@ops[f.op]} $#{idx}#{cast})
         {[sql | sqls], [coerced[f.param] | params]}
       end)
 
-    where =
-      Enum.join([~s(#{ident(endpoint.tenant_column)} = $1) | Enum.reverse(filter_sqls)], " AND ")
-
-    params = [tenant | Enum.reverse(filter_params)]
+    conditions = tenant_sql ++ Enum.reverse(filter_sqls)
+    where = if conditions == [], do: "", else: " WHERE " <> Enum.join(conditions, " AND ")
+    params = tenant_params ++ Enum.reverse(filter_params)
 
     limit_idx = length(params) + 1
     offset_idx = limit_idx + 1
 
     sql =
-      "SELECT #{projection} FROM #{from_sql(source)} WHERE #{where}" <>
+      "SELECT #{projection} FROM #{from_sql(source)}" <>
+        where <>
         group_by_sql(endpoint) <>
         order_by_sql(endpoint) <>
         " LIMIT $#{limit_idx} OFFSET $#{offset_idx}"

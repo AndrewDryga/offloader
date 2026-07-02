@@ -33,6 +33,7 @@ type projectYML struct {
 	DatasetsDir  string `yaml:"datasets_dir"`
 	EndpointsDir string `yaml:"endpoints_dir"`
 	Keys         string `yaml:"keys"`
+	Auth         string `yaml:"auth"`
 }
 
 type columnYML struct {
@@ -83,11 +84,31 @@ func validateProject(path string) findings {
 
 	dir := filepath.Dir(path)
 	datasets := loadDatasets(dir, orDefault(project.DatasetsDir, "datasets"), &out)
-	loadEndpoints(dir, orDefault(project.EndpointsDir, "endpoints"), datasets, &out)
+	endpoints := loadEndpoints(dir, orDefault(project.EndpointsDir, "endpoints"), datasets, &out)
 	if project.Keys != "" {
 		loadKeys(filepath.Join(dir, project.Keys), project.Keys, endpointNames(dir, orDefault(project.EndpointsDir, "endpoints")), &out)
 	}
+	validateAuth(project, endpoints, datasets, &out)
 	return out
+}
+
+// auth: required (default) needs a key per request; auth: none serves publicly and is
+// only safe when no endpoint is tenant-scoped — mirrors the gateway's cross-check.
+func validateAuth(project projectYML, endpoints []endpointYML, datasets map[string]datasetYML, out *findings) {
+	switch project.Auth {
+	case "", "required", "none":
+	default:
+		out.add("offloader.yml", "auth", "invalid_value", fmt.Sprintf("auth %q is invalid", project.Auth), "one of: required, none")
+		return
+	}
+	if project.Auth != "none" {
+		return
+	}
+	for _, ep := range endpoints {
+		if ds, ok := datasets[ep.Dataset]; ok && ds.TenantColumn != "" {
+			out.add("offloader.yml", "auth", "public_tenant_endpoint", fmt.Sprintf("auth: none but endpoint %q is tenant-scoped", ep.Name), "serve non-tenant datasets or set auth: required")
+		}
+	}
 }
 
 func loadDatasets(dir, sub string, out *findings) map[string]datasetYML {
@@ -105,9 +126,8 @@ func loadDatasets(dir, sub string, out *findings) map[string]datasetYML {
 			out.add(rel, "manifest", "missing", "manifest path is required", "")
 		}
 		schemaNames := datasetSchema(ds, rel, out)
-		if ds.TenantColumn == "" {
-			out.add(rel, "tenant_column", "missing", "tenant_column is required", "")
-		} else if !schemaNames[ds.TenantColumn] {
+		// tenant_column is optional: absent => a non-tenant (public) dataset.
+		if ds.TenantColumn != "" && !schemaNames[ds.TenantColumn] {
 			out.add(rel, "tenant_column", "unknown_column", fmt.Sprintf("tenant_column %q is not in the schema", ds.TenantColumn), "")
 		}
 		if ds.ID != "" {
@@ -129,7 +149,7 @@ func datasetSchema(ds datasetYML, rel string, out *findings) map[string]bool {
 			out.add(rel, p+".name", "unsafe_identifier", fmt.Sprintf("column name %q is missing or not a safe identifier", c.Name), "")
 		}
 		if !supportedTypes[c.Type] {
-			out.add(rel, p+".type", "unsupported_type", fmt.Sprintf("type %q is not supported", c.Type), "one of: DATE TIMESTAMP VARCHAR INTEGER BIGINT DOUBLE BOOLEAN")
+			out.add(rel, p+".type", "unsupported_type", fmt.Sprintf("type %q is not supported", c.Type), supportedTypesHint)
 		}
 		names[c.Name] = true
 		all = append(all, c.Name)
@@ -140,8 +160,9 @@ func datasetSchema(ds datasetYML, rel string, out *findings) map[string]bool {
 	return names
 }
 
-func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *findings) {
+func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *findings) []endpointYML {
 	var names []string
+	var endpoints []endpointYML
 	for _, path := range yamlFiles(dir, sub) {
 		rel, _ := filepath.Rel(dir, path)
 		var ep endpointYML
@@ -149,14 +170,15 @@ func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *finding
 			continue
 		}
 		names = append(names, ep.Name)
+		endpoints = append(endpoints, ep)
 		if !safeIdent(ep.Name) {
 			out.add(rel, "name", "unsafe_identifier", fmt.Sprintf("endpoint name %q is missing or not a safe identifier", ep.Name), "")
 		}
 		ds, ok := datasets[ep.Dataset]
 		if !ok {
 			out.add(rel, "dataset", "unknown_dataset", fmt.Sprintf("endpoint references unknown dataset %q", ep.Dataset), "")
-		} else if ep.Tenant.Column != ds.TenantColumn {
-			out.add(rel, "tenant.column", "tenant_mismatch", fmt.Sprintf("tenant.column %q must equal the dataset tenant_column %q", ep.Tenant.Column, ds.TenantColumn), "")
+		} else {
+			validateEndpointTenant(rel, ep, ds, out)
 		}
 		if len(ep.Columns) == 0 {
 			out.add(rel, "columns", "missing", "columns allowlist is required and must be non-empty", "")
@@ -169,6 +191,20 @@ func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *finding
 	}
 	for _, d := range duplicates(names) {
 		out.add(sub, sub, "duplicate_endpoint", "duplicate endpoint name: "+d, "")
+	}
+	return endpoints
+}
+
+// A tenant dataset requires the endpoint to bind its column; a non-tenant dataset
+// forbids a tenant binding. Mirrors Offloader.Catalog.Endpoint tenant_errors.
+func validateEndpointTenant(rel string, ep endpointYML, ds datasetYML, out *findings) {
+	switch {
+	case ds.TenantColumn != "" && ep.Tenant.Column == "":
+		out.add(rel, "tenant", "missing", "tenant binding is required for a tenant dataset", fmt.Sprintf("bind %q, or drop tenant_column from the dataset", ds.TenantColumn))
+	case ds.TenantColumn != "" && ep.Tenant.Column != ds.TenantColumn:
+		out.add(rel, "tenant.column", "tenant_mismatch", fmt.Sprintf("tenant.column %q must equal the dataset tenant_column %q", ep.Tenant.Column, ds.TenantColumn), "")
+	case ds.TenantColumn == "" && ep.Tenant.Column != "":
+		out.add(rel, "tenant", "tenant_forbidden", fmt.Sprintf("dataset %q has no tenant_column, so this endpoint cannot bind a tenant", ep.Dataset), "remove the tenant binding, or add tenant_column to the dataset")
 	}
 }
 

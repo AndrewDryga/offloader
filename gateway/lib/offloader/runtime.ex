@@ -127,6 +127,15 @@ defmodule Offloader.Runtime do
     end
   end
 
+  @doc "True when the API serves without authentication (project `auth: none`)."
+  @spec public?(GenServer.server()) :: boolean()
+  def public?(server \\ __MODULE__) do
+    case context(server) do
+      nil -> false
+      ctx -> ctx.catalog.auth_mode == "none"
+    end
+  end
+
   # ── GenServer (owns the ETS tables + all writes) ───────────────────────────────
 
   @impl true

@@ -186,9 +186,12 @@ defmodule Offloader.Catalog.Endpoint do
     end
   end
 
+  # The tenant binding must match the dataset: a tenant dataset requires it (fixed to
+  # its column, not re-pointable per endpoint); a non-tenant dataset forbids it. This
+  # keeps a public dataset from being handed a tenant filter it has no column for.
   defp tenant_errors(raw, file, dataset) do
-    case raw["tenant"] do
-      %{"column" => col} = t ->
+    case {raw["tenant"], dataset.tenant_column} do
+      {%{"column" => col} = t, ds_col} when is_binary(ds_col) ->
         Parse.unknown_keys(t, ~w(column), file, "tenant") ++
           cond do
             not (is_binary(col) and Identifier.valid?(col)) ->
@@ -201,13 +204,13 @@ defmodule Offloader.Catalog.Endpoint do
                 )
               ]
 
-            col != dataset.tenant_column ->
+            col != ds_col ->
               [
                 Error.new(
                   file,
                   "tenant.column",
                   :tenant_mismatch,
-                  "tenant.column #{inspect(col)} must equal the dataset tenant_column #{inspect(dataset.tenant_column)}",
+                  "tenant.column #{inspect(col)} must equal the dataset tenant_column #{inspect(ds_col)}",
                   "the tenant filter is fixed by the dataset; it cannot be re-pointed per endpoint"
                 )
               ]
@@ -216,18 +219,32 @@ defmodule Offloader.Catalog.Endpoint do
               []
           end
 
-      nil ->
+      {nil, ds_col} when is_binary(ds_col) ->
         [
           Error.new(
             file,
             "tenant",
             :missing,
-            "tenant binding is required",
-            "every endpoint must bind a tenant column"
+            "tenant binding is required for a tenant dataset",
+            "bind #{inspect(ds_col)}, or drop tenant_column from the dataset to serve it publicly"
           )
         ]
 
-      _ ->
+      {nil, nil} ->
+        []
+
+      {_present, nil} ->
+        [
+          Error.new(
+            file,
+            "tenant",
+            :tenant_forbidden,
+            "dataset #{inspect(dataset.id)} has no tenant_column, so this endpoint cannot bind a tenant",
+            "remove the tenant binding, or add tenant_column to the dataset"
+          )
+        ]
+
+      {_bad, _ds} ->
         [Error.new(file, "tenant", :invalid_type, "tenant must be a mapping with a column")]
     end
   end

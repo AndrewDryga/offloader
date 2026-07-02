@@ -104,3 +104,73 @@ func TestValidateCommandExitCodes(t *testing.T) {
 		t.Fatalf("valid project exit = %d, want 0", ok)
 	}
 }
+
+func TestValidateAcceptsPublicExampleProject(t *testing.T) {
+	fs := validateProject("../examples/public-metrics/offloader.yml")
+	if len(fs) != 0 {
+		t.Fatalf("public example had findings: %v", fs)
+	}
+}
+
+const publicDataset = `id: champion_stats
+manifest: m.json
+schema:
+  - { name: champion_id, type: VARCHAR }
+  - { name: data, type: JSON }
+`
+
+const publicEndpoint = `name: champion
+dataset: champion_stats
+params:
+  - { name: champion_id, type: string }
+columns: [champion_id, data]
+`
+
+func TestValidateAcceptsNonTenantPublicProject(t *testing.T) {
+	// A non-tenant dataset + a JSON column + auth: none + an endpoint with no tenant.
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\nauth: none\n",
+		"datasets/champion_stats.yml": publicDataset,
+		"endpoints/champion.yml":      publicEndpoint,
+	})
+	if fs := validateProject(project); len(fs) != 0 {
+		t.Fatalf("valid public project had findings: %v", fs)
+	}
+}
+
+func TestValidateRejectsPublicAuthWithTenantEndpoint(t *testing.T) {
+	// auth: none is unsafe when an endpoint is tenant-scoped.
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\nauth: none\n",
+		"datasets/customer_usage.yml": goodDataset,
+		"endpoints/e.yml":             goodEndpoint,
+	})
+	assertCode(t, validateProject(project), "public_tenant_endpoint")
+}
+
+func TestValidateRejectsTenantBindingOnNonTenantDataset(t *testing.T) {
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\n",
+		"datasets/champion_stats.yml": publicDataset,
+		"endpoints/e.yml":             "name: e\ndataset: champion_stats\ntenant:\n  column: champion_id\ncolumns: [champion_id]\n",
+	})
+	assertCode(t, validateProject(project), "tenant_forbidden")
+}
+
+func TestValidateRejectsMissingTenantOnTenantDataset(t *testing.T) {
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\n",
+		"datasets/customer_usage.yml": goodDataset,
+		"endpoints/e.yml":             "name: e\ndataset: customer_usage\ncolumns: [account_id]\n",
+	})
+	assertCode(t, validateProject(project), "missing")
+}
+
+func TestValidateRejectsInvalidAuthMode(t *testing.T) {
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\nauth: sso\n",
+		"datasets/customer_usage.yml": goodDataset,
+		"endpoints/e.yml":             goodEndpoint,
+	})
+	assertCode(t, validateProject(project), "invalid_value")
+}

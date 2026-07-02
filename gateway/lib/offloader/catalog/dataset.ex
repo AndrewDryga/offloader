@@ -16,7 +16,7 @@ defmodule Offloader.Catalog.Dataset do
           id: String.t(),
           description: String.t() | nil,
           manifest: String.t(),
-          tenant_column: String.t(),
+          tenant_column: String.t() | nil,
           schema: [column()],
           columns: MapSet.t()
         }
@@ -71,6 +71,9 @@ defmodule Offloader.Catalog.Dataset do
     end
   end
 
+  # `tenant_column` is optional: a dataset without one is non-tenant (public) and its
+  # endpoints serve unfiltered. When present it must name a real schema column, so the
+  # compiler-inserted tenant filter can never point at a column that isn't there.
   defp tenant_errors(raw, file) do
     schema_names = schema_names(raw)
 
@@ -102,8 +105,11 @@ defmodule Offloader.Catalog.Dataset do
             []
         end
 
+      nil ->
+        []
+
       _ ->
-        [Error.new(file, "tenant_column", :missing, "tenant_column is required")]
+        [Error.new(file, "tenant_column", :invalid_type, "tenant_column must be a string")]
     end
   end
 

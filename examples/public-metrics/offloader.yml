@@ -1,0 +1,11 @@
+# A PUBLIC project: no API keys, no tenancy. Demonstrates `auth: none` plus a nested
+# `JSON` column — the shape of a public stats API (e.g. game leaderboards).
+#
+# `auth: none` is only accepted when NO endpoint is tenant-scoped (enforced at load),
+# so a public API can never leak across tenants. For a governed, multi-tenant API drop
+# `auth` (defaults to `required`) and bind a tenant per endpoint — see ../customer-analytics.
+version: 1
+auth: none
+datasets_dir: datasets
+endpoints_dir: endpoints
+object_store_mode: local

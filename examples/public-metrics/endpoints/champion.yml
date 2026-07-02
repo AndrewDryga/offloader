@@ -1,0 +1,31 @@
+# GET /v1/endpoints/champion?champion_id=1   (no Authorization header — public)
+name: champion
+version: 1
+owner: analytics@example.com
+description: Look up a champion's stats by id. The `data` column is a nested object.
+dataset: champion_stats
+serving_mode: local_table
+
+# No `tenant:` block — this endpoint is public/non-tenant.
+
+params:
+  - { name: champion_id, type: string, required: true }
+
+query:
+  select:
+    - { as: champion_id, column: champion_id }
+    - { as: patch, column: patch }
+    - { as: data, column: data }
+  filters:
+    - { column: champion_id, op: eq, param: champion_id }
+  order_by:
+    - { column: champion_id, dir: asc }
+
+columns: [champion_id, patch, data]
+
+pagination:
+  default_limit: 50
+  max_limit: 100
+
+cache:
+  policy: snapshot

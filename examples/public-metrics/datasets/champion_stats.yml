@@ -1,0 +1,9 @@
+id: champion_stats
+description: Per-champion stats. Public (no tenant_column) with a nested `data` column.
+manifest: data/champion_stats/manifest.json
+# No tenant_column: this is a non-tenant (public) dataset.
+schema:
+  - { name: champion_id, type: VARCHAR }
+  - { name: patch, type: VARCHAR }
+  # `data` is a nested STRUCT/MAP in the snapshot; JSON serves it as a nested object.
+  - { name: data, type: JSON }

@@ -11,13 +11,15 @@ defmodule Offloader.Catalog do
   alias Offloader.Catalog.{Dataset, Endpoint, Error, Key, Parse}
 
   @enforce_keys [:config_dir, :datasets, :endpoints, :keys]
-  defstruct [:config_dir, :version, :object_store_mode, :datasets, :endpoints, :keys]
+  defstruct [:config_dir, :version, :object_store_mode, :auth_mode, :datasets, :endpoints, :keys]
 
-  @project_keys ~w(version datasets_dir endpoints_dir keys object_store_mode)
+  @project_keys ~w(version datasets_dir endpoints_dir keys object_store_mode auth)
+  @auth_modes ~w(required none)
 
   @type t :: %__MODULE__{
           config_dir: String.t(),
           object_store_mode: String.t() | nil,
+          auth_mode: String.t(),
           datasets: %{optional(String.t()) => Dataset.t()},
           endpoints: %{optional(String.t()) => Endpoint.t()},
           keys: [Key.t()]
@@ -47,14 +49,16 @@ defmodule Offloader.Catalog do
       load_endpoints(dir, project["endpoints_dir"] || "endpoints", datasets)
 
     {keys, key_errors} = load_keys(dir, project["keys"], endpoints)
+    {auth_mode, auth_errors} = auth_mode(project, endpoints)
 
-    case dataset_errors ++ endpoint_errors ++ key_errors do
+    case dataset_errors ++ endpoint_errors ++ key_errors ++ auth_errors do
       [] ->
         {:ok,
          %__MODULE__{
            config_dir: dir,
            version: project["version"],
            object_store_mode: project["object_store_mode"],
+           auth_mode: auth_mode,
            datasets: datasets,
            endpoints: endpoints,
            keys: keys
@@ -64,6 +68,45 @@ defmodule Offloader.Catalog do
         {:error, errors}
     end
   end
+
+  # `auth: required` (default) needs an API key per request; `auth: none` serves the
+  # API publicly. Public serving is only safe when NO endpoint is tenant-scoped —
+  # otherwise an unauthenticated caller would read across tenants — so that is enforced.
+  defp auth_mode(project, endpoints) do
+    case project["auth"] do
+      nil ->
+        {"required", []}
+
+      mode when mode in @auth_modes ->
+        {mode, public_tenant_errors(mode, endpoints)}
+
+      other ->
+        {"required",
+         [
+           Error.new(
+             "offloader.yml",
+             "auth",
+             :invalid_value,
+             "auth #{inspect(other)} is invalid",
+             "one of: #{Enum.join(@auth_modes, ", ")}"
+           )
+         ]}
+    end
+  end
+
+  defp public_tenant_errors("none", endpoints) do
+    for {name, ep} <- endpoints, ep.tenant_column != nil do
+      Error.new(
+        "offloader.yml",
+        "auth",
+        :public_tenant_endpoint,
+        "auth: none but endpoint #{inspect(name)} is tenant-scoped",
+        "a public API cannot enforce tenancy; serve non-tenant datasets or set auth: required"
+      )
+    end
+  end
+
+  defp public_tenant_errors(_mode, _endpoints), do: []
 
   # ── datasets ──────────────────────────────────────────────────────────────────
 
