@@ -30,9 +30,8 @@ docs-check: ## Docs checks — wired by the docs tasks (D01, D02)
 e2e: ## End-to-end manifest -> materialize -> HTTP smoke against the example
 	./dev/scripts/e2e.sh
 
-deploy-check: ## Build + boot the production image locally (needs the image: I01, I04)
-	@echo "deploy-check: not wired yet — needs the production image (I01) and script (I04)." >&2
-	@exit 1
+deploy-check: ## Build + boot the production image locally and verify it before rollout
+	./dev/scripts/deploy-check.sh
 
 doctor: ## Print required toolchain checks
 	@missing=0; \
