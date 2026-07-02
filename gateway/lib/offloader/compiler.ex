@@ -1,9 +1,18 @@
 defmodule Offloader.Compiler.Plan do
-  @moduledoc "A compiled query: parameterized SQL, its bound values, and the output columns."
+  @moduledoc """
+  A compiled query: parameterized SQL, its bound values, the output columns, and
+  which of those columns carry a JSON document (a `to_json(...)` projection) to be
+  decoded into a nested term.
+  """
   @enforce_keys [:sql, :params, :columns]
-  defstruct [:sql, :params, :columns]
+  defstruct [:sql, :params, :columns, json_columns: []]
 
-  @type t :: %__MODULE__{sql: String.t(), params: [term()], columns: [String.t()]}
+  @type t :: %__MODULE__{
+          sql: String.t(),
+          params: [term()],
+          columns: [String.t()],
+          json_columns: [String.t()]
+        }
 end
 
 defmodule Offloader.Compiler do

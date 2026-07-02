@@ -82,5 +82,56 @@ defmodule Offloader.RuntimeTest do
                  "r"
                )
     end
+
+    test "concurrent serves stay correct and tenant-scoped (read path is not serialized)", %{
+      rt: rt
+    } do
+      params = %{"from" => "2026-05-30", "to" => "2026-06-01"}
+
+      results =
+        [{"tenant_acme", "acct_"}, {"tenant_globex", "acct_orion"}]
+        |> List.duplicate(100)
+        |> List.flatten()
+        |> Task.async_stream(
+          fn {tenant, _} ->
+            {:ok, resp} = Runtime.serve(rt, "customer_usage_summary", tenant, params, "r")
+            {tenant, Enum.map(resp.data, & &1["account_id"])}
+          end,
+          max_concurrency: 50,
+          timeout: 30_000
+        )
+        |> Enum.map(fn {:ok, res} -> res end)
+
+      # Every globex response contains only acct_orion; acme never does — proving no
+      # cross-request bleed under concurrency.
+      for {tenant, accounts} <- results do
+        case tenant do
+          "tenant_globex" -> assert accounts == ["acct_orion"]
+          "tenant_acme" -> refute "acct_orion" in accounts
+        end
+      end
+
+      assert length(results) == 200
+    end
+
+    test "serving keeps working while a refresh is in flight (reads bypass the writer)", %{rt: rt} do
+      params = %{"from" => "2026-05-30", "to" => "2026-06-01"}
+
+      # Kick a refresh (a GenServer.call that occupies the writer) from another
+      # process, and hammer serve concurrently. Serve must not queue behind it.
+      refresher = Task.async(fn -> Runtime.refresh(rt, "customer_usage") end)
+
+      served =
+        1..50
+        |> Task.async_stream(
+          fn _ -> Runtime.serve(rt, "customer_usage_summary", "tenant_acme", params, "r") end,
+          max_concurrency: 25,
+          timeout: 30_000
+        )
+        |> Enum.map(fn {:ok, res} -> res end)
+
+      assert Enum.all?(served, &match?({:ok, _}, &1))
+      assert {:ok, _} = Task.await(refresher, 30_000)
+    end
   end
 end

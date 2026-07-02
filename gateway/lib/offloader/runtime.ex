@@ -4,16 +4,25 @@ defmodule Offloader.Runtime do
   and serves requests. On start it loads the project (`OFFLOADER_CONFIG`) and
   refreshes every dataset once.
 
-  Refresh is safe by construction: a candidate manifest is validated, checked for
-  compatibility against the dataset contract, and materialized into a NEW table
-  before the active view is atomically swapped. A failed validation or
-  materialization leaves the current snapshot serving untouched and only records the
-  failed attempt — the gateway never serves partial or breaking data. The previous
-  good snapshot is retained so `rollback/2` can revert.
+  ## Reads bypass the GenServer
 
-  Per dataset the state is `%{active, previous, last_attempted}`, which `serve/5`
-  and the diagnostics endpoint (G09) read. An optional `:refresh_interval_ms` polls;
-  by default refresh is manual/boot-only.
+  Serving must not queue behind a slow refresh, so the read path runs in the CALLER's
+  process, not the GenServer's mailbox. The immutable catalog lives in
+  `:persistent_term`; per-dataset snapshot state and the response cache live in
+  concurrent ETS tables. `serve/5`, `authorize/3`, `diagnostics/1`, and the health
+  reads all hit those directly — a multi-second `materialize` on the writer never
+  blocks a request or a liveness probe.
+
+  The GenServer owns only WRITES: `refresh` and `rollback` mutate the snapshot ETS
+  (and drop the response cache) under its single mailbox, so a candidate snapshot is
+  validated, checked for compatibility, and materialized into a NEW table before the
+  active view is atomically swapped. A failed validation or materialization leaves
+  the current snapshot serving untouched and only records the failed attempt — the
+  gateway never serves partial or breaking data. The previous good snapshot is
+  retained so `rollback/2` can revert.
+
+  Per dataset the state is `%{active, previous, last_attempted}`. An optional
+  `:refresh_interval_ms` polls; by default refresh is manual/boot-only.
   """
 
   use GenServer
@@ -21,7 +30,18 @@ defmodule Offloader.Runtime do
 
   alias Offloader.{ApiError, Auth, Catalog, Compiler, Config, Engine, Manifest}
 
-  defstruct [:catalog, :engine, :snapshots, :cache_dir, :cache, :refresh_interval_ms]
+  defstruct [
+    :catalog,
+    :engine,
+    :snapshots,
+    :snapshots_table,
+    :cache_table,
+    :cache_dir,
+    :refresh_interval_ms
+  ]
+
+  @snapshots_ets [:public, :set, read_concurrency: true]
+  @cache_ets [:public, :set, read_concurrency: true, write_concurrency: true]
 
   # ── public API ────────────────────────────────────────────────────────────────
 
@@ -33,15 +53,28 @@ defmodule Offloader.Runtime do
 
   @doc "Authorize a bearer token for an endpoint. Returns {:ok, tenant} or a stable error."
   @spec authorize(GenServer.server(), String.t(), String.t()) ::
-          {:ok, String.t()} | {:error, ApiError.t()}
-  def authorize(server \\ __MODULE__, token, endpoint_name),
-    do: GenServer.call(server, {:authorize, token, endpoint_name})
+          {:ok, String.t() | nil} | {:error, ApiError.t()}
+  def authorize(server \\ __MODULE__, token, endpoint_name) do
+    case context(server) do
+      nil ->
+        {:error, ApiError.new(:not_ready, "service is starting")}
+
+      ctx ->
+        with {:ok, key} <- Auth.authenticate(ctx.catalog.keys, token) do
+          Auth.authorize(key, endpoint_name)
+        end
+    end
+  end
 
   @doc "Serve an endpoint for a tenant. Returns {:ok, response_map} or {:error, %ApiError{}}."
-  @spec serve(GenServer.server(), String.t(), String.t(), map(), String.t()) ::
+  @spec serve(GenServer.server(), String.t(), String.t() | nil, map(), String.t()) ::
           {:ok, map()} | {:error, ApiError.t()}
-  def serve(server \\ __MODULE__, endpoint_name, tenant, params, request_id),
-    do: GenServer.call(server, {:serve, endpoint_name, tenant, params, request_id})
+  def serve(server \\ __MODULE__, endpoint_name, tenant, params, request_id) do
+    case context(server) do
+      nil -> {:error, ApiError.new(:not_ready, "service is starting")}
+      ctx -> do_serve(ctx, endpoint_name, tenant, params, request_id)
+    end
+  end
 
   @doc """
   Refresh a dataset from a manifest (defaults to the dataset's configured manifest).
@@ -51,7 +84,7 @@ defmodule Offloader.Runtime do
   @spec refresh(GenServer.server(), String.t(), String.t() | nil) ::
           {:ok, String.t()} | {:error, term()}
   def refresh(server \\ __MODULE__, dataset_id, manifest_path \\ nil),
-    do: GenServer.call(server, {:refresh, dataset_id, manifest_path}, 60_000)
+    do: GenServer.call(server, {:refresh, dataset_id, manifest_path}, 120_000)
 
   @doc "Roll a dataset back to its previous good snapshot. {:ok, snapshot_id} or {:error, :no_previous}."
   @spec rollback(GenServer.server(), String.t()) :: {:ok, String.t()} | {:error, term()}
@@ -60,22 +93,41 @@ defmodule Offloader.Runtime do
 
   @doc "The snapshot state for a dataset: %{active, previous, last_attempted}."
   @spec snapshot_state(GenServer.server(), String.t()) :: map() | nil
-  def snapshot_state(server \\ __MODULE__, dataset_id),
-    do: GenServer.call(server, {:snapshot_state, dataset_id})
+  def snapshot_state(server \\ __MODULE__, dataset_id) do
+    case context(server) do
+      nil -> nil
+      ctx -> lookup_snapshot(ctx, dataset_id)
+    end
+  end
 
   @doc "True once every dataset has an active snapshot serving."
   @spec ready?(GenServer.server()) :: boolean()
-  def ready?(server \\ __MODULE__), do: GenServer.call(server, :ready?)
+  def ready?(server \\ __MODULE__) do
+    case context(server) do
+      nil -> false
+      ctx -> all_active?(ctx)
+    end
+  end
 
   @doc "The full operator diagnostics map (never contains secrets or raw credentialed paths)."
   @spec diagnostics(GenServer.server()) :: map()
-  def diagnostics(server \\ __MODULE__), do: GenServer.call(server, :diagnostics)
+  def diagnostics(server \\ __MODULE__) do
+    case context(server) do
+      nil -> %{ready: false, datasets: [], build_version: Offloader.version()}
+      ctx -> build_diagnostics(ctx)
+    end
+  end
 
   @doc "The loaded catalog (used to generate docs/OpenAPI that match what the runtime enforces)."
-  @spec catalog(GenServer.server()) :: Catalog.t()
-  def catalog(server \\ __MODULE__), do: GenServer.call(server, :catalog)
+  @spec catalog(GenServer.server()) :: Catalog.t() | nil
+  def catalog(server \\ __MODULE__) do
+    case context(server) do
+      nil -> nil
+      ctx -> ctx.catalog
+    end
+  end
 
-  # ── GenServer ─────────────────────────────────────────────────────────────────
+  # ── GenServer (owns the ETS tables + all writes) ───────────────────────────────
 
   @impl true
   def init(opts) do
@@ -85,18 +137,25 @@ defmodule Offloader.Runtime do
     with {:ok, catalog} <- Catalog.load(config_path),
          {:ok, engine} <-
            Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()) do
-      base = %__MODULE__{
+      snapshots_table = :ets.new(:offloader_snapshots, @snapshots_ets)
+      cache_table = :ets.new(:offloader_cache, @cache_ets)
+
+      state = %__MODULE__{
         catalog: catalog,
         engine: engine,
         snapshots: %{},
+        snapshots_table: snapshots_table,
+        cache_table: cache_table,
         cache_dir: cache_dir,
-        cache: %{},
         refresh_interval_ms: opts[:refresh_interval_ms]
       }
 
+      # Publish the read context before the initial refresh so reads resolve at once.
+      :persistent_term.put({__MODULE__, self()}, context_of(state))
+
       # Initial refresh of every dataset from its configured manifest.
       state =
-        Enum.reduce(Map.keys(catalog.datasets), base, fn id, acc ->
+        Enum.reduce(Map.keys(catalog.datasets), state, fn id, acc ->
           elem(do_refresh(acc, id, nil), 0)
         end)
 
@@ -108,19 +167,9 @@ defmodule Offloader.Runtime do
   end
 
   @impl true
-  def handle_call({:authorize, token, endpoint_name}, _from, state) do
-    reply =
-      with {:ok, key} <- Auth.authenticate(state.catalog.keys, token) do
-        Auth.authorize(key, endpoint_name)
-      end
-
-    {:reply, reply, state}
-  end
-
-  @impl true
-  def handle_call({:serve, name, tenant, params, request_id}, _from, state) do
-    {result, state} = do_serve(state, name, tenant, params, request_id)
-    {:reply, result, state}
+  def terminate(_reason, _state) do
+    :persistent_term.erase({__MODULE__, self()})
+    :ok
   end
 
   @impl true
@@ -136,29 +185,6 @@ defmodule Offloader.Runtime do
   end
 
   @impl true
-  def handle_call({:snapshot_state, dataset_id}, _from, state) do
-    {:reply, Map.get(state.snapshots, dataset_id), state}
-  end
-
-  @impl true
-  def handle_call(:ready?, _from, state) do
-    ready =
-      Enum.all?(Map.keys(state.catalog.datasets), &match?(%{active: %{}}, state.snapshots[&1]))
-
-    {:reply, ready, state}
-  end
-
-  @impl true
-  def handle_call(:diagnostics, _from, state) do
-    {:reply, build_diagnostics(state), state}
-  end
-
-  @impl true
-  def handle_call(:catalog, _from, state) do
-    {:reply, state.catalog, state}
-  end
-
-  @impl true
   def handle_info(:poll, state) do
     state =
       Enum.reduce(Map.keys(state.catalog.datasets), state, fn id, acc ->
@@ -169,7 +195,39 @@ defmodule Offloader.Runtime do
     {:noreply, state}
   end
 
-  # ── refresh / rollback ──────────────────────────────────────────────────────────
+  # ── read context (persistent_term + ETS; resolved per call) ────────────────────
+
+  defp context(server) do
+    case GenServer.whereis(server) do
+      pid when is_pid(pid) -> :persistent_term.get({__MODULE__, pid}, nil)
+      _ -> nil
+    end
+  end
+
+  defp context_of(state) do
+    %{
+      catalog: state.catalog,
+      engine: state.engine,
+      snapshots_table: state.snapshots_table,
+      cache_table: state.cache_table,
+      cache_dir: state.cache_dir
+    }
+  end
+
+  defp lookup_snapshot(%{snapshots_table: table}, dataset_id) do
+    case :ets.lookup(table, dataset_id) do
+      [{^dataset_id, entry}] -> entry
+      [] -> nil
+    end
+  end
+
+  defp all_active?(ctx) do
+    Enum.all?(Map.keys(ctx.catalog.datasets), fn id ->
+      match?(%{active: %{}}, lookup_snapshot(ctx, id))
+    end)
+  end
+
+  # ── refresh / rollback (GenServer-only writes) ─────────────────────────────────
 
   # Returns {new_state, {:ok, snapshot_id} | {:error, reason}}. Never swaps in a bad
   # snapshot: validate -> compatibility -> materialize -> atomic swap, in that order.
@@ -211,8 +269,9 @@ defmodule Offloader.Runtime do
           last_attempted: attempt(manifest.snapshot_id, :ok, nil)
         }
 
+        state = put_snapshot(state, dataset_id, new_entry)
         # Snapshot-based invalidation: a new snapshot drops the response cache.
-        state = %{put_snapshot(state, dataset_id, new_entry) | cache: %{}}
+        :ets.delete_all_objects(state.cache_table)
         {state, {:ok, manifest.snapshot_id}}
     end
   end
@@ -233,7 +292,9 @@ defmodule Offloader.Runtime do
       previous ->
         :ok = Engine.swap(state.engine, dataset_id, previous.table)
         new_entry = %{entry | active: previous, previous: entry.active}
-        {put_snapshot(state, dataset_id, new_entry), {:ok, previous.snapshot_id}}
+        state = put_snapshot(state, dataset_id, new_entry)
+        :ets.delete_all_objects(state.cache_table)
+        {state, {:ok, previous.snapshot_id}}
     end
   end
 
@@ -242,26 +303,25 @@ defmodule Offloader.Runtime do
   # A redacted operator view: snapshot state, source reachability, disk, DuckDB, and
   # versions. Contains only ids/statuses/counts — never API keys, tokens, or paths
   # beyond the local cache directory.
-  defp build_diagnostics(state) do
+  defp build_diagnostics(ctx) do
     %{
       build_version: Offloader.version(),
-      config_version: state.catalog.version,
-      object_store_mode: state.catalog.object_store_mode,
-      duckdb_status: duckdb_status(state.engine),
-      pool: %{connections: 1, saturated: false},
-      disk: disk_free(state.cache_dir),
-      ready:
-        Enum.all?(Map.keys(state.catalog.datasets), &match?(%{active: %{}}, state.snapshots[&1])),
+      config_version: ctx.catalog.version,
+      object_store_mode: ctx.catalog.object_store_mode,
+      duckdb_status: duckdb_status(ctx.engine),
+      pool: Engine.pool_stats(ctx.engine),
+      disk: disk_free(ctx.cache_dir),
+      ready: all_active?(ctx),
       datasets:
-        Enum.map(state.catalog.datasets, fn {id, dataset} ->
-          dataset_diagnostics(state, id, dataset)
+        Enum.map(ctx.catalog.datasets, fn {id, dataset} ->
+          dataset_diagnostics(ctx, id, dataset)
         end)
     }
   end
 
-  defp dataset_diagnostics(state, id, dataset) do
-    entry = current_entry(state, id)
-    manifest_path = Path.join(state.catalog.config_dir, dataset.manifest)
+  defp dataset_diagnostics(ctx, id, dataset) do
+    entry = lookup_snapshot(ctx, id) || %{active: nil, previous: nil, last_attempted: nil}
+    manifest_path = Path.join(ctx.catalog.config_dir, dataset.manifest)
 
     %{
       dataset: id,
@@ -321,8 +381,11 @@ defmodule Offloader.Runtime do
   defp current_entry(state, dataset_id),
     do: Map.get(state.snapshots, dataset_id, %{active: nil, previous: nil, last_attempted: nil})
 
-  defp put_snapshot(state, dataset_id, entry),
-    do: %{state | snapshots: Map.put(state.snapshots, dataset_id, entry)}
+  # Writer source of truth is the state map; mirror each change into ETS for readers.
+  defp put_snapshot(state, dataset_id, entry) do
+    :ets.insert(state.snapshots_table, {dataset_id, entry})
+    %{state | snapshots: Map.put(state.snapshots, dataset_id, entry)}
+  end
 
   defp snap(manifest, table),
     do: %{
@@ -355,24 +418,24 @@ defmodule Offloader.Runtime do
 
   defp schedule_poll(_state), do: :ok
 
-  # ── serve helpers ─────────────────────────────────────────────────────────────
+  # ── serve helpers (caller process; ETS reads) ──────────────────────────────────
 
-  defp fetch_endpoint(state, name) do
-    case Map.fetch(state.catalog.endpoints, name) do
+  defp fetch_endpoint(ctx, name) do
+    case Map.fetch(ctx.catalog.endpoints, name) do
       {:ok, endpoint} -> {:ok, endpoint}
       :error -> {:error, ApiError.new(:not_found, "endpoint not found")}
     end
   end
 
-  defp fetch_active(state, dataset) do
-    case state.snapshots[dataset] do
+  defp fetch_active(ctx, dataset) do
+    case lookup_snapshot(ctx, dataset) do
       %{active: %{} = active} -> {:ok, active}
       _ -> {:error, ApiError.new(:not_ready, "snapshot is not ready")}
     end
   end
 
   defp execute(engine, plan) do
-    case Engine.execute(engine, plan.sql, plan.params) do
+    case Engine.execute(engine, plan.sql, plan.params, plan.json_columns) do
       {:ok, result} ->
         {:ok, result}
 
@@ -382,38 +445,42 @@ defmodule Offloader.Runtime do
     end
   end
 
-  # Returns {reply, state} — state changes only to record a response-cache miss.
-  defp do_serve(state, name, tenant, params, request_id) do
-    with {:ok, endpoint} <- fetch_endpoint(state, name),
-         {:ok, snapshot} <- fetch_active(state, endpoint.dataset) do
+  defp do_serve(ctx, name, tenant, params, request_id) do
+    with {:ok, endpoint} <- fetch_endpoint(ctx, name),
+         {:ok, snapshot} <- fetch_active(ctx, endpoint.dataset) do
       key = cache_key(endpoint, tenant, params, snapshot.snapshot_id)
 
-      if cacheable?(endpoint) and Map.has_key?(state.cache, key) do
-        {{:ok, response(endpoint, snapshot, state.cache[key], request_id, "hit")}, state}
-      else
-        serve_fresh(state, endpoint, snapshot, tenant, params, request_id, key)
+      case cache_get(ctx, endpoint, key) do
+        {:ok, data} ->
+          {:ok, response(endpoint, snapshot, data, request_id, "hit")}
+
+        :miss ->
+          serve_fresh(ctx, endpoint, snapshot, tenant, params, request_id, key)
       end
-    else
-      {:error, %ApiError{}} = err -> {err, state}
     end
   end
 
-  defp serve_fresh(state, endpoint, snapshot, tenant, params, request_id, key) do
+  defp cache_get(ctx, endpoint, key) do
+    if cacheable?(endpoint) do
+      case :ets.lookup(ctx.cache_table, key) do
+        [{^key, data}] -> {:ok, data}
+        [] -> :miss
+      end
+    else
+      :miss
+    end
+  end
+
+  defp serve_fresh(ctx, endpoint, snapshot, tenant, params, request_id, key) do
     source = source_for(endpoint, snapshot)
 
     with {:ok, plan} <- Compiler.compile(endpoint, params, tenant, source),
-         {:ok, result} <- execute(state.engine, plan) do
+         {:ok, result} <- execute(ctx.engine, plan) do
       data = Enum.map(result.rows, fn row -> result.columns |> Enum.zip(row) |> Map.new() end)
 
-      state =
-        if cacheable?(endpoint),
-          do: %{state | cache: Map.put(state.cache, key, data)},
-          else: state
-
+      if cacheable?(endpoint), do: :ets.insert(ctx.cache_table, {key, data})
       status = if cacheable?(endpoint), do: "miss", else: "off"
-      {{:ok, response(endpoint, snapshot, data, request_id, status)}, state}
-    else
-      {:error, %ApiError{}} = err -> {err, state}
+      {:ok, response(endpoint, snapshot, data, request_id, status)}
     end
   end
 
