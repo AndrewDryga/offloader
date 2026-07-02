@@ -792,8 +792,19 @@ defmodule Offloader.Runtime do
 
   defp sync_result({:error, _}), do: "error"
   defp sync_result(result) when is_atom(result), do: Atom.to_string(result)
-  defp sync_error({:error, reason}), do: inspect(reason)
+
+  # Only the error CLASS, never the reason's payload — a fetch error like
+  # {:no_config_objects, bucket, prefix} must not render the config bucket/prefix into the
+  # admin diagnostics. Full detail stays in the operator log.
+  defp sync_error({:error, reason}), do: error_class(reason)
   defp sync_error(_result), do: nil
+
+  defp error_class(tag) when is_atom(tag), do: Atom.to_string(tag)
+
+  defp error_class(tuple) when is_tuple(tuple) and is_atom(elem(tuple, 0)),
+    do: Atom.to_string(elem(tuple, 0))
+
+  defp error_class(_reason), do: "error"
   defp iso8601(nil), do: nil
   defp iso8601(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 
