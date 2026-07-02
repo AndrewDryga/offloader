@@ -60,4 +60,29 @@ defmodule OffloaderWeb.PublicServingHTTPTest do
 
     assert json_response(conn, 200)["data"] |> hd() |> Map.get("champion_id") == "11"
   end
+
+  test "?columns= narrows the response to the requested subset (real DuckDB)" do
+    conn = get(build_conn(), "/v1/endpoints/champion?champion_id=1&columns=champion_id,data")
+    [row] = json_response(conn, 200)["data"]
+
+    assert Map.keys(row) |> Enum.sort() == ["champion_id", "data"]
+    # the nested column still decodes when selected through the subset
+    assert is_map(row["data"])
+    # ordering still works even though `patch` (nothing ordered here) is excluded
+    assert row["champion_id"] == "1"
+  end
+
+  test "?columns= outside the allowlist is 422" do
+    conn = get(build_conn(), "/v1/endpoints/champion?champion_id=1&columns=champion_id,secret")
+    assert json_response(conn, 422)["error"]["family"] == "invalid_param"
+  end
+
+  test "?columns= excluding the ORDER BY column still executes (expression fallback)" do
+    # champion is ordered by champion_id; requesting only `data` drops that output
+    # column, so the ORDER BY must fall back to the underlying column expression.
+    conn = get(build_conn(), "/v1/endpoints/champion?champion_id=11&columns=data")
+    [row] = json_response(conn, 200)["data"]
+    assert Map.keys(row) == ["data"]
+    assert row["data"]["num_games"] == 98_213
+  end
 end

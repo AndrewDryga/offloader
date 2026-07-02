@@ -80,10 +80,21 @@ defmodule Offloader.Docs do
       tenant_scoped: ep.tenant_column != nil,
       params:
         Enum.map(ep.params, fn p ->
-          %{name: p.name, type: p.type, required: p.required, enum: p.enum}
+          %{
+            name: p.name,
+            type: p.type,
+            required: p.required,
+            enum: p.enum,
+            default: p.default,
+            aliases: p.aliases
+          }
         end),
+      # [] = any subset of declared params; otherwise the request's param set must
+      # exactly match one combination.
+      combinations: ep.combinations,
       filters: Enum.map(ep.filters, fn f -> %{column: f.column, op: f.op, param: f.param} end),
       response_columns: Enum.map(ep.select, fn s -> %{name: s.as, nested: s.json?} end),
+      column_selection: "columns=<comma-separated subset of response_columns>",
       pagination: %{default_limit: ep.default_limit, max_limit: ep.max_limit}
     }
   end
@@ -124,6 +135,7 @@ defmodule Offloader.Docs do
           "bound to the API key server-side; it is not a request param and cannot be overridden"
       },
       params: param_docs(ep),
+      combinations: ep.combinations,
       pagination: %{default_limit: ep.default_limit, max_limit: ep.max_limit},
       response: %{
         columns: ep.columns,
@@ -140,7 +152,14 @@ defmodule Offloader.Docs do
   defp param_docs(ep) do
     declared =
       Enum.map(ep.params, fn p ->
-        %{name: p.name, type: p.type, required: p.required, enum: p.enum, default: p.default}
+        %{
+          name: p.name,
+          type: p.type,
+          required: p.required,
+          enum: p.enum,
+          default: p.default,
+          aliases: p.aliases
+        }
       end)
 
     declared ++
@@ -152,7 +171,13 @@ defmodule Offloader.Docs do
           default: ep.default_limit,
           note: "max #{ep.max_limit}"
         },
-        %{name: "offset", type: "integer", required: false, default: 0}
+        %{name: "offset", type: "integer", required: false, default: 0},
+        %{
+          name: "columns",
+          type: "string",
+          required: false,
+          note: "comma-separated subset of the response columns to return"
+        }
       ]
   end
 
@@ -252,7 +277,14 @@ defmodule Offloader.Docs do
           required: false,
           schema: %{type: "integer", maximum: ep.max_limit}
         },
-        %{name: "offset", in: "query", required: false, schema: %{type: "integer", minimum: 0}}
+        %{name: "offset", in: "query", required: false, schema: %{type: "integer", minimum: 0}},
+        %{
+          name: "columns",
+          in: "query",
+          required: false,
+          description: "Comma-separated subset of the response columns to return.",
+          schema: %{type: "string"}
+        }
       ]
   end
 

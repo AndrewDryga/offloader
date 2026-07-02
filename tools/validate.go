@@ -49,8 +49,10 @@ type datasetYML struct {
 }
 
 type paramYML struct {
-	Name string `yaml:"name"`
-	Type string `yaml:"type"`
+	Name    string            `yaml:"name"`
+	Type    string            `yaml:"type"`
+	Enum    []string          `yaml:"enum"`
+	Aliases map[string]string `yaml:"aliases"`
 }
 
 type endpointYML struct {
@@ -59,8 +61,9 @@ type endpointYML struct {
 	Tenant  struct {
 		Column string `yaml:"column"`
 	} `yaml:"tenant"`
-	Params  []paramYML `yaml:"params"`
-	Columns []string   `yaml:"columns"`
+	Params       []paramYML `yaml:"params"`
+	Combinations [][]string `yaml:"combinations"`
+	Columns      []string   `yaml:"columns"`
 }
 
 type keyYML struct {
@@ -183,16 +186,59 @@ func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *finding
 		if len(ep.Columns) == 0 {
 			out.add(rel, "columns", "missing", "columns allowlist is required and must be non-empty", "")
 		}
+		declared := map[string]bool{}
 		for i, p := range ep.Params {
 			if !safeIdent(p.Name) {
 				out.add(rel, fmt.Sprintf("params[%d].name", i), "unsafe_identifier", fmt.Sprintf("param name %q is not a safe identifier", p.Name), "")
 			}
+			declared[p.Name] = true
+			validateParamAliases(rel, i, p, out)
 		}
+		validateCombinations(rel, ep.Combinations, declared, out)
 	}
 	for _, d := range duplicates(names) {
 		out.add(sub, sub, "duplicate_endpoint", "duplicate endpoint name: "+d, "")
 	}
 	return endpoints
+}
+
+// Aliases are a value→value rewrite on string/enum params; for an enum every alias
+// target must itself be an allowed enum value. Mirrors Offloader.Catalog.Endpoint.
+func validateParamAliases(rel string, i int, p paramYML, out *findings) {
+	if len(p.Aliases) == 0 {
+		return
+	}
+	path := fmt.Sprintf("params[%d].aliases", i)
+	if p.Type != "string" && p.Type != "enum" {
+		out.add(rel, path, "invalid_value", fmt.Sprintf("aliases are not supported on %q params", p.Type), "only string and enum params can declare aliases")
+	}
+	if p.Type == "enum" {
+		allowed := map[string]bool{}
+		for _, v := range p.Enum {
+			allowed[v] = true
+		}
+		for k, v := range p.Aliases {
+			if !allowed[v] {
+				out.add(rel, path, "invalid_value", fmt.Sprintf("alias %q maps to %q which is not an allowed enum value", k, v), "")
+			}
+		}
+	}
+}
+
+// Each combination must list declared params, without duplicates. Mirrors
+// Offloader.Catalog.Endpoint combinations_errors.
+func validateCombinations(rel string, combos [][]string, declared map[string]bool, out *findings) {
+	for i, combo := range combos {
+		path := fmt.Sprintf("combinations[%d]", i)
+		for _, name := range combo {
+			if !declared[name] {
+				out.add(rel, path, "unknown_param", fmt.Sprintf("combination references param %q which is not declared", name), "")
+			}
+		}
+		for _, d := range duplicates(combo) {
+			out.add(rel, path, "duplicate_param", "duplicate name: "+d, "")
+		}
+	}
 }
 
 // A tenant dataset requires the endpoint to bind its column; a non-tenant dataset

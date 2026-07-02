@@ -174,3 +174,72 @@ func TestValidateRejectsInvalidAuthMode(t *testing.T) {
 	})
 	assertCode(t, validateProject(project), "invalid_value")
 }
+
+func TestValidateCombinationsAndAliases(t *testing.T) {
+	base := `name: e
+dataset: customer_usage
+tenant:
+  column: tenant_id
+columns: [account_id]
+`
+	cases := []struct {
+		name, endpoint, wantCode string
+	}{
+		{
+			"combination referencing an undeclared param",
+			base + "params:\n  - { name: rank, type: string }\ncombinations: [[rank, nope]]\n",
+			"unknown_param",
+		},
+		{
+			"duplicate name inside a combination",
+			base + "params:\n  - { name: rank, type: string }\ncombinations: [[rank, rank]]\n",
+			"duplicate_param",
+		},
+		{
+			"aliases on an integer param",
+			base + "params:\n  - { name: n, type: integer, aliases: { a: b } }\n",
+			"invalid_value",
+		},
+		{
+			"enum alias target outside the enum",
+			base + "params:\n  - { name: rank, type: enum, enum: [gold], aliases: { G: silver } }\n",
+			"invalid_value",
+		},
+	}
+
+	for _, tc := range cases {
+		project := writeProject(t, map[string]string{
+			"offloader.yml":               "version: 1\n",
+			"datasets/customer_usage.yml": goodDataset,
+			"endpoints/e.yml":             tc.endpoint,
+		})
+		fs := validateProject(project)
+		if !slicesContains(fs.codes(), tc.wantCode) {
+			t.Errorf("%s: expected %q in findings, got %v", tc.name, tc.wantCode, fs.codes())
+		}
+	}
+
+	// and a fully valid endpoint with both features passes
+	valid := base + `params:
+  - { name: rank, type: enum, enum: [gold, silver], aliases: { GOLD: gold } }
+  - { name: map_code, type: string }
+combinations: [[rank], [rank, map_code]]
+`
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\n",
+		"datasets/customer_usage.yml": goodDataset,
+		"endpoints/e.yml":             valid,
+	})
+	if fs := validateProject(project); len(fs) != 0 {
+		t.Fatalf("valid combinations/aliases endpoint had findings: %v", fs)
+	}
+}
+
+func slicesContains(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
+}

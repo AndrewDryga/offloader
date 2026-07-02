@@ -34,6 +34,7 @@ defmodule Offloader.Catalog.Endpoint do
     :freshness_minutes,
     :tenant_column,
     :params,
+    :combinations,
     :group_by,
     :select,
     :filters,
@@ -44,7 +45,7 @@ defmodule Offloader.Catalog.Endpoint do
     :cache_policy
   ]
 
-  @top_keys ~w(name version owner description dataset serving_mode freshness tenant params query columns pagination cache)
+  @top_keys ~w(name version owner description dataset serving_mode freshness tenant params combinations query columns pagination cache)
   @serving_modes ~w(local_table remote_scan)
   @param_types ~w(string integer date enum)
   @aggs ~w(sum avg min max count)
@@ -74,6 +75,7 @@ defmodule Offloader.Catalog.Endpoint do
         freshness_errors(raw, file) ++
         tenant_errors(raw, file, dataset) ++
         param_errors(params, file) ++
+        combinations_errors(raw, file, param_names) ++
         query_errors(raw, file, dataset, param_names, select_as) ++
         columns_errors(raw, file, select_as) ++
         pagination_errors(raw, file) ++
@@ -281,14 +283,118 @@ defmodule Offloader.Catalog.Endpoint do
   end
 
   defp one_param_errors(p, path, file) when is_map(p) do
-    Parse.unknown_keys(p, ~w(name type required default enum max), file, path) ++
+    Parse.unknown_keys(p, ~w(name type required default enum max aliases), file, path) ++
       name_err(p["name"], path, file) ++
       type_err(p, path, file) ++
-      default_err(p, path, file)
+      default_err(p, path, file) ++
+      aliases_err(p, path, file)
   end
 
   defp one_param_errors(_p, path, file),
     do: [Error.new(file, path, :invalid_type, "param must be a mapping")]
+
+  # `aliases` maps a CLIENT value to the stored value before the filter binds — a
+  # value-level rewrite only, never an identifier. Allowed on string/enum params; for
+  # an enum, every alias target must itself be an allowed enum value, so aliasing can
+  # never smuggle a value past the enum allowlist.
+  defp aliases_err(%{"aliases" => nil}, _path, _file), do: []
+
+  defp aliases_err(%{"aliases" => aliases} = p, path, file) when is_map(aliases) do
+    apath = Parse.join(path, "aliases")
+
+    shape_errors =
+      for {k, v} <- aliases, not (is_binary(k) and is_binary(v)) do
+        Error.new(file, apath, :invalid_type, "alias #{inspect(k)} must map a string to a string")
+      end
+
+    type_errors =
+      case p["type"] do
+        t when t in ["string", "enum"] ->
+          []
+
+        t ->
+          [
+            Error.new(
+              file,
+              apath,
+              :invalid_value,
+              "aliases are not supported on #{inspect(t)} params",
+              "only string and enum params can declare aliases"
+            )
+          ]
+      end
+
+    enum_errors =
+      if p["type"] == "enum" and is_list(p["enum"]) do
+        for {k, v} <- aliases, not Enum.member?(p["enum"], v) do
+          Error.new(
+            file,
+            apath,
+            :invalid_value,
+            "alias #{inspect(k)} maps to #{inspect(v)} which is not an allowed enum value"
+          )
+        end
+      else
+        []
+      end
+
+    shape_errors ++ type_errors ++ enum_errors
+  end
+
+  defp aliases_err(%{"aliases" => _bad}, path, file),
+    do: [Error.new(file, Parse.join(path, "aliases"), :invalid_type, "aliases must be a mapping")]
+
+  defp aliases_err(_p, _path, _file), do: []
+
+  # `combinations` restricts which SETS of declared params a request may send (upstream
+  # semantics: exact set match, checked before defaults). Each combination must be a
+  # list of declared param names, without duplicates.
+  defp combinations_errors(raw, file, param_names) do
+    case raw["combinations"] do
+      nil ->
+        []
+
+      combos when is_list(combos) ->
+        combos
+        |> Enum.with_index()
+        |> Enum.flat_map(fn {combo, i} ->
+          one_combination_errors(combo, Parse.index("combinations", i), file, param_names)
+        end)
+
+      _ ->
+        [
+          Error.new(
+            file,
+            "combinations",
+            :invalid_type,
+            "combinations must be a list of param-name lists"
+          )
+        ]
+    end
+  end
+
+  defp one_combination_errors(combo, path, file, param_names) when is_list(combo) do
+    unknown =
+      for name <- combo, not Enum.member?(param_names, name) do
+        Error.new(
+          file,
+          path,
+          :unknown_param,
+          "combination references param #{inspect(name)} which is not declared"
+        )
+      end
+
+    dup =
+      case Parse.duplicates(combo) do
+        [] -> []
+        d -> [Error.new(file, path, :duplicate_param, "duplicate name(s): #{Enum.join(d, ", ")}")]
+      end
+
+    unknown ++ dup
+  end
+
+  defp one_combination_errors(_combo, path, file, _param_names),
+    do: [Error.new(file, path, :invalid_type, "combination must be a list of param names")]
 
   # A declared default must satisfy the param's own type, so a bad default is a config
   # error at load — not a runtime surprise when the param is first omitted.
@@ -820,6 +926,7 @@ defmodule Offloader.Catalog.Endpoint do
       freshness_minutes: get_in(raw, ["freshness", "max_staleness_minutes"]),
       tenant_column: get_in(raw, ["tenant", "column"]),
       params: Enum.map(params, &Param.build/1),
+      combinations: raw["combinations"] || [],
       group_by: q["group_by"] || [],
       select: Enum.map(q["select"], fn s -> Select.build(s, types[s["column"]] == "JSON") end),
       filters: Enum.map(q["filters"] || [], &Filter.build/1),
@@ -837,7 +944,7 @@ end
 defmodule Offloader.Catalog.Endpoint.Param do
   @moduledoc "A declared request parameter."
   @enforce_keys [:name, :type, :required]
-  defstruct [:name, :type, :required, :default, :enum, :max]
+  defstruct [:name, :type, :required, :default, :enum, :max, :aliases]
 
   def build(p) do
     %__MODULE__{
@@ -846,7 +953,8 @@ defmodule Offloader.Catalog.Endpoint.Param do
       required: p["required"] == true,
       default: normalize_default(p["type"], p["default"]),
       enum: p["enum"],
-      max: p["max"]
+      max: p["max"],
+      aliases: p["aliases"]
     }
   end
 
