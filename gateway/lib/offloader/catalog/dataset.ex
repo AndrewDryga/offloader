@@ -180,7 +180,7 @@ defmodule Offloader.Catalog.Dataset do
     case raw["tenant_column"] do
       col when is_binary(col) ->
         cond do
-          not Identifier.valid?(col) ->
+          not Identifier.valid_column?(col) ->
             [
               Error.new(
                 file,
@@ -230,7 +230,7 @@ defmodule Offloader.Catalog.Dataset do
       path = Parse.index("schema", i)
 
       name_err =
-        if is_map(col) and Identifier.valid?(col["name"]),
+        if is_map(col) and Identifier.valid_column?(col["name"]),
           do: [],
           else: [
             Error.new(

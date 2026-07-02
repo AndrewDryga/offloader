@@ -196,7 +196,7 @@ defmodule Offloader.Catalog.Endpoint do
       {%{"column" => col} = t, ds_col} when is_binary(ds_col) ->
         Parse.unknown_keys(t, ~w(column), file, "tenant") ++
           cond do
-            not (is_binary(col) and Identifier.valid?(col)) ->
+            not (is_binary(col) and Identifier.valid_column?(col)) ->
               [
                 Error.new(
                   file,
@@ -872,7 +872,7 @@ defmodule Offloader.Catalog.Endpoint do
 
   defp column_in_dataset(col, path, file, dataset) do
     cond do
-      not (is_binary(col) and Identifier.valid?(col)) ->
+      not (is_binary(col) and Identifier.valid_column?(col)) ->
         [
           Error.new(
             file,
@@ -897,8 +897,9 @@ defmodule Offloader.Catalog.Endpoint do
     end
   end
 
+  # Select `as` names are response keys mirroring source columns (camelCase etc.).
   defp identifier_at(v, path, file) do
-    if is_binary(v) and Identifier.valid?(v),
+    if is_binary(v) and Identifier.valid_column?(v),
       do: [],
       else: [
         Error.new(

@@ -65,6 +65,13 @@ var identRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 func safeIdent(s string) bool { return identRe.MatchString(s) }
 
+// Column names are producer-shaped (camelCase, digit-leading) but still must be
+// safe to quote into SQL: letters/digits/underscores only. Mirrors
+// Offloader.Catalog.Identifier.valid_column?/1.
+var columnRe = regexp.MustCompile(`^[A-Za-z0-9_]{1,63}$`)
+
+func safeColumn(s string) bool { return columnRe.MatchString(s) }
+
 var remotePathRe = regexp.MustCompile(`(?i)^(s3|gs|gcs|az|azure|r2|http|https)://`)
 
 // isRemotePath reports whether a manifest file path is a remote URL DuckDB reads over

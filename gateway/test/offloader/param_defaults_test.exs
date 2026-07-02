@@ -64,7 +64,7 @@ defmodule Offloader.ParamDefaultsTest do
       {:ok, ep} = rank_endpoint(%{"default" => "ALL"})
       {:ok, plan} = Compiler.compile(ep, %{}, nil, {:table, "stats"})
 
-      assert plan.sql =~ ~s|"rank" = $1|
+      assert plan.sql =~ ~s|CAST("rank" AS VARCHAR) = $1|
       assert hd(plan.params) == "ALL"
     end
 

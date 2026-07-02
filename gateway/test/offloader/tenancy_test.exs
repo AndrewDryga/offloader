@@ -103,7 +103,7 @@ defmodule Offloader.TenancyTest do
 
       refute plan.sql =~ "tenant"
       # the one request filter is $1 (not $2), and there is no tenant param
-      assert plan.sql =~ ~s|"patch" = $1|
+      assert plan.sql =~ ~s|CAST("patch" AS VARCHAR) = $1|
       assert hd(plan.params) == "16.13"
     end
 

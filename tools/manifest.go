@@ -94,7 +94,7 @@ func checkManifestSchema(rel string, schema []columnYML, out *findings) {
 	var names []string
 	for i, c := range schema {
 		p := fmt.Sprintf("schema[%d]", i)
-		if !safeIdent(c.Name) {
+		if !safeColumn(c.Name) {
 			out.add(rel, p+".name", "unsafe_identifier", fmt.Sprintf("column name %q is not a safe identifier", c.Name), "")
 		}
 		if !supportedTypes[c.Type] {

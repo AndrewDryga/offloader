@@ -72,12 +72,34 @@ error bodies, or support bundles (values are scrubbed; bundles are redacted).
 
 - `offloader validate`
 - `offloader manifest validate`
+- `offloader import-schema`
 - `offloader endpoint test`
 - `offloader snapshot status`
 - `offloader keys create`
 - `offloader diff`
 - `offloader doctor`
 - `offloader support-bundle`
+
+### Importing a upstream-style serving schema
+
+`offloader import-schema` generates a whole Offloader project from a
+`serving_schema.json` (one dataset per `{game,table}` as a Databricks GCS source, one
+endpoint per query, upstream `defaults`/`combinations`/`param_aliases` preserved, plus a
+`mapping.json` for the cutover diff harness). Column types are not in the schema file
+(the source is `SELECT *`), so supply a hints file — one DESCRIBE per table, mapping
+nested `STRUCT`/`MAP`/`LIST` columns to `JSON`:
+
+```bash
+# one row per {game,table}: {"game__table": [{"name":"c","type":"VARCHAR"}, ...]}
+offloader import-schema \
+  --from serving_schema.json --hints schema_hints.json \
+  --out ./project --bucket databricks-serving-databases
+```
+
+Queries whose params aren't columns of their table (or whose table has no hints) fail
+the run so nothing is silently mis-served; `--skip-broken` converts the rest and reports
+each skip. The output passes `offloader validate` and serves live once GCS credentials
+are set (see below).
 
 ## Config layout
 

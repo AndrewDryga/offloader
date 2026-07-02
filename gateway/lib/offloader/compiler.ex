@@ -272,8 +272,9 @@ defmodule Offloader.Compiler do
       present
       |> Enum.with_index(first_filter_idx)
       |> Enum.reduce({[], []}, fn {f, idx}, {sqls, params} ->
-        cast = if date_param?(endpoint, f.param), do: "::DATE", else: ""
-        sql = ~s(#{ident(f.column)} #{@ops[f.op]} $#{idx}#{cast})
+        sql =
+          ~s(#{filter_column_sql(endpoint, f)} #{@ops[f.op]} $#{idx}#{param_cast(endpoint, f)})
+
         {[sql | sqls], [coerced[f.param] | params]}
       end)
 
@@ -361,8 +362,23 @@ defmodule Offloader.Compiler do
 
   defp find_select(endpoint, as), do: Enum.find(endpoint.select, &(&1.as == as))
 
-  defp date_param?(endpoint, name) do
-    Enum.any?(endpoint.params, &(&1.name == name and &1.type == "date"))
+  # A string/enum-param filter compares stringly — CAST(col AS VARCHAR) = $n — so a
+  # string value like "ALL" against a non-VARCHAR column filters to no rows instead of
+  # erroring (upstream_serving_api semantics; a no-op cast on VARCHAR columns). Date params
+  # cast the PARAM side (::DATE); integer params compare natively.
+  defp filter_column_sql(endpoint, f) do
+    case param_type(endpoint, f.param) do
+      t when t in ["string", "enum"] -> "CAST(#{ident(f.column)} AS VARCHAR)"
+      _ -> ident(f.column)
+    end
+  end
+
+  defp param_cast(endpoint, f) do
+    if param_type(endpoint, f.param) == "date", do: "::DATE", else: ""
+  end
+
+  defp param_type(endpoint, name) do
+    Enum.find_value(endpoint.params, fn p -> if p.name == name, do: p.type end)
   end
 
   # local_table reads a materialized view/table; remote_scan reads the source files

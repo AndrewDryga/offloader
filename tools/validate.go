@@ -178,7 +178,7 @@ func datasetSchema(ds datasetYML, rel string, out *findings) map[string]bool {
 	var all []string
 	for i, c := range ds.Schema {
 		p := fmt.Sprintf("schema[%d]", i)
-		if !safeIdent(c.Name) {
+		if !safeColumn(c.Name) {
 			out.add(rel, p+".name", "unsafe_identifier", fmt.Sprintf("column name %q is missing or not a safe identifier", c.Name), "")
 		}
 		if !supportedTypes[c.Type] {

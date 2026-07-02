@@ -255,7 +255,7 @@ defmodule Offloader.Manifest do
 
   defp one_column(c, path, rel) when is_map(c) do
     name_err =
-      if Identifier.valid?(c["name"]),
+      if Identifier.valid_column?(c["name"]),
         do: [],
         else: [
           Error.new(
