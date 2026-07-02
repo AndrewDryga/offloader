@@ -1,0 +1,65 @@
+{
+  "title": "Offloader",
+  "uid": "offloader",
+  "tags": ["offloader"],
+  "schemaVersion": 39,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Ready",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "offloader_ready", "refId": "A" }]
+    },
+    {
+      "id": 2,
+      "title": "DuckDB up",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "offloader_duckdb_up", "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "title": "Cache disk free (bytes)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "offloader_cache_disk_free_bytes", "refId": "A" }]
+    },
+    {
+      "id": 4,
+      "title": "Snapshot age (seconds) by dataset",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "expr": "offloader_snapshot_age_seconds", "legendFormat": "{{dataset}}", "refId": "A" }]
+    },
+    {
+      "id": 5,
+      "title": "Refresh OK / Source reachable by dataset",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "offloader_refresh_ok", "legendFormat": "refresh_ok {{dataset}}", "refId": "A" },
+        { "expr": "offloader_source_reachable", "legendFormat": "source {{dataset}}", "refId": "B" }
+      ]
+    }
+  ]
+}
