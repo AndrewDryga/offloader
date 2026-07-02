@@ -45,4 +45,16 @@ defmodule Offloader.Config do
   """
   @spec object_store() :: map() | nil
   def object_store, do: Application.get_env(:offloader, :object_store)
+
+  @doc """
+  DuckDB per-database thread cap (`OFFLOADER_DUCKDB_THREADS`), or nil for the DuckDB
+  default (all host cores). Set this in a container: DuckDB sees host cores, not the
+  cgroup limit, so with the read pool it can oversubscribe and thrash.
+  """
+  @spec duckdb_threads() :: pos_integer() | nil
+  def duckdb_threads, do: Application.get_env(:offloader, :duckdb_threads)
+
+  @doc "DuckDB memory limit (`OFFLOADER_DUCKDB_MEMORY_LIMIT`, e.g. \"2GB\"), or nil for the default."
+  @spec duckdb_memory_limit() :: String.t() | nil
+  def duckdb_memory_limit, do: Application.get_env(:offloader, :duckdb_memory_limit)
 end

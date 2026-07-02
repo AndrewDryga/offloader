@@ -138,6 +138,7 @@ defmodule Offloader.Engine do
 
     with {:ok, db} <- Duckdbex.open(db_path),
          {:ok, writer} <- new_connection(db, object_store),
+         :ok <- apply_db_settings(writer),
          {:ok, pool} <- build_pool(db, size, object_store) do
       :persistent_term.put({__MODULE__, self()}, pool)
       Logger.info("Offloader engine: DuckDB ready with a #{size}-connection read pool")
@@ -386,6 +387,33 @@ defmodule Offloader.Engine do
     with {:ok, _} <- Duckdbex.query(conn, "SET autoinstall_known_extensions=true;"),
          {:ok, _} <- Duckdbex.query(conn, "SET autoload_known_extensions=true;") do
       :ok
+    end
+  end
+
+  # threads/memory_limit are DuckDB-global, so applying them once (on the writer) caps
+  # the whole database — including pool connections. In a container, bound threads to
+  # the cgroup CPU: DuckDB otherwise sees all host cores and oversubscribes under load.
+  defp apply_db_settings(conn) do
+    with :ok <- set_threads(conn, Offloader.Config.duckdb_threads()) do
+      set_memory_limit(conn, Offloader.Config.duckdb_memory_limit())
+    end
+  end
+
+  defp set_threads(_conn, nil), do: :ok
+
+  defp set_threads(conn, n) when is_integer(n) and n > 0 do
+    case Duckdbex.query(conn, "SET threads TO #{n};") do
+      {:ok, _} -> :ok
+      {:error, msg} -> {:error, Error.new(:settings_failed, to_string(msg))}
+    end
+  end
+
+  defp set_memory_limit(_conn, nil), do: :ok
+
+  defp set_memory_limit(conn, limit) when is_binary(limit) do
+    case Duckdbex.query(conn, "SET memory_limit = '#{Offloader.Sql.escape(limit)}';") do
+      {:ok, _} -> :ok
+      {:error, msg} -> {:error, Error.new(:settings_failed, to_string(msg))}
     end
   end
 

@@ -50,6 +50,18 @@ config :offloader,
   object_store_mode: System.get_env("OFFLOADER_OBJECT_STORE_MODE") || "local",
   pool_size: pool_size,
   object_store: object_store,
+  duckdb_threads:
+    (case System.get_env("OFFLOADER_DUCKDB_THREADS") do
+       nil ->
+         nil
+
+       raw ->
+         case Integer.parse(raw) do
+           {n, ""} when n > 0 -> n
+           _ -> nil
+         end
+     end),
+  duckdb_memory_limit: System.get_env("OFFLOADER_DUCKDB_MEMORY_LIMIT"),
   # Gates the admin /diagnostics route. Unset => diagnostics fail closed (403).
   admin_token: System.get_env("OFFLOADER_ADMIN_TOKEN")
 

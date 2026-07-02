@@ -120,6 +120,18 @@ defmodule Offloader.EngineTest do
     assert n > 0
   end
 
+  test "applies OFFLOADER_DUCKDB_THREADS as a global DuckDB cap" do
+    prev = Application.get_env(:offloader, :duckdb_threads)
+    Application.put_env(:offloader, :duckdb_threads, 2)
+    on_exit(fn -> Application.put_env(:offloader, :duckdb_threads, prev) end)
+
+    dir = Path.join(System.tmp_dir!(), "offl_threads_#{System.unique_integer([:positive])}")
+    {:ok, eng} = Engine.start_link(cache_dir: dir)
+    on_exit(fn -> if Process.alive?(eng), do: Engine.stop(eng) end)
+
+    assert {:ok, %{rows: [[2]]}} = Engine.execute(eng, "SELECT current_setting('threads')")
+  end
+
   test "reads run concurrently across the pool and stay correct", %{eng: eng} do
     # Many concurrent reads on one engine must each get the right answer — proving
     # execute/3 runs in the caller (pooled), not serialized through one connection.
