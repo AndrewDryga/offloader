@@ -41,9 +41,32 @@ Acceptance:
 - `OFFLOADER_LOG_LEVEL`
 - `OFFLOADER_OBJECT_STORE_MODE`
 
+Tuning (optional): `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
+`OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the
+container's cgroup allocation).
+
 Source-specific object-store credentials are configured only when the mounted
 config references that source. Offloader should not require cloud-provider env
 vars or outbound telemetry for the local golden path.
+
+### Remote snapshot credentials (optional)
+
+A manifest whose `files[].path` is an `s3://`, `gs://`, or `https://` URL is read
+directly by DuckDB (httpfs). Two credential modes:
+
+- **S3-compatible / GCS HMAC** — `OFFLOADER_S3_TYPE=s3|gcs` plus
+  `OFFLOADER_S3_KEY_ID`, `OFFLOADER_S3_SECRET` (and for S3: `OFFLOADER_S3_REGION`,
+  `OFFLOADER_S3_ENDPOINT`, `OFFLOADER_S3_URL_STYLE`, `OFFLOADER_S3_SESSION_TOKEN`,
+  `OFFLOADER_S3_USE_SSL`). Covers `s3://` and `gs://` paths.
+- **GCS OAuth bearer** — `OFFLOADER_GCS_AUTH=bearer`. Tokens come from, in order:
+  `OFFLOADER_GCS_TOKEN` (explicit), the GCE metadata server (the GKE/GCE production
+  path), or the `gcloud` CLI (developer laptops). The token is registered as a
+  DuckDB HTTP secret covering `https://storage.googleapis.com/...` reads and is
+  rotated automatically before expiry. The Databricks GCS source
+  (`Offloader.Source.Databricks`) uses the same tokens for listings and commit reads.
+
+Explicit HMAC credentials win when both are set. Credentials never appear in logs,
+error bodies, or support bundles (values are scrubbed; bundles are redacted).
 
 ## Useful helper commands
 

@@ -12,11 +12,12 @@ OFFLOADER_ADMIN_TOKEN=supersecrettoken
 password: hunter2
 source_uri: s3://AKIAEXAMPLEID:topSecretKey@bucket/prefix
 Authorization: Bearer offl_deadbeefcafe
+CREATE OR REPLACE SECRET offloader_store (TYPE HTTP, BEARER_TOKEN 'ya29.gcsAccessToken');
 hash: "745ce437a64ab1f020c303be50aa3785e742b72e61533d692f7aa024ff16b121"`
 
 	out := redact(in)
 
-	for _, leak := range []string{"abc123SECRETbase", "supersecrettoken", "hunter2", "topSecretKey", "offl_deadbeefcafe"} {
+	for _, leak := range []string{"abc123SECRETbase", "supersecrettoken", "hunter2", "topSecretKey", "offl_deadbeefcafe", "ya29.gcsAccessToken"} {
 		if strings.Contains(out, leak) {
 			t.Errorf("redact leaked %q:\n%s", leak, out)
 		}

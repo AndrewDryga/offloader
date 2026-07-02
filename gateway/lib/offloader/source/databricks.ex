@@ -14,10 +14,11 @@ defmodule Offloader.Source.Databricks do
   the newest `_committed_<tid>` (verified against the production bucket). Vacuum
   commits (`_committed_vacuum<tid>`) are cleanup markers, not data, and are skipped.
 
-  The resolved manifest carries `gs://` file URLs (DuckDB reads them via httpfs with
-  `Offloader.ObjectStore` credentials) and the DATASET's declared schema: Databricks
-  ships no schema in the commit, so the dataset contract is the declaration and the
-  parquet itself is the authority at materialize time.
+  The resolved manifest carries remote file URLs — `gs://` under HMAC credentials,
+  otherwise the HTTPS form covered by the bearer HTTP secret (`Offloader.Gcs.Client.
+  object_url/2` picks per the configured auth) — and the DATASET's declared schema:
+  Databricks ships no schema in the commit, so the dataset contract is the declaration
+  and the parquet itself is the authority at materialize time.
 
   GCS access goes through an `Offloader.Source.GcsClient` so this logic is tested
   with fixture listings; the real client owns HTTP + credentials.
@@ -92,7 +93,10 @@ defmodule Offloader.Source.Databricks do
 
     files =
       for part <- added do
-        %{"path" => "gs://#{bucket}/#{prefix}#{part}", "format" => "parquet"}
+        %{
+          "path" => Offloader.Gcs.Client.object_url(bucket, prefix <> part),
+          "format" => "parquet"
+        }
       end
 
     %Manifest{

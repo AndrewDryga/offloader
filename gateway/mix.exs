@@ -31,7 +31,8 @@ defmodule Offloader.MixProject do
   def application do
     [
       mod: {Offloader.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      # inets/ssl: the GCS client (Offloader.Gcs.Client) speaks HTTP via :httpc.
+      extra_applications: [:logger, :runtime_tools, :inets, :ssl]
     ]
   end
 

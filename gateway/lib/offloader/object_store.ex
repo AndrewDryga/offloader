@@ -30,26 +30,60 @@ defmodule Offloader.ObjectStore do
 
   @doc """
   Apply object-store credentials to a DuckDB `conn`. No-op (`:ok`) when `config` is
-  `nil` (local mode). Otherwise loads `httpfs` and registers the secret.
+  `nil` (local mode). Otherwise loads `httpfs` and registers the secret. For
+  `type: "gcs_bearer"` the token comes from `Offloader.Gcs.TokenCache` (or an explicit
+  `:token`, mainly for tests). Errors never echo a credential — values are scrubbed.
   """
   @spec configure(reference(), t() | nil) :: :ok | {:error, term()}
   def configure(_conn, nil), do: :ok
 
   def configure(conn, %{} = config) do
-    with {:ok, _} <- Duckdbex.query(conn, "INSTALL httpfs;"),
+    with {:ok, resolved} <- resolve_credentials(config),
+         {:ok, _} <- Duckdbex.query(conn, "INSTALL httpfs;"),
          {:ok, _} <- Duckdbex.query(conn, "LOAD httpfs;"),
-         {:ok, _} <- Duckdbex.query(conn, secret_ddl(config)) do
+         {:ok, _} <- Duckdbex.query(conn, secret_ddl(resolved)) do
       :ok
     else
-      {:error, reason} -> {:error, reason}
+      {:error, reason} -> {:error, scrub(reason, config)}
     end
   end
+
+  # Bearer mode resolves its token at apply time, so a re-apply after a token refresh
+  # registers the CURRENT token (the engine re-applies periodically).
+  defp resolve_credentials(%{type: "gcs_bearer"} = config) do
+    case config[:token] do
+      token when is_binary(token) and token != "" ->
+        {:ok, config}
+
+      _ ->
+        with {:ok, token} <- Offloader.Gcs.TokenCache.get() do
+          {:ok, Map.put(config, :token, token)}
+        end
+    end
+  end
+
+  defp resolve_credentials(config), do: {:ok, config}
+
+  # Replace any configured credential value that leaked into an error message.
+  defp scrub(reason, config) when is_binary(reason) do
+    [:secret, :token, :key_id, :session_token]
+    |> Enum.map(&config[&1])
+    |> Enum.filter(&(is_binary(&1) and &1 != ""))
+    |> Enum.reduce(reason, &String.replace(&2, &1, "[redacted]"))
+  end
+
+  defp scrub(reason, _config), do: reason
 
   @doc """
   The `CREATE OR REPLACE SECRET` DDL for a config. Pure and testable; values are
   single-quote-escaped. Public so it can be unit-tested without a live connection.
   """
   @spec secret_ddl(t()) :: String.t()
+  def secret_ddl(%{type: "gcs_bearer", token: token}) do
+    "CREATE OR REPLACE SECRET offloader_store " <>
+      "(TYPE HTTP, BEARER_TOKEN '#{Sql.escape(token)}');"
+  end
+
   def secret_ddl(%{type: type} = config) do
     fields =
       config

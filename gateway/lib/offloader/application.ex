@@ -9,6 +9,8 @@ defmodule Offloader.Application do
     children =
       [
         Offloader.Telemetry,
+        # GCS bearer-token cache: idle unless a GCS source / gcs_bearer store is used.
+        Offloader.Gcs.TokenCache,
         # Product traffic (endpoint API keys, tenant enforcement — added by later tasks).
         OffloaderWeb.ApiEndpoint,
         # Operator surface (health/metrics/diagnostics/docs). Keep it off the API port.

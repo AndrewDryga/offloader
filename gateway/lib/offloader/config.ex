@@ -42,9 +42,15 @@ defmodule Offloader.Config do
   @doc """
   Remote object-store credentials parsed from `OFFLOADER_S3_*` / `OFFLOADER_GCS_*`
   env, or nil for local-filesystem mode. Shape documented in `Offloader.ObjectStore`.
+  `%{type: "gcs_bearer"}` (from `OFFLOADER_GCS_AUTH=bearer`) reads GCS over HTTPS with
+  OAuth bearer tokens resolved at apply time (`Offloader.Gcs.Token` chain).
   """
   @spec object_store() :: map() | nil
   def object_store, do: Application.get_env(:offloader, :object_store)
+
+  @doc "An explicit GCS access token (`OFFLOADER_GCS_TOKEN`), or nil to use the token chain."
+  @spec gcs_token() :: String.t() | nil
+  def gcs_token, do: Application.get_env(:offloader, :gcs_token)
 
   @doc """
   DuckDB per-database thread cap (`OFFLOADER_DUCKDB_THREADS`), or nil for the DuckDB

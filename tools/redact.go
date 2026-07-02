@@ -13,6 +13,8 @@ var (
 	credentialedURI = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.\-]*://[^:/@\s]+:)([^@/\s]+)(@)`)
 	// Authorization: Bearer <token>.
 	bearer = regexp.MustCompile(`(?i)(bearer\s+)(\S+)`)
+	// DuckDB secret DDL: BEARER_TOKEN '<token>' (the gcs_bearer object store).
+	bearerDDL = regexp.MustCompile(`(?i)(bearer_token\s+')([^']*)(')`)
 )
 
 const mask = "***REDACTED***"
@@ -21,6 +23,7 @@ const mask = "***REDACTED***"
 func redact(text string) string {
 	out := secretField.ReplaceAllString(text, `${1}${2}`+mask+`${4}`)
 	out = credentialedURI.ReplaceAllString(out, `${1}`+mask+`${3}`)
+	out = bearerDDL.ReplaceAllString(out, `${1}`+mask+`${3}`)
 	out = bearer.ReplaceAllString(out, `${1}`+mask)
 	return out
 }

@@ -141,12 +141,38 @@ defmodule Offloader.Engine do
          :ok <- apply_db_settings(writer),
          {:ok, pool} <- build_pool(db, size, object_store) do
       :persistent_term.put({__MODULE__, self()}, pool)
+      schedule_secret_refresh(object_store)
       Logger.info("Offloader engine: DuckDB ready with a #{size}-connection read pool")
       {:ok, %__MODULE__{db: db, writer: writer, cache_dir: cache_dir, pool: pool}}
     else
       {:error, reason} -> {:stop, {:engine_open_failed, reason}}
     end
   end
+
+  # Bearer tokens expire (~1h); re-registering the secret on the writer rotates the
+  # credential for EVERY connection of this database instance (verified: CREATE OR
+  # REPLACE SECRET propagates immediately). A failed refresh retries sooner and keeps
+  # serving — the old token stays valid until Google expires it.
+  @impl true
+  def handle_info(:refresh_object_store, state) do
+    object_store = state.pool.object_store
+
+    case Offloader.ObjectStore.configure(state.writer, object_store) do
+      :ok ->
+        schedule_secret_refresh(object_store)
+
+      {:error, reason} ->
+        Logger.warning("Offloader engine: object-store secret refresh failed: #{inspect(reason)}")
+        Process.send_after(self(), :refresh_object_store, :timer.minutes(1))
+    end
+
+    {:noreply, state}
+  end
+
+  defp schedule_secret_refresh(%{type: "gcs_bearer"}),
+    do: Process.send_after(self(), :refresh_object_store, :timer.minutes(15))
+
+  defp schedule_secret_refresh(_), do: :ok
 
   @impl true
   def terminate(_reason, _state) do

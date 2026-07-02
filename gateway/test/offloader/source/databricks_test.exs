@@ -2,7 +2,8 @@ defmodule Offloader.Source.DatabricksTest do
   # Fixture-driven: the fake GcsClient mirrors the REAL production bucket layout
   # (verified live): _committed_<tid> JSON with "added"/"removed", _committed_vacuum*
   # markers, and stale parts from older tids still present in the directory.
-  use ExUnit.Case, async: true
+  # async: false — one test swaps the global :object_store app env.
+  use ExUnit.Case, async: false
 
   alias Offloader.Manifest
   alias Offloader.Source.Databricks
@@ -77,9 +78,10 @@ defmodule Offloader.Source.DatabricksTest do
     assert m.watermark == "2026-07-02T01:00:00Z"
     assert m.upstream_run_id == "222"
 
+    # no HMAC configured in tests → the bearer-covered HTTPS form
     assert Enum.map(m.files, & &1["path"]) == [
-             "gs://b/#{@prefix}part-1-tid-222.parquet",
-             "gs://b/#{@prefix}part-2-tid-222.parquet"
+             "https://storage.googleapis.com/b/#{@prefix}part-1-tid-222.parquet",
+             "https://storage.googleapis.com/b/#{@prefix}part-2-tid-222.parquet"
            ]
 
     assert Enum.all?(m.files, &(&1["format"] == "parquet"))
@@ -152,7 +154,23 @@ defmodule Offloader.Source.DatabricksTest do
 
     {:ok, m} = Databricks.resolve(config())
     sql = Offloader.Sql.read_files_expr(m.files, m.dir)
-    assert sql == "SELECT * FROM read_parquet('gs://b/#{@prefix}part-1-tid-777.parquet')"
+
+    assert sql ==
+             "SELECT * FROM read_parquet('https://storage.googleapis.com/b/#{@prefix}part-1-tid-777.parquet')"
+  end
+
+  test "object URLs switch to gs:// when HMAC credentials are configured" do
+    prev = Application.get_env(:offloader, :object_store)
+    Application.put_env(:offloader, :object_store, %{type: "gcs", key_id: "k", secret: "s"})
+    on_exit(fn -> Application.put_env(:offloader, :object_store, prev) end)
+
+    seed(
+      [commit("888", "2026-07-01T00:00:00Z")],
+      %{"#{@prefix}_committed_888" => ~s({"added":["p.parquet"],"removed":[]})}
+    )
+
+    {:ok, m} = Databricks.resolve(config())
+    assert hd(m.files)["path"] == "gs://b/#{@prefix}p.parquet"
   end
 
   test "equal timestamps tie-break by name (deterministic)" do

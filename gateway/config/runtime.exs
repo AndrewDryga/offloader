@@ -18,10 +18,13 @@ pool_size =
   end
 
 # Remote object store — unset => local filesystem. Set OFFLOADER_S3_TYPE=s3|gcs to
-# read snapshot files from s3:// / gs:// URLs (GCS uses HMAC KEY_ID/SECRET).
+# read snapshot files from s3:// / gs:// URLs (GCS uses HMAC KEY_ID/SECRET), or
+# OFFLOADER_GCS_AUTH=bearer to read GCS over HTTPS with OAuth bearer tokens (from
+# OFFLOADER_GCS_TOKEN, the GCE metadata server, or the gcloud CLI — in that order).
+# Explicit HMAC credentials win when both are set.
 object_store =
-  case System.get_env("OFFLOADER_S3_TYPE") do
-    type when type in ["s3", "gcs"] ->
+  case {System.get_env("OFFLOADER_S3_TYPE"), System.get_env("OFFLOADER_GCS_AUTH")} do
+    {type, _} when type in ["s3", "gcs"] ->
       %{
         type: type,
         key_id: System.get_env("OFFLOADER_S3_KEY_ID"),
@@ -38,6 +41,9 @@ object_store =
           end
       }
 
+    {_, "bearer"} ->
+      %{type: "gcs_bearer"}
+
     _ ->
       nil
   end
@@ -50,6 +56,7 @@ config :offloader,
   object_store_mode: System.get_env("OFFLOADER_OBJECT_STORE_MODE") || "local",
   pool_size: pool_size,
   object_store: object_store,
+  gcs_token: System.get_env("OFFLOADER_GCS_TOKEN"),
   duckdb_threads:
     (case System.get_env("OFFLOADER_DUCKDB_THREADS") do
        nil ->
