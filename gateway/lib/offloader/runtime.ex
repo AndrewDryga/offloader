@@ -1,8 +1,9 @@
 defmodule Offloader.Runtime do
   @moduledoc """
   Ties the catalog, the DuckDB engine, and each dataset's snapshot state together,
-  and serves requests. On start it loads the project (`OFFLOADER_CONFIG`) and
-  refreshes every dataset once.
+  and serves requests. On start it loads the project (`OFFLOADER_CONFIG`), seeds any
+  snapshots still materialized on disk (warm start), refreshes every dataset once,
+  and starts one `Offloader.Refresh.Worker` per dataset.
 
   ## Reads bypass the GenServer
 
@@ -10,25 +11,26 @@ defmodule Offloader.Runtime do
   process, not the GenServer's mailbox. The immutable catalog lives in
   `:persistent_term`; per-dataset snapshot state and the response cache live in
   concurrent ETS tables. `serve/5`, `authorize/3`, `diagnostics/1`, and the health
-  reads all hit those directly — a multi-second `materialize` on the writer never
-  blocks a request or a liveness probe.
+  reads all hit those directly — a multi-second `materialize` never blocks a request
+  or a liveness probe.
 
-  The GenServer owns only WRITES: `refresh` and `rollback` mutate the snapshot ETS
-  (and drop the response cache) under its single mailbox, so a candidate snapshot is
-  validated, checked for compatibility, and materialized into a NEW table before the
-  active view is atomically swapped. A failed validation or materialization leaves
-  the current snapshot serving untouched and only records the failed attempt — the
-  gateway never serves partial or breaking data. The previous good snapshot is
-  retained so `rollback/2` can revert.
+  ## Refresh is per-dataset workers; the Runtime applies the bookkeeping
 
-  Per dataset the state is `%{active, previous, last_attempted}`. An optional
-  `:refresh_interval_ms` polls; by default refresh is manual/boot-only.
+  Each dataset's poll loop lives in its own supervised `Refresh.Worker`, so a slow or
+  wedged source delays only that dataset. The slow work (resolve, materialize, swap —
+  see `Offloader.Refresh`) runs in the worker; the worker then hands the outcome to
+  this GenServer (`{:apply_refresh, ...}`), which remains the single writer of the
+  snapshot ETS, the response cache, and the warm-start sidecar. A failed or rejected
+  refresh records the attempt and leaves the active snapshot serving. The previous
+  good snapshot is retained so `rollback/2` can revert — including across a restart,
+  via the sidecar (`<cache_dir>/snapshots.json`) plus the persistent DuckDB file.
   """
 
   use GenServer
   require Logger
 
-  alias Offloader.{ApiError, Auth, Catalog, Compiler, Config, Engine, Manifest}
+  alias Offloader.{ApiError, Auth, Catalog, Compiler, Config, Engine, Refresh}
+  alias Offloader.Refresh.Worker
 
   defstruct [
     :catalog,
@@ -37,11 +39,13 @@ defmodule Offloader.Runtime do
     :snapshots_table,
     :cache_table,
     :cache_dir,
+    :worker_sup,
     :refresh_interval_ms
   ]
 
   @snapshots_ets [:public, :set, read_concurrency: true]
   @cache_ets [:public, :set, read_concurrency: true, write_concurrency: true]
+  @sidecar "snapshots.json"
 
   # ── public API ────────────────────────────────────────────────────────────────
 
@@ -77,14 +81,21 @@ defmodule Offloader.Runtime do
   end
 
   @doc """
-  Refresh a dataset from a manifest (defaults to the dataset's configured manifest).
-  Returns {:ok, snapshot_id} on a successful swap, or {:error, reason} on a rejected
-  or failed attempt — in which case the active snapshot is unchanged.
+  Manually refresh a dataset (forced — re-materializes even for the same snapshot).
+  `manifest_path` overrides a static dataset's configured manifest. Runs in the
+  dataset's own worker; returns {:ok, snapshot_id} or {:error, reason} with the
+  active snapshot untouched on failure.
   """
   @spec refresh(GenServer.server(), String.t(), String.t() | nil) ::
           {:ok, String.t()} | {:error, term()}
-  def refresh(server \\ __MODULE__, dataset_id, manifest_path \\ nil),
-    do: GenServer.call(server, {:refresh, dataset_id, manifest_path}, 120_000)
+  def refresh(server \\ __MODULE__, dataset_id, manifest_path \\ nil) do
+    with runtime when is_pid(runtime) <- GenServer.whereis(server),
+         worker when is_pid(worker) <- Worker.whereis(runtime, dataset_id) do
+      Worker.refresh(worker, manifest_path)
+    else
+      _ -> {:error, :unknown_dataset}
+    end
+  end
 
   @doc "Roll a dataset back to its previous good snapshot. {:ok, snapshot_id} or {:error, :no_previous}."
   @spec rollback(GenServer.server(), String.t()) :: {:ok, String.t()} | {:error, term()}
@@ -97,6 +108,15 @@ defmodule Offloader.Runtime do
     case context(server) do
       nil -> nil
       ctx -> lookup_snapshot(ctx, dataset_id)
+    end
+  end
+
+  @doc "The active snap for a dataset (what `serve` reads), or nil. A plain ETS read."
+  @spec snapshot_active(GenServer.server(), String.t()) :: map() | nil
+  def snapshot_active(server \\ __MODULE__, dataset_id) do
+    case snapshot_state(server, dataset_id) do
+      %{active: active} -> active
+      _ -> nil
     end
   end
 
@@ -136,7 +156,7 @@ defmodule Offloader.Runtime do
     end
   end
 
-  # ── GenServer (owns the ETS tables + all writes) ───────────────────────────────
+  # ── GenServer (owns the ETS tables + all snapshot-state writes) ─────────────────
 
   @impl true
   def init(opts) do
@@ -145,30 +165,28 @@ defmodule Offloader.Runtime do
 
     with {:ok, catalog} <- Catalog.load(config_path),
          {:ok, engine} <-
-           Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()) do
-      snapshots_table = :ets.new(:offloader_snapshots, @snapshots_ets)
-      cache_table = :ets.new(:offloader_cache, @cache_ets)
-
+           Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()),
+         {:ok, worker_sup} <- DynamicSupervisor.start_link(strategy: :one_for_one) do
       state = %__MODULE__{
         catalog: catalog,
         engine: engine,
         snapshots: %{},
-        snapshots_table: snapshots_table,
-        cache_table: cache_table,
+        snapshots_table: :ets.new(:offloader_snapshots, @snapshots_ets),
+        cache_table: :ets.new(:offloader_cache, @cache_ets),
         cache_dir: cache_dir,
+        worker_sup: worker_sup,
         refresh_interval_ms: opts[:refresh_interval_ms]
       }
 
       # Publish the read context before the initial refresh so reads resolve at once.
       :persistent_term.put({__MODULE__, self()}, context_of(state))
 
-      # Initial refresh of every dataset from its configured manifest.
       state =
-        Enum.reduce(Map.keys(catalog.datasets), state, fn id, acc ->
-          elem(do_refresh(acc, id, nil), 0)
-        end)
+        state
+        |> seed_from_sidecar()
+        |> initial_refresh()
+        |> start_workers()
 
-      schedule_poll(state)
       {:ok, state}
     else
       {:error, reason} -> {:stop, {:runtime_init_failed, reason}}
@@ -181,10 +199,10 @@ defmodule Offloader.Runtime do
     :ok
   end
 
+  # A worker finished a refresh: apply the bookkeeping (the single-writer step).
   @impl true
-  def handle_call({:refresh, dataset_id, manifest_path}, _from, state) do
-    {state, result} = do_refresh(state, dataset_id, manifest_path)
-    {:reply, result, state}
+  def handle_call({:apply_refresh, dataset_id, outcome}, _from, state) do
+    {:reply, :ok, apply_outcome(state, dataset_id, outcome)}
   end
 
   @impl true
@@ -193,15 +211,230 @@ defmodule Offloader.Runtime do
     {:reply, result, state}
   end
 
-  @impl true
-  def handle_info(:poll, state) do
-    state =
-      Enum.reduce(Map.keys(state.catalog.datasets), state, fn id, acc ->
-        elem(do_refresh(acc, id, nil), 0)
-      end)
+  # ── boot: warm start + initial refresh + workers ────────────────────────────────
 
-    schedule_poll(state)
-    {:noreply, state}
+  # Seed snapshot state from the sidecar for every dataset whose materialized table
+  # survived in the persistent DuckDB file — endpoints serve immediately; the initial
+  # refresh then no-ops (same snapshot) or picks up a newer one.
+  defp seed_from_sidecar(state) do
+    for {dataset_id, snap} <- read_sidecar(state.cache_dir),
+        Map.has_key?(state.catalog.datasets, dataset_id),
+        match?({:ok, _}, Engine.known_columns(state.engine, snap.table)),
+        reduce: state do
+      acc ->
+        Logger.info("warm start: #{dataset_id} serving #{snap.snapshot_id} from disk")
+        put_snapshot(acc, dataset_id, %{active: snap, previous: nil, last_attempted: nil})
+    end
+  end
+
+  defp initial_refresh(state) do
+    Enum.reduce(Map.keys(state.catalog.datasets), state, fn id, acc ->
+      dataset = acc.catalog.datasets[id]
+      active = current_entry(acc, id).active
+
+      outcome =
+        Refresh.perform(acc.engine, dataset, active, how(dataset, acc), force: false)
+
+      apply_outcome(acc, id, outcome)
+    end)
+  end
+
+  defp how(%{source: nil} = dataset, state),
+    do: {:static, Path.join(state.catalog.config_dir, dataset.manifest)}
+
+  defp how(%{source: source}, _state), do: {:source, source}
+
+  defp start_workers(state) do
+    runtime = self()
+
+    for {_id, dataset} <- state.catalog.datasets do
+      {:ok, _pid} =
+        DynamicSupervisor.start_child(
+          state.worker_sup,
+          {Worker,
+           runtime: runtime,
+           dataset: dataset,
+           engine: state.engine,
+           config_dir: state.catalog.config_dir,
+           refresh_interval_ms: state.refresh_interval_ms}
+        )
+    end
+
+    state
+  end
+
+  # ── applying refresh outcomes (single writer) ───────────────────────────────────
+
+  defp apply_outcome(state, dataset_id, {:swapped, snap, attempt}) do
+    entry = current_entry(state, dataset_id)
+    # Retain exactly one previous snapshot for rollback; drop older tables.
+    drop_table(state.engine, entry.previous, entry.active)
+
+    state =
+      put_snapshot(state, dataset_id, %{
+        active: snap,
+        previous: entry.active,
+        last_attempted: attempt
+      })
+
+    # Snapshot-based invalidation: a new snapshot drops the response cache.
+    :ets.delete_all_objects(state.cache_table)
+    write_sidecar(state)
+    state
+  end
+
+  defp apply_outcome(state, dataset_id, {_status, attempt}) do
+    entry = current_entry(state, dataset_id)
+    put_snapshot(state, dataset_id, %{entry | last_attempted: attempt})
+  end
+
+  defp do_rollback(state, dataset_id) do
+    entry = current_entry(state, dataset_id)
+
+    case entry.previous do
+      nil ->
+        {state, {:error, :no_previous}}
+
+      previous ->
+        :ok = Engine.swap(state.engine, dataset_id, previous.table)
+
+        state =
+          put_snapshot(state, dataset_id, %{entry | active: previous, previous: entry.active})
+
+        :ets.delete_all_objects(state.cache_table)
+        write_sidecar(state)
+        {state, {:ok, previous.snapshot_id}}
+    end
+  end
+
+  # ── warm-start sidecar ──────────────────────────────────────────────────────────
+
+  # %{dataset_id => active snap}, written atomically on every swap/rollback so a
+  # restart can serve the on-disk snapshot before the first remote resolve.
+  defp write_sidecar(state) do
+    payload =
+      state.snapshots
+      |> Enum.filter(fn {_id, entry} -> entry.active end)
+      |> Map.new(fn {id, entry} -> {id, entry.active} end)
+
+    path = Path.join(state.cache_dir, @sidecar)
+    tmp = path <> ".tmp"
+
+    with {:ok, json} <- Jason.encode(payload),
+         :ok <- File.write(tmp, json),
+         :ok <- File.rename(tmp, path) do
+      :ok
+    else
+      error -> Logger.warning("could not write warm-start sidecar: #{inspect(error)}")
+    end
+  end
+
+  defp read_sidecar(cache_dir) do
+    with {:ok, body} <- File.read(Path.join(cache_dir, @sidecar)),
+         {:ok, payload} when is_map(payload) <- Jason.decode(body) do
+      for {id, snap} <- payload, is_map(snap), is_binary(snap["snapshot_id"]), into: %{} do
+        {id,
+         %{
+           snapshot_id: snap["snapshot_id"],
+           watermark: snap["watermark"],
+           table: snap["table"],
+           files: snap["files"] || [],
+           dir: snap["dir"]
+         }}
+      end
+    else
+      _ -> %{}
+    end
+  end
+
+  # ── diagnostics ─────────────────────────────────────────────────────────────────
+
+  # A redacted operator view: snapshot state, source reachability, disk, DuckDB, and
+  # versions. Contains only ids/statuses/counts — never API keys, tokens, or paths
+  # beyond the local cache directory.
+  defp build_diagnostics(ctx) do
+    %{
+      build_version: Offloader.version(),
+      config_version: ctx.catalog.version,
+      object_store_mode: ctx.catalog.object_store_mode,
+      duckdb_status: duckdb_status(ctx.engine),
+      pool: Engine.pool_stats(ctx.engine),
+      disk: disk_free(ctx.cache_dir),
+      ready: all_active?(ctx),
+      datasets:
+        Enum.map(ctx.catalog.datasets, fn {id, dataset} ->
+          dataset_diagnostics(ctx, id, dataset)
+        end)
+    }
+  end
+
+  defp dataset_diagnostics(ctx, id, dataset) do
+    entry = lookup_snapshot(ctx, id) || %{active: nil, previous: nil, last_attempted: nil}
+
+    %{
+      dataset: id,
+      source: if(dataset.source, do: dataset.source.type, else: "static_manifest"),
+      active_snapshot: snapshot_summary(entry.active),
+      last_good_snapshot: snapshot_summary(entry.active),
+      last_attempted: attempt_summary(entry.last_attempted),
+      refresh_error: refresh_error(entry.last_attempted),
+      source_reachable: source_reachable(ctx, dataset, entry),
+      manifest_valid: entry.last_attempted && entry.last_attempted.status in [:ok, :unchanged],
+      stale: stale?(entry.active)
+    }
+  end
+
+  # Static: the manifest file is checkable directly. Dynamic: the last attempt is the
+  # evidence (a failed resolve marks the source unreachable).
+  defp source_reachable(ctx, %{source: nil} = dataset, _entry),
+    do: File.exists?(Path.join(ctx.catalog.config_dir, dataset.manifest))
+
+  defp source_reachable(_ctx, _dataset, %{last_attempted: nil}), do: nil
+
+  defp source_reachable(_ctx, _dataset, %{last_attempted: attempt}),
+    do: attempt.status != :failed
+
+  defp snapshot_summary(nil), do: nil
+
+  defp snapshot_summary(%{snapshot_id: id, watermark: wm}),
+    do: %{snapshot_id: id, watermark: wm, age_seconds: watermark_age_seconds(wm)}
+
+  defp attempt_summary(nil), do: nil
+
+  defp attempt_summary(%{snapshot_id: id, status: status, at: at}),
+    do: %{snapshot_id: id, status: status, at: DateTime.to_iso8601(at)}
+
+  defp refresh_error(%{status: status, error: error}) when status not in [:ok, :unchanged],
+    do: error
+
+  defp refresh_error(_), do: nil
+
+  defp stale?(nil), do: nil
+
+  defp stale?(%{watermark: wm}) do
+    case watermark_age_seconds(wm) do
+      age when is_integer(age) -> age > 24 * 3600
+      _ -> nil
+    end
+  end
+
+  defp duckdb_status(engine) do
+    case Engine.execute(engine, "SELECT 1", []) do
+      {:ok, _} -> "ok"
+      _ -> "error"
+    end
+  end
+
+  # Free bytes on the cache filesystem via `df -Pk` (portable macOS/Linux). Best-effort.
+  defp disk_free(dir) do
+    with true <- is_binary(dir) and File.exists?(dir),
+         {out, 0} <- System.cmd("df", ["-Pk", dir], stderr_to_stdout: true),
+         [_header, data | _] <- String.split(out, "\n"),
+         [_fs, _blocks, _used, avail_kb | _] <- String.split(data, ~r/\s+/) do
+      %{cache_dir_free_bytes: String.to_integer(avail_kb) * 1024}
+    else
+      _ -> %{cache_dir_free_bytes: nil}
+    end
   end
 
   # ── read context (persistent_term + ETS; resolved per call) ────────────────────
@@ -236,155 +469,6 @@ defmodule Offloader.Runtime do
     end)
   end
 
-  # ── refresh / rollback (GenServer-only writes) ─────────────────────────────────
-
-  # Returns {new_state, {:ok, snapshot_id} | {:error, reason}}. Never swaps in a bad
-  # snapshot: validate -> compatibility -> materialize -> atomic swap, in that order.
-  defp do_refresh(state, dataset_id, manifest_path) do
-    dataset = state.catalog.datasets[dataset_id]
-    path = manifest_path || Path.join(state.catalog.config_dir, dataset.manifest)
-    entry = current_entry(state, dataset_id)
-
-    case Manifest.load(path) do
-      {:error, errors} ->
-        reject(state, dataset_id, entry, nil, :rejected, summarize(errors))
-
-      {:ok, manifest} ->
-        case Manifest.compatibility(manifest, dataset) do
-          {:error, errors} ->
-            reject(state, dataset_id, entry, manifest.snapshot_id, :rejected, summarize(errors))
-
-          :ok ->
-            materialize_and_swap(state, dataset_id, entry, manifest)
-        end
-    end
-  end
-
-  defp materialize_and_swap(state, dataset_id, entry, manifest) do
-    table = snapshot_table(dataset_id, manifest.snapshot_id)
-
-    case Engine.materialize(state.engine, table, manifest) do
-      {:error, error} ->
-        reject(state, dataset_id, entry, manifest.snapshot_id, :failed, error.message)
-
-      {:ok, _} ->
-        :ok = Engine.swap(state.engine, dataset_id, table)
-        # Retain exactly one previous snapshot for rollback; drop older tables.
-        drop_table(state.engine, entry.previous, entry.active)
-
-        new_entry = %{
-          active: snap(manifest, table),
-          previous: entry.active,
-          last_attempted: attempt(manifest.snapshot_id, :ok, nil)
-        }
-
-        state = put_snapshot(state, dataset_id, new_entry)
-        # Snapshot-based invalidation: a new snapshot drops the response cache.
-        :ets.delete_all_objects(state.cache_table)
-        {state, {:ok, manifest.snapshot_id}}
-    end
-  end
-
-  defp reject(state, dataset_id, entry, snapshot_id, status, error_summary) do
-    Logger.warning("refresh #{dataset_id} #{status}: #{error_summary}")
-    new_entry = %{entry | last_attempted: attempt(snapshot_id, status, error_summary)}
-    {put_snapshot(state, dataset_id, new_entry), {:error, status}}
-  end
-
-  defp do_rollback(state, dataset_id) do
-    entry = current_entry(state, dataset_id)
-
-    case entry.previous do
-      nil ->
-        {state, {:error, :no_previous}}
-
-      previous ->
-        :ok = Engine.swap(state.engine, dataset_id, previous.table)
-        new_entry = %{entry | active: previous, previous: entry.active}
-        state = put_snapshot(state, dataset_id, new_entry)
-        :ets.delete_all_objects(state.cache_table)
-        {state, {:ok, previous.snapshot_id}}
-    end
-  end
-
-  # ── diagnostics ─────────────────────────────────────────────────────────────────
-
-  # A redacted operator view: snapshot state, source reachability, disk, DuckDB, and
-  # versions. Contains only ids/statuses/counts — never API keys, tokens, or paths
-  # beyond the local cache directory.
-  defp build_diagnostics(ctx) do
-    %{
-      build_version: Offloader.version(),
-      config_version: ctx.catalog.version,
-      object_store_mode: ctx.catalog.object_store_mode,
-      duckdb_status: duckdb_status(ctx.engine),
-      pool: Engine.pool_stats(ctx.engine),
-      disk: disk_free(ctx.cache_dir),
-      ready: all_active?(ctx),
-      datasets:
-        Enum.map(ctx.catalog.datasets, fn {id, dataset} ->
-          dataset_diagnostics(ctx, id, dataset)
-        end)
-    }
-  end
-
-  defp dataset_diagnostics(ctx, id, dataset) do
-    entry = lookup_snapshot(ctx, id) || %{active: nil, previous: nil, last_attempted: nil}
-    manifest_path = Path.join(ctx.catalog.config_dir, dataset.manifest)
-
-    %{
-      dataset: id,
-      active_snapshot: snapshot_summary(entry.active),
-      last_good_snapshot: snapshot_summary(entry.active),
-      last_attempted: attempt_summary(entry.last_attempted),
-      refresh_error: refresh_error(entry.last_attempted),
-      source_reachable: File.exists?(manifest_path),
-      manifest_valid: entry.last_attempted && entry.last_attempted.status == :ok,
-      stale: stale?(entry.active)
-    }
-  end
-
-  defp snapshot_summary(nil), do: nil
-
-  defp snapshot_summary(%{snapshot_id: id, watermark: wm}),
-    do: %{snapshot_id: id, watermark: wm, age_seconds: watermark_age_seconds(wm)}
-
-  defp attempt_summary(nil), do: nil
-
-  defp attempt_summary(%{snapshot_id: id, status: status, at: at}),
-    do: %{snapshot_id: id, status: status, at: DateTime.to_iso8601(at)}
-
-  defp refresh_error(%{status: status, error: error}) when status != :ok, do: error
-  defp refresh_error(_), do: nil
-
-  defp stale?(nil), do: nil
-
-  defp stale?(%{watermark: wm}) do
-    case watermark_age_seconds(wm) do
-      age when is_integer(age) -> age > 24 * 3600
-      _ -> nil
-    end
-  end
-
-  defp duckdb_status(engine) do
-    case Engine.execute(engine, "SELECT 1", []) do
-      {:ok, _} -> "ok"
-      _ -> "error"
-    end
-  end
-
-  # Free bytes on the cache filesystem via `df -Pk` (portable macOS/Linux). Best-effort.
-  defp disk_free(dir) do
-    with true <- is_binary(dir) and File.exists?(dir),
-         {out, 0} <- System.cmd("df", ["-Pk", dir], stderr_to_stdout: true),
-         [_header, data | _] <- String.split(out, "\n"),
-         [_fs, _blocks, _used, avail_kb | _] <- String.split(data, ~r/\s+/) do
-      %{cache_dir_free_bytes: String.to_integer(avail_kb) * 1024}
-    else
-      _ -> %{cache_dir_free_bytes: nil}
-    end
-  end
-
   # ── state helpers ─────────────────────────────────────────────────────────────
 
   defp current_entry(state, dataset_id),
@@ -396,18 +480,6 @@ defmodule Offloader.Runtime do
     %{state | snapshots: Map.put(state.snapshots, dataset_id, entry)}
   end
 
-  defp snap(manifest, table),
-    do: %{
-      snapshot_id: manifest.snapshot_id,
-      watermark: manifest.watermark,
-      table: table,
-      files: manifest.files,
-      dir: manifest.dir
-    }
-
-  defp attempt(snapshot_id, status, error),
-    do: %{snapshot_id: snapshot_id, status: status, error: error, at: DateTime.utc_now()}
-
   # Drop a table unless it is still the active or previous one we are keeping.
   defp drop_table(_engine, nil, _keep), do: :ok
 
@@ -415,17 +487,6 @@ defmodule Offloader.Runtime do
     unless keep && table == keep.table, do: Engine.drop(engine, table)
     :ok
   end
-
-  defp snapshot_table(dataset_id, snapshot_id),
-    do: "snap_" <> dataset_id <> "_" <> String.replace(snapshot_id, ~r/[^a-zA-Z0-9_]/, "_")
-
-  defp summarize(errors) when is_list(errors), do: "#{length(errors)} validation error(s)"
-  defp summarize(other), do: inspect(other)
-
-  defp schedule_poll(%{refresh_interval_ms: ms}) when is_integer(ms) and ms > 0,
-    do: Process.send_after(self(), :poll, ms)
-
-  defp schedule_poll(_state), do: :ok
 
   # ── serve helpers (caller process; ETS reads) ──────────────────────────────────
 
@@ -535,10 +596,12 @@ defmodule Offloader.Runtime do
     }
   end
 
-  defp watermark_age_seconds(watermark) do
+  defp watermark_age_seconds(watermark) when is_binary(watermark) do
     case DateTime.from_iso8601(watermark) do
       {:ok, dt, _off} -> DateTime.diff(DateTime.utc_now(), dt)
       _ -> nil
     end
   end
+
+  defp watermark_age_seconds(_), do: nil
 end

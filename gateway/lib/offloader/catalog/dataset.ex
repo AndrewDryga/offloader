@@ -8,20 +8,28 @@ defmodule Offloader.Catalog.Dataset do
 
   alias Offloader.Catalog.{Error, Identifier, Parse}
 
-  @enforce_keys [:id, :manifest, :tenant_column, :schema, :columns]
-  defstruct [:id, :description, :manifest, :tenant_column, :schema, :columns]
+  @enforce_keys [:id, :tenant_column, :schema, :columns]
+  defstruct [:id, :description, :manifest, :source, :tenant_column, :schema, :columns]
 
+  @type source :: %{
+          type: String.t(),
+          bucket: String.t(),
+          prefix: String.t(),
+          interval_seconds: pos_integer() | nil
+        }
   @type column :: %{name: String.t(), type: String.t()}
   @type t :: %__MODULE__{
           id: String.t(),
           description: String.t() | nil,
-          manifest: String.t(),
+          manifest: String.t() | nil,
+          source: source() | nil,
           tenant_column: String.t() | nil,
           schema: [column()],
           columns: MapSet.t()
         }
 
-  @top_keys ~w(id description manifest tenant_column schema)
+  @top_keys ~w(id description manifest source tenant_column schema)
+  @source_types ~w(databricks)
   # DuckDB types V1 supports in a serving dataset. Kept deliberately small. `JSON` is
   # a logical type for a nested column (STRUCT/MAP/LIST/JSON in the snapshot): the
   # endpoint serves it via `to_json(...)`, so the response carries a nested object
@@ -34,7 +42,7 @@ defmodule Offloader.Catalog.Dataset do
     errors =
       Parse.unknown_keys(raw, @top_keys, file, "") ++
         id_errors(raw, file) ++
-        required_string(raw, "manifest", file) ++
+        snapshot_origin_errors(raw, file) ++
         tenant_errors(raw, file) ++
         schema_errors(raw, file)
 
@@ -64,10 +72,102 @@ defmodule Offloader.Catalog.Dataset do
     end
   end
 
-  defp required_string(raw, key, file) do
-    case raw[key] do
-      v when is_binary(v) and v != "" -> []
-      _ -> [Error.new(file, key, :missing, "#{key} is required and must be a non-empty string")]
+  # A dataset's snapshots come from exactly ONE origin: a static `manifest` path, or a
+  # dynamic `source` that discovers the latest snapshot remotely on each refresh.
+  defp snapshot_origin_errors(raw, file) do
+    case {raw["manifest"], raw["source"]} do
+      {m, nil} when is_binary(m) and m != "" ->
+        []
+
+      {nil, %{} = source} ->
+        source_errors(source, file)
+
+      {m, %{}} when is_binary(m) ->
+        [
+          Error.new(
+            file,
+            "source",
+            :conflicting_origin,
+            "manifest and source are mutually exclusive",
+            "keep the static manifest OR the dynamic source, not both"
+          )
+        ]
+
+      {nil, nil} ->
+        [
+          Error.new(
+            file,
+            "manifest",
+            :missing,
+            "either a manifest path or a source is required"
+          )
+        ]
+
+      _ ->
+        [Error.new(file, "manifest", :invalid_type, "manifest must be a non-empty string")]
+    end
+  end
+
+  defp source_errors(source, file) do
+    Parse.unknown_keys(source, ~w(type bucket prefix interval_seconds), file, "source") ++
+      source_type_errors(source, file) ++
+      source_string_errors(source, "bucket", file) ++
+      source_string_errors(source, "prefix", file) ++
+      source_interval_errors(source, file)
+  end
+
+  defp source_type_errors(source, file) do
+    case source["type"] do
+      t when t in @source_types ->
+        []
+
+      t ->
+        [
+          Error.new(
+            file,
+            "source.type",
+            :invalid_value,
+            "source.type #{inspect(t)} is invalid",
+            "one of: #{Enum.join(@source_types, ", ")}"
+          )
+        ]
+    end
+  end
+
+  defp source_string_errors(source, key, file) do
+    case source[key] do
+      v when is_binary(v) and v != "" ->
+        []
+
+      _ ->
+        [
+          Error.new(
+            file,
+            "source.#{key}",
+            :missing,
+            "source.#{key} is required and must be a non-empty string"
+          )
+        ]
+    end
+  end
+
+  defp source_interval_errors(source, file) do
+    case source["interval_seconds"] do
+      nil ->
+        []
+
+      n when is_integer(n) and n > 0 ->
+        []
+
+      _ ->
+        [
+          Error.new(
+            file,
+            "source.interval_seconds",
+            :invalid_value,
+            "source.interval_seconds must be a positive integer"
+          )
+        ]
     end
   end
 
@@ -189,9 +289,23 @@ defmodule Offloader.Catalog.Dataset do
       id: raw["id"],
       description: raw["description"],
       manifest: raw["manifest"],
+      source: build_source(raw["source"]),
       tenant_column: raw["tenant_column"],
       schema: schema,
       columns: MapSet.new(Enum.map(schema, & &1.name))
+    }
+  end
+
+  defp build_source(nil), do: nil
+
+  defp build_source(source) do
+    %{
+      type: source["type"],
+      bucket: source["bucket"],
+      # the commit-protocol resolver lists under `prefix + "_committed_"`, so the
+      # prefix must denote the directory
+      prefix: String.trim_trailing(source["prefix"], "/") <> "/",
+      interval_seconds: source["interval_seconds"]
     }
   end
 end

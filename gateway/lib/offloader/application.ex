@@ -9,6 +9,9 @@ defmodule Offloader.Application do
     children =
       [
         Offloader.Telemetry,
+        # Refresh workers register here, keyed {runtime_pid, dataset_id} — scoped so
+        # concurrently-running runtimes (tests) never collide.
+        {Registry, keys: :unique, name: Offloader.Refresh.Registry},
         # GCS bearer-token cache: idle unless a GCS source / gcs_bearer store is used.
         Offloader.Gcs.TokenCache,
         # Product traffic (endpoint API keys, tenant enforcement — added by later tasks).

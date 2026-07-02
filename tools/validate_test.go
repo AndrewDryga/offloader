@@ -243,3 +243,59 @@ func slicesContains(haystack []string, needle string) bool {
 	}
 	return false
 }
+
+func TestValidateDatasetSource(t *testing.T) {
+	cases := []struct {
+		name, dataset, wantCode string
+	}{
+		{
+			"manifest and source together",
+			"id: d\nmanifest: m.json\nsource: { type: databricks, bucket: b, prefix: p/ }\nschema:\n  - { name: c, type: VARCHAR }\n",
+			"conflicting_origin",
+		},
+		{
+			"neither manifest nor source",
+			"id: d\nschema:\n  - { name: c, type: VARCHAR }\n",
+			"missing",
+		},
+		{
+			"unknown source type",
+			"id: d\nsource: { type: s3_sync, bucket: b, prefix: p/ }\nschema:\n  - { name: c, type: VARCHAR }\n",
+			"invalid_value",
+		},
+		{
+			"source without bucket",
+			"id: d\nsource: { type: databricks, prefix: p/ }\nschema:\n  - { name: c, type: VARCHAR }\n",
+			"missing",
+		},
+	}
+
+	for _, tc := range cases {
+		project := writeProject(t, map[string]string{
+			"offloader.yml":   "version: 1\n",
+			"datasets/d.yml":  tc.dataset,
+			"endpoints/e.yml": "name: e\ndataset: d\ncolumns: [c]\n",
+		})
+		if fs := validateProject(project); !slicesContains(fs.codes(), tc.wantCode) {
+			t.Errorf("%s: expected %q, got %v", tc.name, tc.wantCode, fs.codes())
+		}
+	}
+
+	// a valid source dataset passes
+	project := writeProject(t, map[string]string{
+		"offloader.yml": "version: 1\n",
+		"datasets/d.yml": `id: d
+source:
+  type: databricks
+  bucket: my-bucket
+  prefix: prod/lol/table/
+  interval_seconds: 300
+schema:
+  - { name: c, type: VARCHAR }
+`,
+		"endpoints/e.yml": "name: e\ndataset: d\ncolumns: [c]\n",
+	})
+	if fs := validateProject(project); len(fs) != 0 {
+		t.Fatalf("valid source dataset had findings: %v", fs)
+	}
+}

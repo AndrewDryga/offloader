@@ -41,9 +41,17 @@ type columnYML struct {
 	Type string `yaml:"type"`
 }
 
+type sourceYML struct {
+	Type            string `yaml:"type"`
+	Bucket          string `yaml:"bucket"`
+	Prefix          string `yaml:"prefix"`
+	IntervalSeconds int    `yaml:"interval_seconds"`
+}
+
 type datasetYML struct {
 	ID           string      `yaml:"id"`
 	Manifest     string      `yaml:"manifest"`
+	Source       *sourceYML  `yaml:"source"`
 	TenantColumn string      `yaml:"tenant_column"`
 	Schema       []columnYML `yaml:"schema"`
 }
@@ -95,6 +103,30 @@ func validateProject(path string) findings {
 	return out
 }
 
+// A dataset's snapshots come from exactly ONE origin: a static manifest path or a
+// dynamic source. Mirrors Offloader.Catalog.Dataset snapshot_origin_errors.
+func validateSnapshotOrigin(rel string, ds datasetYML, out *findings) {
+	switch {
+	case ds.Manifest != "" && ds.Source != nil:
+		out.add(rel, "source", "conflicting_origin", "manifest and source are mutually exclusive", "keep the static manifest OR the dynamic source, not both")
+	case ds.Manifest == "" && ds.Source == nil:
+		out.add(rel, "manifest", "missing", "either a manifest path or a source is required", "")
+	case ds.Source != nil:
+		if ds.Source.Type != "databricks" {
+			out.add(rel, "source.type", "invalid_value", fmt.Sprintf("source.type %q is invalid", ds.Source.Type), "one of: databricks")
+		}
+		if ds.Source.Bucket == "" {
+			out.add(rel, "source.bucket", "missing", "source.bucket is required and must be a non-empty string", "")
+		}
+		if ds.Source.Prefix == "" {
+			out.add(rel, "source.prefix", "missing", "source.prefix is required and must be a non-empty string", "")
+		}
+		if ds.Source.IntervalSeconds < 0 {
+			out.add(rel, "source.interval_seconds", "invalid_value", "source.interval_seconds must be a positive integer", "")
+		}
+	}
+}
+
 // auth: required (default) needs a key per request; auth: none serves publicly and is
 // only safe when no endpoint is tenant-scoped — mirrors the gateway's cross-check.
 func validateAuth(project projectYML, endpoints []endpointYML, datasets map[string]datasetYML, out *findings) {
@@ -125,9 +157,7 @@ func loadDatasets(dir, sub string, out *findings) map[string]datasetYML {
 		if !safeIdent(ds.ID) {
 			out.add(rel, "id", "unsafe_identifier", fmt.Sprintf("dataset id %q is missing or not a safe identifier", ds.ID), "lowercase letters, digits, underscores")
 		}
-		if ds.Manifest == "" {
-			out.add(rel, "manifest", "missing", "manifest path is required", "")
-		}
+		validateSnapshotOrigin(rel, ds, out)
 		schemaNames := datasetSchema(ds, rel, out)
 		// tenant_column is optional: absent => a non-tenant (public) dataset.
 		if ds.TenantColumn != "" && !schemaNames[ds.TenantColumn] {
