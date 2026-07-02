@@ -4,12 +4,52 @@ import Config
 # contract. Documented in docs/developer-experience.md → "Required container env vars".
 # Parse each OFFLOADER_* var once here; Offloader.Config is the typed accessor.
 
+# DuckDB read-connection pool size — unset => engine default; must be a positive int.
+pool_size =
+  case System.get_env("OFFLOADER_POOL_SIZE") do
+    nil ->
+      nil
+
+    raw ->
+      case Integer.parse(raw) do
+        {n, ""} when n > 0 -> n
+        _ -> nil
+      end
+  end
+
+# Remote object store — unset => local filesystem. Set OFFLOADER_S3_TYPE=s3|gcs to
+# read snapshot files from s3:// / gs:// URLs (GCS uses HMAC KEY_ID/SECRET).
+object_store =
+  case System.get_env("OFFLOADER_S3_TYPE") do
+    type when type in ["s3", "gcs"] ->
+      %{
+        type: type,
+        key_id: System.get_env("OFFLOADER_S3_KEY_ID"),
+        secret: System.get_env("OFFLOADER_S3_SECRET"),
+        region: System.get_env("OFFLOADER_S3_REGION"),
+        endpoint: System.get_env("OFFLOADER_S3_ENDPOINT"),
+        url_style: System.get_env("OFFLOADER_S3_URL_STYLE"),
+        session_token: System.get_env("OFFLOADER_S3_SESSION_TOKEN"),
+        use_ssl:
+          case System.get_env("OFFLOADER_S3_USE_SSL") do
+            "false" -> false
+            "true" -> true
+            _ -> nil
+          end
+      }
+
+    _ ->
+      nil
+  end
+
 # The env-var contract, read in all environments so tests can assert the defaults.
 config :offloader,
   config_path: System.get_env("OFFLOADER_CONFIG"),
   cache_dir:
     System.get_env("OFFLOADER_CACHE_DIR") || Path.join(System.tmp_dir!(), "offloader-cache"),
   object_store_mode: System.get_env("OFFLOADER_OBJECT_STORE_MODE") || "local",
+  pool_size: pool_size,
+  object_store: object_store,
   # Gates the admin /diagnostics route. Unset => diagnostics fail closed (403).
   admin_token: System.get_env("OFFLOADER_ADMIN_TOKEN")
 

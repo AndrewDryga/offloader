@@ -29,4 +29,18 @@ defmodule Offloader.Config do
   @doc "Admin token (`OFFLOADER_ADMIN_TOKEN`) gating the admin `/diagnostics` route, or nil."
   @spec admin_token() :: String.t() | nil
   def admin_token, do: Application.get_env(:offloader, :admin_token)
+
+  @doc """
+  DuckDB read-connection pool size (`OFFLOADER_POOL_SIZE`), or nil for the engine
+  default. More connections = more concurrent in-flight queries before callers queue.
+  """
+  @spec pool_size() :: pos_integer() | nil
+  def pool_size, do: Application.get_env(:offloader, :pool_size)
+
+  @doc """
+  Remote object-store credentials parsed from `OFFLOADER_S3_*` / `OFFLOADER_GCS_*`
+  env, or nil for local-filesystem mode. Shape documented in `Offloader.ObjectStore`.
+  """
+  @spec object_store() :: map() | nil
+  def object_store, do: Application.get_env(:offloader, :object_store)
 end

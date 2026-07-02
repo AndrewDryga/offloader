@@ -83,7 +83,8 @@ defmodule Offloader.Runtime do
     cache_dir = opts[:cache_dir] || Config.cache_dir()
 
     with {:ok, catalog} <- Catalog.load(config_path),
-         {:ok, engine} <- Engine.start_link(cache_dir: cache_dir) do
+         {:ok, engine} <-
+           Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()) do
       base = %__MODULE__{
         catalog: catalog,
         engine: engine,

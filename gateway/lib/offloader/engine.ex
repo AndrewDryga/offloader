@@ -16,32 +16,62 @@ defmodule Offloader.Engine do
   not know this exists (`docs/architecture.md` — "DuckDB is an implementation
   detail").
 
-  A single GenServer owns the DuckDB database + connection and serializes access,
-  so concurrent callers can't corrupt a materialization mid-swap. The database is a
-  persistent file under `OFFLOADER_CACHE_DIR`, so materialized snapshots survive a
-  restart (warm cache).
+  ## Reads and writes are separated so reads scale
+
+  One DuckDB *database* is shared. A single **writer** connection, owned by this
+  GenServer, serializes the rare mutations (materialize / swap / drop) so a
+  materialization can't be corrupted mid-swap. **Reads go through a pool** of
+  dedicated connections and *bypass the GenServer entirely* — `execute/3` runs in
+  the caller's process, so thousands of concurrent requests are limited by DuckDB's
+  own parallelism, not by one mailbox. DuckDB's MVCC keeps the previous snapshot
+  visible to in-flight readers until a `CREATE OR REPLACE` commits, so a swap never
+  blocks or tears a concurrent read (verified: readers see a consistent snapshot
+  across atomic swaps).
+
+  The pool is an ETS table of `{slot, connection}` plus an `:atomics` array used as a
+  per-slot spinlock (0 = free, 1 = busy): a caller claims a slot with an atomic
+  compare-and-swap, runs its query, and releases it — so each connection is used by
+  at most one process at a time (duckdbex connections are not concurrency-safe). The
+  pool handle lives in `:persistent_term` keyed by this engine's pid, so the hot path
+  is a lock-free read. A slot whose connection errors is transparently reconnected
+  and the query retried once.
+
+  The database is a persistent file under `OFFLOADER_CACHE_DIR`, so materialized
+  snapshots survive a restart (warm cache).
 
   Safety: only *values* are ever sent as query parameters (`$1`, `$2`, …). Table
   names and file paths come from validated config/manifests, never from a consumer;
   identifiers are quoted and paths are single-quote-escaped as defense in depth.
 
-  Aggregates (`sum`, `avg`, …) live in DuckDB's `core_functions` extension; the
-  connection enables autoinstall+autoload, so the first run may fetch it (then it is
-  cached under `~/.duckdb`). Offline runs need that cache present.
+  Aggregates (`sum`, …), `to_json` (nested columns), and remote/`read_parquet`
+  reads live in DuckDB extensions; every connection enables autoinstall+autoload, so
+  the first run may fetch them (then cached under `~/.duckdb`). Offline runs need that
+  cache present.
   """
 
   use GenServer
+  require Logger
 
   alias Offloader.Engine.Error
   alias Offloader.Manifest
 
   @hugeint_base 18_446_744_073_709_551_616
+  @default_pool_size 16
+  # Full scans through the pool before giving up (with a 1ms yield between cycles).
+  @max_checkout_cycles 50
 
-  defstruct [:db, :conn, :cache_dir]
+  defstruct [:db, :writer, :cache_dir, :pool]
 
   # ── public API ────────────────────────────────────────────────────────────────
 
-  @doc "Start the engine. Opts: :cache_dir (required), :name (optional)."
+  @doc """
+  Start the engine. Opts:
+    * `:cache_dir` (required) — where the persistent DuckDB file lives.
+    * `:pool_size` (optional) — read connections; defaults to `OFFLOADER_POOL_SIZE`
+      or `#{@default_pool_size}`.
+    * `:object_store` (optional) — S3/GCS credential map applied to every connection.
+    * `:name` (optional).
+  """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
     gen_opts = if name, do: [name: name], else: []
@@ -52,15 +82,26 @@ defmodule Offloader.Engine do
   @spec materialize(GenServer.server(), String.t(), Manifest.t()) ::
           {:ok, map()} | {:error, Error.t()}
   def materialize(server, table, %Manifest{} = manifest),
-    do: GenServer.call(server, {:materialize, table, manifest}, 60_000)
+    do: GenServer.call(server, {:materialize, table, manifest}, 120_000)
 
   @doc "Atomically point `active` (a view) at `table`, so readers see the new snapshot at once."
   @spec swap(GenServer.server(), String.t(), String.t()) :: :ok | {:error, Error.t()}
   def swap(server, active, table), do: GenServer.call(server, {:swap, active, table})
 
-  @doc "Run a compiled SQL string with bound value params. Returns {:ok, %{columns, rows}}."
-  @spec execute(GenServer.server(), String.t(), [term()]) :: {:ok, map()} | {:error, Error.t()}
-  def execute(server, sql, params \\ []), do: GenServer.call(server, {:execute, sql, params})
+  @doc """
+  Run a compiled SQL string with bound value params, on a pooled read connection in
+  the CALLER's process (no GenServer round-trip). Returns {:ok, %{columns, rows}}.
+  `json_columns` names output columns whose (VARCHAR) value is a JSON document to be
+  decoded into a nested term.
+  """
+  @spec execute(GenServer.server(), String.t(), [term()], [String.t()]) ::
+          {:ok, map()} | {:error, Error.t()}
+  def execute(server, sql, params \\ [], json_columns \\ []) do
+    case pool(server) do
+      nil -> {:error, Error.new(:not_ready, "engine is not ready")}
+      pool -> pooled_query(pool, sql, params, json_columns)
+    end
+  end
 
   @doc "List a materialized table's column names in order."
   @spec known_columns(GenServer.server(), String.t()) :: {:ok, [String.t()]} | {:error, Error.t()}
@@ -70,23 +111,46 @@ defmodule Offloader.Engine do
   @spec drop(GenServer.server(), String.t()) :: :ok | {:error, Error.t()}
   def drop(server, table), do: GenServer.call(server, {:drop, table})
 
+  @doc "Pool statistics for diagnostics: %{connections, busy, saturated}."
+  @spec pool_stats(GenServer.server()) :: map()
+  def pool_stats(server) do
+    case pool(server) do
+      nil ->
+        %{connections: 0, busy: 0, saturated: false}
+
+      %{locks: locks, size: size} ->
+        busy = Enum.count(1..size, fn i -> :atomics.get(locks, i) == 1 end)
+        %{connections: size, busy: busy, saturated: busy >= size}
+    end
+  end
+
   def stop(server), do: GenServer.stop(server)
 
-  # ── GenServer ─────────────────────────────────────────────────────────────────
+  # ── GenServer (owns the writer connection + the pool lifecycle) ────────────────
 
   @impl true
   def init(opts) do
     cache_dir = Keyword.fetch!(opts, :cache_dir)
     File.mkdir_p!(cache_dir)
     db_path = Path.join(cache_dir, "offloader.duckdb")
+    object_store = Keyword.get(opts, :object_store)
+    size = pool_size(opts)
 
     with {:ok, db} <- Duckdbex.open(db_path),
-         {:ok, conn} <- Duckdbex.connection(db),
-         :ok <- enable_aggregates(conn) do
-      {:ok, %__MODULE__{db: db, conn: conn, cache_dir: cache_dir}}
+         {:ok, writer} <- new_connection(db, object_store),
+         {:ok, pool} <- build_pool(db, size, object_store) do
+      :persistent_term.put({__MODULE__, self()}, pool)
+      Logger.info("Offloader engine: DuckDB ready with a #{size}-connection read pool")
+      {:ok, %__MODULE__{db: db, writer: writer, cache_dir: cache_dir, pool: pool}}
     else
       {:error, reason} -> {:stop, {:engine_open_failed, reason}}
     end
+  end
+
+  @impl true
+  def terminate(_reason, _state) do
+    :persistent_term.erase({__MODULE__, self()})
+    :ok
   end
 
   @impl true
@@ -94,8 +158,8 @@ defmodule Offloader.Engine do
     ident = quote_ident(table)
     sql = "CREATE OR REPLACE TABLE #{ident} AS #{read_expr(manifest)}"
 
-    with {:ok, _} <- run(state.conn, sql, [], :materialize_failed),
-         {:ok, count} <- table_count(state.conn, ident) do
+    with {:ok, _} <- run(state.writer, sql, [], :materialize_failed),
+         {:ok, count} <- table_count(state.writer, ident) do
       {:reply, {:ok, %{table: table, row_count: count}}, state}
     else
       {:error, %Error{}} = err -> {:reply, err, state}
@@ -106,28 +170,15 @@ defmodule Offloader.Engine do
   def handle_call({:swap, active, table}, _from, state) do
     sql = "CREATE OR REPLACE VIEW #{quote_ident(active)} AS SELECT * FROM #{quote_ident(table)}"
 
-    case run(state.conn, sql, [], :swap_failed) do
+    case run(state.writer, sql, [], :swap_failed) do
       {:ok, _} -> {:reply, :ok, state}
       {:error, %Error{}} = err -> {:reply, err, state}
     end
   end
 
   @impl true
-  def handle_call({:execute, sql, params}, _from, state) do
-    case run(state.conn, sql, params, :query_failed) do
-      {:ok, result} ->
-        columns = Duckdbex.columns(result)
-        rows = result |> Duckdbex.fetch_all() |> Enum.map(&Enum.map(&1, fn v -> normalize(v) end))
-        {:reply, {:ok, %{columns: columns, rows: rows}}, state}
-
-      {:error, %Error{}} = err ->
-        {:reply, err, state}
-    end
-  end
-
-  @impl true
   def handle_call({:known_columns, table}, _from, state) do
-    case run(state.conn, "SELECT * FROM #{quote_ident(table)} LIMIT 0", [], :unknown_table) do
+    case run(state.writer, "SELECT * FROM #{quote_ident(table)} LIMIT 0", [], :unknown_table) do
       {:ok, result} -> {:reply, {:ok, Duckdbex.columns(result)}, state}
       {:error, %Error{}} = err -> {:reply, err, state}
     end
@@ -135,15 +186,203 @@ defmodule Offloader.Engine do
 
   @impl true
   def handle_call({:drop, table}, _from, state) do
-    case run(state.conn, "DROP TABLE IF EXISTS #{quote_ident(table)}", [], :drop_failed) do
+    case run(state.writer, "DROP TABLE IF EXISTS #{quote_ident(table)}", [], :drop_failed) do
       {:ok, _} -> {:reply, :ok, state}
       {:error, %Error{}} = err -> {:reply, err, state}
     end
   end
 
-  # ── internals ─────────────────────────────────────────────────────────────────
+  # ── read pool (lock-free checkout; runs in the caller process) ─────────────────
 
-  defp enable_aggregates(conn) do
+  defp pool(server) do
+    case GenServer.whereis(server) do
+      pid when is_pid(pid) -> :persistent_term.get({__MODULE__, pid}, nil)
+      _ -> nil
+    end
+  end
+
+  defp pooled_query(pool, sql, params, json_columns) do
+    case checkout(pool) do
+      {:ok, idx, conn} ->
+        try do
+          run_and_read(pool, idx, conn, sql, params, json_columns)
+        after
+          checkin(pool, idx)
+        end
+
+      :error ->
+        {:error, Error.new(:pool_busy, "all read connections are busy")}
+    end
+  end
+
+  # Run on the checked-out connection. On a *connection-level* failure (network / I/O
+  # / a wedged connection) — not an ordinary SQL error like an unknown table — replace
+  # that slot's connection once and retry, so a single bad connection can't poison a
+  # slot for every future request. Result rows are read while the slot is still held
+  # (the query result is tied to its connection).
+  defp run_and_read(pool, idx, conn, sql, params, json_columns) do
+    case run(conn, sql, params, :query_failed) do
+      {:ok, result} ->
+        {:ok, read_result(result, json_columns)}
+
+      {:error, %Error{} = err} = failure ->
+        if retryable?(err),
+          do: retry_on_fresh(pool, idx, sql, params, json_columns, failure),
+          else: failure
+    end
+  end
+
+  defp retry_on_fresh(pool, idx, sql, params, json_columns, failure) do
+    case reconnect(pool, idx) do
+      {:ok, fresh} ->
+        case run(fresh, sql, params, :query_failed) do
+          {:ok, result} -> {:ok, read_result(result, json_columns)}
+          {:error, %Error{}} = err2 -> err2
+        end
+
+      :error ->
+        failure
+    end
+  end
+
+  # A dropped/broken connection surfaces as a connection/IO/network error — those are
+  # worth a reconnect. Catalog/Binder/Parser errors are the query's fault; retrying on
+  # a fresh connection would just fail again, so return them straight away.
+  defp retryable?(%Error{message: msg}) do
+    String.contains?(msg, [
+      "Connection Error",
+      "connection closed",
+      "I/O Error",
+      "IO Error",
+      "Could not establish",
+      "HTTP Error",
+      "Network"
+    ])
+  end
+
+  defp read_result(result, json_columns) do
+    columns = Duckdbex.columns(result)
+    json_idx = json_indexes(columns, json_columns)
+
+    rows =
+      result
+      |> Duckdbex.fetch_all()
+      |> Enum.map(&normalize_row(&1, json_idx))
+
+    %{columns: columns, rows: rows}
+  end
+
+  defp json_indexes(_columns, []), do: %{}
+
+  defp json_indexes(columns, json_columns) do
+    want = MapSet.new(json_columns)
+
+    columns
+    |> Enum.with_index()
+    |> Enum.filter(fn {name, _i} -> MapSet.member?(want, name) end)
+    |> Map.new(fn {_name, i} -> {i, true} end)
+  end
+
+  defp normalize_row(row, json_idx) do
+    row
+    |> Enum.with_index()
+    |> Enum.map(fn {value, i} ->
+      if Map.has_key?(json_idx, i), do: decode_json(value), else: normalize(value)
+    end)
+  end
+
+  # A `to_json(col)` projection returns a JSON document as VARCHAR; decode it so the
+  # response carries a nested object/array instead of a JSON string.
+  defp decode_json(nil), do: nil
+
+  defp decode_json(value) when is_binary(value) do
+    case Jason.decode(value) do
+      {:ok, decoded} -> decoded
+      _ -> value
+    end
+  end
+
+  defp decode_json(value), do: value
+
+  # ── checkout / checkin (atomics spinlock over ETS slots) ───────────────────────
+
+  defp checkout(%{table: table, locks: locks, size: size}) do
+    start = rem(:erlang.phash2(self()), size)
+    try_checkout(table, locks, size, start, start, 0)
+  end
+
+  defp try_checkout(_table, _locks, _size, _idx, _start, cycles)
+       when cycles >= @max_checkout_cycles,
+       do: :error
+
+  defp try_checkout(table, locks, size, idx, start, cycles) do
+    case :atomics.compare_exchange(locks, idx + 1, 0, 1) do
+      :ok ->
+        [{_key, conn}] = :ets.lookup(table, {:conn, idx})
+        {:ok, idx, conn}
+
+      _busy ->
+        next = rem(idx + 1, size)
+
+        if next == start do
+          Process.sleep(1)
+          try_checkout(table, locks, size, next, start, cycles + 1)
+        else
+          try_checkout(table, locks, size, next, start, cycles)
+        end
+    end
+  end
+
+  defp checkin(%{locks: locks}, idx), do: :atomics.put(locks, idx + 1, 0)
+
+  defp reconnect(%{table: table, db: db, object_store: object_store}, idx) do
+    case new_connection(db, object_store) do
+      {:ok, conn} ->
+        :ets.insert(table, {{:conn, idx}, conn})
+        Logger.warning("Offloader engine: reconnected read pool slot #{idx}")
+        {:ok, conn}
+
+      {:error, reason} ->
+        Logger.error("Offloader engine: pool slot #{idx} reconnect failed: #{inspect(reason)}")
+        :error
+    end
+  end
+
+  # ── setup ──────────────────────────────────────────────────────────────────────
+
+  defp build_pool(db, size, object_store) do
+    table = :ets.new(:offloader_engine_pool, [:public, :set, read_concurrency: true])
+    locks = :atomics.new(size, [])
+
+    Enum.reduce_while(0..(size - 1), :ok, fn i, :ok ->
+      case new_connection(db, object_store) do
+        {:ok, conn} ->
+          :ets.insert(table, {{:conn, i}, conn})
+          {:cont, :ok}
+
+        {:error, _} = err ->
+          {:halt, err}
+      end
+    end)
+    |> case do
+      :ok -> {:ok, %{table: table, locks: locks, size: size, db: db, object_store: object_store}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp new_connection(db, object_store) do
+    with {:ok, conn} <- Duckdbex.connection(db),
+         :ok <- enable_extensions(conn),
+         :ok <- Offloader.ObjectStore.configure(conn, object_store) do
+      {:ok, conn}
+    end
+  end
+
+  defp pool_size(opts) do
+    opts[:pool_size] || Offloader.Config.pool_size() || @default_pool_size
+  end
+
+  defp enable_extensions(conn) do
     with {:ok, _} <- Duckdbex.query(conn, "SET autoinstall_known_extensions=true;"),
          {:ok, _} <- Duckdbex.query(conn, "SET autoload_known_extensions=true;") do
       :ok
@@ -177,6 +416,8 @@ defmodule Offloader.Engine do
 
   # Normalize duckdbex value encodings to JSON-friendly terms.
   # DATE -> {y,m,d} -> "YYYY-MM-DD"; HUGEINT -> {hi,lo} -> integer; else passthrough.
+  # Nested STRUCT/MAP/LIST columns are handled up-front via `to_json` (decode_json/1),
+  # so they never reach this scalar path.
   defp normalize({y, m, d}) when is_integer(y) and is_integer(m) and is_integer(d) do
     case Date.new(y, m, d) do
       {:ok, date} -> Date.to_iso8601(date)

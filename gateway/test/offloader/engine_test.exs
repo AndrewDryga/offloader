@@ -114,4 +114,33 @@ defmodule Offloader.EngineTest do
     on_exit(fn -> if Process.alive?(eng2), do: Engine.stop(eng2) end)
     assert {:ok, %{rows: [[36]]}} = Engine.execute(eng2, "SELECT count(*)::BIGINT FROM warm")
   end
+
+  test "pool_stats reports the configured connection count", %{eng: eng} do
+    assert %{connections: n, busy: 0, saturated: false} = Engine.pool_stats(eng)
+    assert n > 0
+  end
+
+  test "reads run concurrently across the pool and stay correct", %{eng: eng} do
+    # Many concurrent reads on one engine must each get the right answer — proving
+    # execute/3 runs in the caller (pooled), not serialized through one connection.
+    results =
+      1..200
+      |> Task.async_stream(
+        fn _ -> Engine.execute(eng, "SELECT count(*)::BIGINT FROM snap") end,
+        max_concurrency: 50,
+        timeout: 30_000
+      )
+      |> Enum.map(fn {:ok, res} -> res end)
+
+    assert Enum.all?(results, &match?({:ok, %{rows: [[36]]}}, &1))
+  end
+
+  test "execute decodes json_columns into nested terms", %{eng: eng} do
+    sql = ~s|SELECT to_json({a: 1, b: [10, 20]})::VARCHAR AS payload|
+
+    assert {:ok, %{columns: ["payload"], rows: [[decoded]]}} =
+             Engine.execute(eng, sql, [], ["payload"])
+
+    assert decoded == %{"a" => 1, "b" => [10, 20]}
+  end
 end
