@@ -21,7 +21,7 @@ defmodule Offloader.Runtime do
 
   alias Offloader.{ApiError, Auth, Catalog, Compiler, Config, Engine, Manifest}
 
-  defstruct [:catalog, :engine, :snapshots, :cache_dir, :refresh_interval_ms]
+  defstruct [:catalog, :engine, :snapshots, :cache_dir, :cache, :refresh_interval_ms]
 
   # ── public API ────────────────────────────────────────────────────────────────
 
@@ -89,6 +89,7 @@ defmodule Offloader.Runtime do
         engine: engine,
         snapshots: %{},
         cache_dir: cache_dir,
+        cache: %{},
         refresh_interval_ms: opts[:refresh_interval_ms]
       }
 
@@ -117,14 +118,7 @@ defmodule Offloader.Runtime do
 
   @impl true
   def handle_call({:serve, name, tenant, params, request_id}, _from, state) do
-    result =
-      with {:ok, endpoint} <- fetch_endpoint(state, name),
-           {:ok, snapshot} <- fetch_active(state, endpoint.dataset),
-           {:ok, plan} <- Compiler.compile(endpoint, params, tenant, endpoint.dataset),
-           {:ok, rows} <- execute(state.engine, plan) do
-        {:ok, response(endpoint, snapshot, rows, request_id)}
-      end
-
+    {result, state} = do_serve(state, name, tenant, params, request_id)
     {:reply, result, state}
   end
 
@@ -216,7 +210,9 @@ defmodule Offloader.Runtime do
           last_attempted: attempt(manifest.snapshot_id, :ok, nil)
         }
 
-        {put_snapshot(state, dataset_id, new_entry), {:ok, manifest.snapshot_id}}
+        # Snapshot-based invalidation: a new snapshot drops the response cache.
+        state = %{put_snapshot(state, dataset_id, new_entry) | cache: %{}}
+        {state, {:ok, manifest.snapshot_id}}
     end
   end
 
@@ -328,7 +324,13 @@ defmodule Offloader.Runtime do
     do: %{state | snapshots: Map.put(state.snapshots, dataset_id, entry)}
 
   defp snap(manifest, table),
-    do: %{snapshot_id: manifest.snapshot_id, watermark: manifest.watermark, table: table}
+    do: %{
+      snapshot_id: manifest.snapshot_id,
+      watermark: manifest.watermark,
+      table: table,
+      files: manifest.files,
+      dir: manifest.dir
+    }
 
   defp attempt(snapshot_id, status, error),
     do: %{snapshot_id: snapshot_id, status: status, error: error, at: DateTime.utc_now()}
@@ -379,9 +381,57 @@ defmodule Offloader.Runtime do
     end
   end
 
-  defp response(endpoint, snapshot, result, request_id) do
-    data = Enum.map(result.rows, fn row -> result.columns |> Enum.zip(row) |> Map.new() end)
+  # Returns {reply, state} — state changes only to record a response-cache miss.
+  defp do_serve(state, name, tenant, params, request_id) do
+    with {:ok, endpoint} <- fetch_endpoint(state, name),
+         {:ok, snapshot} <- fetch_active(state, endpoint.dataset) do
+      key = cache_key(endpoint, tenant, params, snapshot.snapshot_id)
 
+      if cacheable?(endpoint) and Map.has_key?(state.cache, key) do
+        {{:ok, response(endpoint, snapshot, state.cache[key], request_id, "hit")}, state}
+      else
+        serve_fresh(state, endpoint, snapshot, tenant, params, request_id, key)
+      end
+    else
+      {:error, %ApiError{}} = err -> {err, state}
+    end
+  end
+
+  defp serve_fresh(state, endpoint, snapshot, tenant, params, request_id, key) do
+    source = source_for(endpoint, snapshot)
+
+    with {:ok, plan} <- Compiler.compile(endpoint, params, tenant, source),
+         {:ok, result} <- execute(state.engine, plan) do
+      data = Enum.map(result.rows, fn row -> result.columns |> Enum.zip(row) |> Map.new() end)
+
+      state =
+        if cacheable?(endpoint),
+          do: %{state | cache: Map.put(state.cache, key, data)},
+          else: state
+
+      status = if cacheable?(endpoint), do: "miss", else: "off"
+      {{:ok, response(endpoint, snapshot, data, request_id, status)}, state}
+    else
+      {:error, %ApiError{}} = err -> {err, state}
+    end
+  end
+
+  # local_table (default) reads the materialized view; remote_scan reads the snapshot's
+  # source files directly per request.
+  defp source_for(%{serving_mode: "remote_scan"}, snapshot),
+    do: {:scan, snapshot.files, snapshot.dir}
+
+  defp source_for(endpoint, _snapshot), do: {:table, endpoint.dataset}
+
+  defp cacheable?(%{cache_policy: "snapshot"}), do: true
+  defp cacheable?(_), do: false
+
+  # Key includes endpoint (which fixes the projection), tenant, the full request
+  # params, and the snapshot id — so a new snapshot invalidates by construction.
+  defp cache_key(endpoint, tenant, params, snapshot_id),
+    do: {endpoint.name, endpoint.version, tenant, params, snapshot_id}
+
+  defp response(endpoint, snapshot, data, request_id, cache_status) do
     %{
       data: data,
       meta: %{
@@ -389,6 +439,8 @@ defmodule Offloader.Runtime do
         endpoint: endpoint.name,
         snapshot_id: snapshot.snapshot_id,
         row_count: length(data),
+        serving_mode: endpoint.serving_mode,
+        cache: cache_status,
         freshness: freshness(endpoint, snapshot)
       }
     }

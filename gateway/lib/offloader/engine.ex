@@ -140,19 +140,7 @@ defmodule Offloader.Engine do
     end
   end
 
-  # Build `SELECT * FROM read_csv_auto('a') UNION ALL BY NAME SELECT * FROM read_parquet('b')`
-  # over the manifest's files, each path resolved from the manifest dir and escaped.
-  defp read_expr(%Manifest{files: files, dir: dir}) do
-    files
-    |> Enum.map(fn f ->
-      path = Path.expand(f["path"], dir)
-      "SELECT * FROM #{reader(f["format"])}('#{escape(path)}')"
-    end)
-    |> Enum.join(" UNION ALL BY NAME ")
-  end
-
-  defp reader("parquet"), do: "read_parquet"
-  defp reader(_), do: "read_csv_auto"
+  defp read_expr(%Manifest{files: files, dir: dir}), do: Offloader.Sql.read_files_expr(files, dir)
 
   defp table_count(conn, quoted_ident) do
     case run(conn, "SELECT count(*) FROM #{quoted_ident}", [], :materialize_failed) do
@@ -175,10 +163,7 @@ defmodule Offloader.Engine do
     end
   end
 
-  # DuckDB identifiers: double-quote and double any embedded quotes.
-  defp quote_ident(name), do: ~s("#{String.replace(name, "\"", "\"\"")}")
-  # SQL string literals: double any embedded single quote.
-  defp escape(path), do: String.replace(path, "'", "''")
+  defp quote_ident(name), do: Offloader.Sql.quote_ident(name)
 
   # Normalize duckdbex value encodings to JSON-friendly terms.
   # DATE -> {y,m,d} -> "YYYY-MM-DD"; HUGEINT -> {hi,lo} -> integer; else passthrough.

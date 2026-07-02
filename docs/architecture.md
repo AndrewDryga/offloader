@@ -56,6 +56,27 @@ the admin port behind the controls they already use.
 | `remote_scan` | Cold endpoints, huge datasets, selective filters, proof/debug. | First-class mode, not default. |
 | `response_cache` | Same params repeated against same snapshot. | Add when endpoint semantics are stable. |
 
+### Choosing a serving mode
+
+Set `serving_mode` per endpoint (`local_table` is the default if omitted):
+
+- **Default to `local_table`.** It materializes the snapshot into a DuckDB table
+  once per refresh, so every query is a fast in-memory read. Use it for hot,
+  high-QPS, tight-p95 product endpoints — the common case.
+- **Use `remote_scan` only with benchmark evidence.** It reads the snapshot's
+  source files directly on every request (no materialization), trading per-query
+  latency for zero materialization cost and memory. It fits cold, low-QPS, or
+  oversized endpoints. Do not put a p95-sensitive endpoint on `remote_scan`
+  without measuring it (`dev/scripts/bench-modes.exs`).
+- Both modes run the identical compiled plan and return identical results — the
+  only difference is where DuckDB reads from.
+
+`cache.policy: snapshot` adds a response cache on top of either mode. The cache
+key is `(endpoint, version, tenant, request params, snapshot_id)`, so it is safe
+by construction: it never crosses tenants, and a new snapshot invalidates every
+entry (invalidation is snapshot-based, never time-based). Turn it on for endpoints
+whose repeated same-param reads are worth caching; leave it `none` otherwise.
+
 ## Snapshot manifest contract
 
 Required fields:

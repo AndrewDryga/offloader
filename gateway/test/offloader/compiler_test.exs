@@ -11,7 +11,7 @@ defmodule Offloader.CompilerTest do
   end
 
   defp compile(cat, name, params, tenant \\ "tenant_acme") do
-    Compiler.compile(cat.endpoints[name], params, tenant, "customer_usage")
+    Compiler.compile(cat.endpoints[name], params, tenant, {:table, "customer_usage"})
   end
 
   test "compiles a valid request into a parameterized plan with the tenant as $1", %{cat: cat} do

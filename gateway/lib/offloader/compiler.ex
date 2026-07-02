@@ -30,19 +30,22 @@ defmodule Offloader.Compiler do
   @reserved ~w(limit offset)
   @ops %{"eq" => "=", "gte" => ">=", "lte" => "<="}
 
+  @typedoc "Where to read from: a materialized table (local_table) or a direct file scan (remote_scan)."
+  @type source :: {:table, String.t()} | {:scan, [map()], String.t()}
+
   @doc """
-  Compile `endpoint` + `request` params (string-keyed) for `tenant`, querying the
-  active table `from`. Returns {:ok, %Plan{}} or {:error, %ApiError{}}.
+  Compile `endpoint` + `request` params (string-keyed) for `tenant`, reading from
+  `source`. Returns {:ok, %Plan{}} or {:error, %ApiError{}}.
   """
-  @spec compile(Endpoint.t(), map(), String.t(), String.t()) ::
+  @spec compile(Endpoint.t(), map(), String.t(), source()) ::
           {:ok, Plan.t()} | {:error, ApiError.t()}
-  def compile(%Endpoint{} = endpoint, request, tenant, from)
+  def compile(%Endpoint{} = endpoint, request, tenant, source)
       when is_map(request) and is_binary(tenant) do
     with :ok <- reject_unknown(endpoint, request),
          {:ok, coerced} <- coerce_params(endpoint, request),
          {:ok, limit} <- coerce_limit(endpoint, request),
          {:ok, offset} <- coerce_offset(request) do
-      {:ok, build(endpoint, coerced, tenant, from, limit, offset)}
+      {:ok, build(endpoint, coerced, tenant, source, limit, offset)}
     end
   end
 
@@ -146,7 +149,7 @@ defmodule Offloader.Compiler do
 
   # ── SQL assembly (identifiers are all from validated config) ───────────────────
 
-  defp build(endpoint, coerced, tenant, from, limit, offset) do
+  defp build(endpoint, coerced, tenant, source, limit, offset) do
     projection = Enum.map_join(endpoint.select, ", ", &select_sql/1)
 
     # WHERE: tenant is always $1; present filters follow as $2, $3, …
@@ -170,7 +173,7 @@ defmodule Offloader.Compiler do
     offset_idx = limit_idx + 1
 
     sql =
-      "SELECT #{projection} FROM #{ident(from)} WHERE #{where}" <>
+      "SELECT #{projection} FROM #{from_sql(source)} WHERE #{where}" <>
         group_by_sql(endpoint) <>
         order_by_sql(endpoint) <>
         " LIMIT $#{limit_idx} OFFSET $#{offset_idx}"
@@ -223,7 +226,12 @@ defmodule Offloader.Compiler do
     Enum.any?(endpoint.params, &(&1.name == name and &1.type == "date"))
   end
 
+  # local_table reads a materialized view/table; remote_scan reads the source files
+  # directly per request (a subquery). Both come from validated config/manifests.
+  defp from_sql({:table, name}), do: ident(name)
+  defp from_sql({:scan, files, dir}), do: "(" <> Offloader.Sql.read_files_expr(files, dir) <> ")"
+
   # DuckDB identifier quoting. Inputs are already safe identifiers (validated by
   # Offloader.Catalog); quoting is defense in depth.
-  defp ident(name), do: ~s("#{String.replace(name, "\"", "\"\"")}")
+  defp ident(name), do: Offloader.Sql.quote_ident(name)
 end
