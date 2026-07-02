@@ -190,11 +190,18 @@ defmodule Offloader.Compiler do
     %Plan{
       sql: sql,
       params: params ++ [limit, offset],
-      columns: Enum.map(endpoint.select, & &1.as)
+      columns: Enum.map(endpoint.select, & &1.as),
+      json_columns: for(s <- endpoint.select, s.json?, do: s.as)
     }
   end
 
   # (Plan struct is defined at the top of this file so the compiler can expand it.)
+
+  # A JSON (nested) column is projected whole via to_json — cast to VARCHAR so it comes
+  # back as a document string the engine decodes into a nested term. Aggregation on a
+  # JSON column is rejected at config-load, so `agg` is always nil here.
+  defp select_sql(%{as: as, column: col, json?: true}),
+    do: "to_json(" <> ident(col) <> ")::VARCHAR AS " <> ident(as)
 
   defp select_sql(%{as: as, column: col, agg: agg}) do
     expr =

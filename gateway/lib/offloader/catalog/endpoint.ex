@@ -79,7 +79,7 @@ defmodule Offloader.Catalog.Endpoint do
         pagination_errors(raw, file) ++
         cache_errors(raw, file)
 
-    if errors == [], do: {:ok, build(raw, params)}, else: {:error, errors}
+    if errors == [], do: {:ok, build(raw, params, dataset)}, else: {:error, errors}
   end
 
   def parse(_raw, file, _dataset),
@@ -377,11 +377,35 @@ defmodule Offloader.Catalog.Endpoint do
     Parse.unknown_keys(s, ~w(as column agg), file, path) ++
       identifier_at(s["as"], Parse.join(path, "as"), file) ++
       column_in_dataset(s["column"], Parse.join(path, "column"), file, dataset) ++
-      agg_err(s["agg"], Parse.join(path, "agg"), file)
+      agg_err(s["agg"], Parse.join(path, "agg"), file) ++
+      json_agg_err(s, path, file, dataset)
   end
 
   defp one_select_errors(_s, path, file, _dataset),
     do: [Error.new(file, path, :invalid_type, "select item must be a mapping")]
+
+  # A JSON (nested) column is served whole via to_json; it cannot be aggregated.
+  defp json_agg_err(%{"column" => col, "agg" => agg}, path, file, dataset)
+       when not is_nil(agg) do
+    if column_type(dataset, col) == "JSON" do
+      [
+        Error.new(
+          file,
+          Parse.join(path, "agg"),
+          :invalid_agg_on_json,
+          "column #{inspect(col)} is JSON (nested) and cannot be aggregated",
+          "select it without agg to serve the nested document"
+        )
+      ]
+    else
+      []
+    end
+  end
+
+  defp json_agg_err(_s, _path, _file, _dataset), do: []
+
+  defp column_type(dataset, col),
+    do: Enum.find_value(dataset.schema, fn %{name: n, type: t} -> if n == col, do: t end)
 
   defp agg_err(nil, _path, _file), do: []
   defp agg_err(agg, _path, _file) when agg in @aggs, do: []
@@ -724,8 +748,9 @@ defmodule Offloader.Catalog.Endpoint do
 
   # ── build (only reached when there are zero errors) ───────────────────────────
 
-  defp build(raw, params) do
+  defp build(raw, params, dataset) do
     q = raw["query"]
+    types = Map.new(dataset.schema, &{&1.name, &1.type})
 
     %__MODULE__{
       name: raw["name"],
@@ -738,7 +763,7 @@ defmodule Offloader.Catalog.Endpoint do
       tenant_column: get_in(raw, ["tenant", "column"]),
       params: Enum.map(params, &Param.build/1),
       group_by: q["group_by"] || [],
-      select: Enum.map(q["select"], &Select.build/1),
+      select: Enum.map(q["select"], fn s -> Select.build(s, types[s["column"]] == "JSON") end),
       filters: Enum.map(q["filters"] || [], &Filter.build/1),
       order_by: for(o <- q["order_by"] || [], do: %{column: o["column"], dir: o["dir"] || "asc"}),
       columns: raw["columns"],
@@ -769,11 +794,16 @@ defmodule Offloader.Catalog.Endpoint.Param do
 end
 
 defmodule Offloader.Catalog.Endpoint.Select do
-  @moduledoc "One output column: `as` (result name) computed from a dataset `column`, optional `agg`."
+  @moduledoc """
+  One output column: `as` (result name) computed from a dataset `column`, optional
+  `agg`. `json?` is set when the dataset column is the logical `JSON` type — the
+  compiler then projects it via `to_json(...)` and the response carries a nested term.
+  """
   @enforce_keys [:as, :column]
-  defstruct [:as, :column, :agg]
+  defstruct [:as, :column, :agg, json?: false]
 
-  def build(s), do: %__MODULE__{as: s["as"], column: s["column"], agg: s["agg"]}
+  def build(s, json? \\ false),
+    do: %__MODULE__{as: s["as"], column: s["column"], agg: s["agg"], json?: json?}
 end
 
 defmodule Offloader.Catalog.Endpoint.Filter do

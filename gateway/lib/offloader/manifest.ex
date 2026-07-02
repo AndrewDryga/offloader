@@ -38,7 +38,8 @@ defmodule Offloader.Manifest do
   @required ~w(dataset_id snapshot_id created_at watermark schema files partition_columns
                sort_columns row_count size_bytes producer upstream_run_id schema_version
                data_quality_status compatibility_policy)
-  @types ~w(DATE TIMESTAMP VARCHAR INTEGER BIGINT DOUBLE BOOLEAN)
+  # `JSON` marks a nested column (STRUCT/MAP/LIST/JSON) the endpoint serves via to_json.
+  @types ~w(DATE TIMESTAMP VARCHAR INTEGER BIGINT DOUBLE BOOLEAN JSON)
   @formats ~w(csv parquet)
   @quality ~w(passed warning failed)
   @policies ~w(additive_only exact)

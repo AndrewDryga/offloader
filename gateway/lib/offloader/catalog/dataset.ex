@@ -22,8 +22,11 @@ defmodule Offloader.Catalog.Dataset do
         }
 
   @top_keys ~w(id description manifest tenant_column schema)
-  # DuckDB types V1 supports in a serving dataset. Kept deliberately small.
-  @types ~w(DATE TIMESTAMP VARCHAR INTEGER BIGINT DOUBLE BOOLEAN)
+  # DuckDB types V1 supports in a serving dataset. Kept deliberately small. `JSON` is
+  # a logical type for a nested column (STRUCT/MAP/LIST/JSON in the snapshot): the
+  # endpoint serves it via `to_json(...)`, so the response carries a nested object
+  # instead of a flattened value.
+  @types ~w(DATE TIMESTAMP VARCHAR INTEGER BIGINT DOUBLE BOOLEAN JSON)
 
   @doc "Parse and validate a dataset map. Returns {:ok, dataset} or {:error, errors}."
   @spec parse(term(), String.t()) :: {:ok, t()} | {:error, [Error.t()]}
