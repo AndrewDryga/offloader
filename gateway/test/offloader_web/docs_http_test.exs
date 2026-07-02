@@ -73,4 +73,26 @@ defmodule OffloaderWeb.DocsHTTPTest do
     # the built-in pagination params are documented too
     assert Enum.any?(daily["params"], &(&1["name"] == "limit"))
   end
+
+  test "GET /schema returns a compact client schema of every endpoint" do
+    schema = json_response(get(build_conn(), "/schema"), 200)
+    assert schema["service"] == "offloader"
+    assert schema["auth"]["mode"] == "required"
+    assert schema["count"] == length(schema["endpoints"])
+
+    summary = Enum.find(schema["endpoints"], &(&1["name"] == "customer_usage_summary"))
+    assert summary["path"] == "/v1/endpoints/customer_usage_summary"
+    assert summary["method"] == "GET"
+    assert summary["tenant_scoped"] == true
+    assert summary["public"] == false
+    assert summary["pagination"]["max_limit"] == 100
+
+    # response columns are listed with a nested flag; these are all scalar
+    names = Enum.map(summary["response_columns"], & &1["name"])
+    assert "api_calls_total" in names
+    assert Enum.all?(summary["response_columns"], &(&1["nested"] == false))
+
+    # filters are exposed so a client knows what it can filter on
+    assert Enum.any?(summary["filters"], &(&1["column"] == "usage_date"))
+  end
 end

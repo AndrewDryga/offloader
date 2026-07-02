@@ -31,13 +31,60 @@ defmodule Offloader.Docs do
     %{
       service: "offloader",
       config_version: cat.version,
-      auth: %{
-        scheme: "bearer",
-        note:
-          "Send Authorization: Bearer <api-key>. A key is scoped to specific endpoints and bound to one tenant."
-      },
+      auth: auth_summary(cat),
       endpoints:
         cat.endpoints |> Map.values() |> Enum.sort_by(& &1.name) |> Enum.map(&endpoint_doc/1)
+    }
+  end
+
+  @doc """
+  A compact, client-oriented schema of every endpoint: how to call it (params,
+  filters, pagination) and what comes back (response columns, flagging nested JSON).
+  Leaner than `catalog/1` (no snippets/examples) — the shape a client discovers
+  against, akin to upstream_serving_api's `/schema`.
+  """
+  @spec schema(Catalog.t()) :: map()
+  def schema(%Catalog{} = cat) do
+    endpoints = cat.endpoints |> Map.values() |> Enum.sort_by(& &1.name)
+
+    %{
+      service: "offloader",
+      config_version: cat.version,
+      auth: auth_summary(cat),
+      count: length(endpoints),
+      endpoints: Enum.map(endpoints, &schema_entry/1)
+    }
+  end
+
+  defp auth_summary(%Catalog{auth_mode: "none"}) do
+    %{mode: "none", scheme: nil, note: "This API is public: no Authorization header is required."}
+  end
+
+  defp auth_summary(%Catalog{}) do
+    %{
+      mode: "required",
+      scheme: "bearer",
+      note:
+        "Send Authorization: Bearer <api-key>. A key is scoped to specific endpoints and bound to one tenant."
+    }
+  end
+
+  defp schema_entry(%Endpoint{} = ep) do
+    %{
+      name: ep.name,
+      version: ep.version,
+      method: "GET",
+      path: "#{@base_path}/#{ep.name}",
+      description: ep.description,
+      public: ep.tenant_column == nil,
+      tenant_scoped: ep.tenant_column != nil,
+      params:
+        Enum.map(ep.params, fn p ->
+          %{name: p.name, type: p.type, required: p.required, enum: p.enum}
+        end),
+      filters: Enum.map(ep.filters, fn f -> %{column: f.column, op: f.op, param: f.param} end),
+      response_columns: Enum.map(ep.select, fn s -> %{name: s.as, nested: s.json?} end),
+      pagination: %{default_limit: ep.default_limit, max_limit: ep.max_limit}
     }
   end
 

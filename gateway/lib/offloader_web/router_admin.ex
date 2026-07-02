@@ -26,6 +26,7 @@ defmodule OffloaderWeb.AdminRouter do
 
     # Generated product-API docs (no secrets; admin-port only, never the API port).
     get "/docs", DocsController, :catalog
+    get "/schema", DocsController, :schema
     get "/openapi.json", DocsController, :openapi
   end
 

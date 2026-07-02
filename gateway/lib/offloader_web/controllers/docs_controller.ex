@@ -14,6 +14,10 @@ defmodule OffloaderWeb.DocsController do
     with_catalog(conn, &Docs.catalog/1)
   end
 
+  def schema(conn, _params) do
+    with_catalog(conn, &Docs.schema/1)
+  end
+
   def openapi(conn, _params) do
     with_catalog(conn, &Docs.openapi/1)
   end
