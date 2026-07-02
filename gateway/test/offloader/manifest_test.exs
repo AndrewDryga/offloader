@@ -37,6 +37,35 @@ defmodule Offloader.ManifestTest do
       assert :missing_file in codes(Manifest.load(Path.join(@fl, "missing-file/manifest.json")))
     end
 
+    test "a remote file URL is trusted (not stat'd), so no missing_file error" do
+      manifest = %{
+        "dataset_id" => "customer_usage",
+        "snapshot_id" => "remote_r1",
+        "created_at" => "2026-07-01T00:00:00Z",
+        "watermark" => "2026-07-01T00:00:00Z",
+        "schema" => [%{"name" => "tenant_id", "type" => "VARCHAR"}],
+        "files" => [%{"path" => "s3://bucket/customer_usage.parquet", "format" => "parquet"}],
+        "partition_columns" => [],
+        "sort_columns" => [],
+        "row_count" => 1,
+        "size_bytes" => 1,
+        "producer" => "p",
+        "upstream_run_id" => "r1",
+        "schema_version" => 1,
+        "data_quality_status" => "passed",
+        "compatibility_policy" => "additive_only"
+      }
+
+      path =
+        Path.join(System.tmp_dir!(), "remote_manifest_#{System.unique_integer([:positive])}.json")
+
+      File.write!(path, Jason.encode!(manifest))
+      on_exit(fn -> File.rm(path) end)
+
+      assert {:ok, m} = Manifest.load(path)
+      assert hd(m.files)["path"] == "s3://bucket/customer_usage.parquet"
+    end
+
     test "a stale but well-formed manifest is structurally VALID (staleness is a freshness concern)" do
       assert {:ok, _} = Manifest.load(Path.join(@fl, "stale-dataset/manifest.json"))
     end

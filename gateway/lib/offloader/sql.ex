@@ -15,17 +15,25 @@ defmodule Offloader.Sql do
   def escape(str), do: String.replace(str, "'", "''")
 
   @doc """
-  A `SELECT * FROM read_...('f')` expression over a manifest's files (each path
-  resolved from `dir`), joined `UNION ALL BY NAME`. Used both to materialize a table
-  and to scan the source directly (remote_scan).
+  A `SELECT * FROM read_...('f')` expression over a manifest's files, joined
+  `UNION ALL BY NAME`. Used both to materialize a table and to scan the source
+  directly (remote_scan). A local path is resolved from `dir`; a remote URL
+  (`s3://`, `gs://`, `https://`, …) is passed through verbatim so DuckDB's httpfs
+  reads it directly (credentials come from `Offloader.ObjectStore`).
   """
   @spec read_files_expr([map()], String.t()) :: String.t()
   def read_files_expr(files, dir) do
     files
     |> Enum.map_join(" UNION ALL BY NAME ", fn f ->
-      path = Path.expand(f["path"], dir)
+      path = resolve_path(f["path"], dir)
       "SELECT * FROM #{reader(f["format"])}('#{escape(path)}')"
     end)
+  end
+
+  @doc "Resolve a manifest file path: remote URLs pass through, local paths expand from `dir`."
+  @spec resolve_path(String.t(), String.t()) :: String.t()
+  def resolve_path(path, dir) do
+    if Offloader.ObjectStore.remote_path?(path), do: path, else: Path.expand(path, dir)
   end
 
   defp reader("parquet"), do: "read_parquet"

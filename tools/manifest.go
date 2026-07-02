@@ -121,6 +121,10 @@ func checkFiles(rel, dir string, files []fileJSON, out *findings) {
 			out.add(rel, p+".path", "missing", "file path is required", "")
 			continue
 		}
+		// A remote URL (s3://, gs://, https://, …) is trusted; only local files are stat'd.
+		if isRemotePath(f.Path) {
+			continue
+		}
 		full := f.Path
 		if !filepath.IsAbs(full) {
 			full = filepath.Join(dir, f.Path)

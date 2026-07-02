@@ -315,22 +315,7 @@ defmodule Offloader.Manifest do
 
     case f["path"] do
       p when is_binary(p) and p != "" ->
-        full = Path.expand(p, dir)
-
-        if File.exists?(full),
-          do:
-            fmt_err ++
-              schema_data_errors(full, f["format"], schema, Parse.join(path, "path"), rel),
-          else:
-            fmt_err ++
-              [
-                Error.new(
-                  rel,
-                  Parse.join(path, "path"),
-                  :missing_file,
-                  "file #{inspect(p)} does not exist relative to the manifest"
-                )
-              ]
+        fmt_err ++ path_errors(p, dir, f["format"], schema, Parse.join(path, "path"), rel)
 
       _ ->
         fmt_err ++ [Error.new(rel, Parse.join(path, "path"), :missing, "file path is required")]
@@ -339,6 +324,29 @@ defmodule Offloader.Manifest do
 
   defp one_file(_f, _dir, path, rel, _schema),
     do: [Error.new(rel, path, :invalid_type, "files entry must be an object")]
+
+  # A remote URL (s3://, gs://, https://, …) is trusted here — we can't stat it without
+  # network/credentials, and a bad path surfaces as a clear read error at refresh. A
+  # local file must exist, and a local CSV's header must match the declared schema.
+  defp path_errors(p, dir, format, schema, path, rel) do
+    cond do
+      Offloader.ObjectStore.remote_path?(p) ->
+        []
+
+      File.exists?(Path.expand(p, dir)) ->
+        schema_data_errors(Path.expand(p, dir), format, schema, path, rel)
+
+      true ->
+        [
+          Error.new(
+            rel,
+            path,
+            :missing_file,
+            "file #{inspect(p)} does not exist relative to the manifest"
+          )
+        ]
+    end
+  end
 
   # For a local CSV, the header columns must match the declared schema names — a
   # cheap defense against a manifest that describes a different file than it points at.

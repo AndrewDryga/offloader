@@ -65,6 +65,12 @@ var identRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 func safeIdent(s string) bool { return identRe.MatchString(s) }
 
+var remotePathRe = regexp.MustCompile(`(?i)^(s3|gs|gcs|az|azure|r2|http|https)://`)
+
+// isRemotePath reports whether a manifest file path is a remote URL DuckDB reads over
+// the network (httpfs) rather than a local file to be stat'd.
+func isRemotePath(s string) bool { return remotePathRe.MatchString(s) }
+
 var supportedTypes = map[string]bool{
 	"DATE": true, "TIMESTAMP": true, "VARCHAR": true, "INTEGER": true,
 	"BIGINT": true, "DOUBLE": true, "BOOLEAN": true,
