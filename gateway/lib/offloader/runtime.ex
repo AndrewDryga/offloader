@@ -165,7 +165,9 @@ defmodule Offloader.Runtime do
     config_path = opts[:config_path] || Config.config_path()
     cache_dir = opts[:cache_dir] || Config.cache_dir()
 
-    with {:ok, catalog} <- Catalog.load(config_path),
+    # Config.Loader resolves a local path as-is, or fetches a `gs://…` project tree into
+    # <cache_dir>/config first — so the container can be fully stateless (config in the bucket).
+    with {:ok, catalog} <- Config.Loader.load(config_path, cache_dir),
          {:ok, engine} <-
            Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()),
          # High restart intensity: with dozens of datasets, a transient burst of worker

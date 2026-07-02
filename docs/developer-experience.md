@@ -67,6 +67,29 @@ directly by DuckDB (httpfs). Two credential modes:
 Explicit HMAC credentials win when both are set. Credentials never appear in logs,
 error bodies, or support bundles (values are scrubbed; bundles are redacted).
 
+## Config from object storage (optional)
+
+`OFFLOADER_CONFIG` may be a **`gs://bucket/prefix/` URL** instead of a mounted path. At boot
+Offloader fetches the whole project tree (`offloader.yml`, `datasets/`, `endpoints/`, the keys
+file) from GCS into `<cache_dir>/config/` and loads it from there — so the container is fully
+stateless: env vars in, config and data both in the bucket, nothing mounted.
+
+- Uses the **GCS bearer token chain** (the same one the Databricks source lists with):
+  `OFFLOADER_GCS_TOKEN`, the GCE metadata server, or `gcloud` — set `OFFLOADER_GCS_AUTH=bearer`.
+  Remote config is GCS-only for now (`s3://`/`https://` config is not yet supported).
+- Only `.yml`/`.yaml` objects under the prefix are fetched (bounded to 500 files / 32 MiB). A
+  transient GCS error at boot is retried a few times; an invalid config fails boot loudly, exactly
+  as a bad mounted config does.
+- Datasets served from a remote config should use a remote `source:` (Databricks/GCS) or an
+  absolute/remote `manifest:` — a *relative local* `manifest:` has no mounted data to resolve
+  against.
+- **Security — co-hosting config with data:** the keys file stores **SHA-256 hashes of bearer
+  tokens, never the tokens** (see `security-model.md`), so bucket-read exposure leaks hashes plus
+  the endpoint/tenant access map, not usable credentials. A **public** deployment (`auth: none`)
+  has no keys file at all — the cleanest stateless setup. For an authed deployment, put the config
+  under a **separate, tighter-ACL bucket/prefix** from the bulk data if you want to limit who can
+  read the hashes.
+
 ## Useful helper commands
 
 - `offloader validate`

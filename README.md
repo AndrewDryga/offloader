@@ -42,6 +42,9 @@ Offloader is not:
 - Read snapshots from the **local filesystem OR remote object storage** — `s3://`,
   `gs://`, `https://` via DuckDB httpfs, with S3/GCS-HMAC or GCS-OAuth-bearer
   credentials from env (never a request).
+- Boot **fully stateless**: point `OFFLOADER_CONFIG` at a `gs://…` prefix and the whole
+  project (datasets, endpoints, keys) is fetched from the bucket at startup — config and
+  data in the same place, nothing mounted.
 - Follow a producer that publishes on its own schedule: a **Databricks
   commit-protocol resolver** discovers the latest `_committed_<tid>` in GCS and
   refreshes per-dataset, isolated so one slow/broken source never blocks the rest;
