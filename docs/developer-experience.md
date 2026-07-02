@@ -80,11 +80,11 @@ error bodies, or support bundles (values are scrubbed; bundles are redacted).
 - `offloader doctor`
 - `offloader support-bundle`
 
-### Importing a upstream-style serving schema
+### Importing an existing serving schema
 
 `offloader import-schema` generates a whole Offloader project from a
 `serving_schema.json` (one dataset per `{game,table}` as a Databricks GCS source, one
-endpoint per query, upstream `defaults`/`combinations`/`param_aliases` preserved, plus a
+endpoint per query, the source `defaults`/`combinations`/`param_aliases` preserved, plus a
 `mapping.json` for the cutover diff harness). Column types are not in the schema file
 (the source is `SELECT *`), so supply a hints file — one DESCRIBE per table, mapping
 nested `STRUCT`/`MAP`/`LIST` columns to `JSON`:

@@ -41,7 +41,7 @@ defmodule Offloader.Docs do
   A compact, client-oriented schema of every endpoint: how to call it (params,
   filters, pagination) and what comes back (response columns, flagging nested JSON).
   Leaner than `catalog/1` (no snippets/examples) — the shape a client discovers
-  against, akin to upstream_serving_api's `/schema`.
+  against, akin to an upstream serving API's `/schema` discovery endpoint.
   """
   @spec schema(Catalog.t()) :: map()
   def schema(%Catalog{} = cat) do

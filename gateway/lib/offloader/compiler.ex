@@ -73,7 +73,7 @@ defmodule Offloader.Compiler do
 
   # When the endpoint declares combinations, the SET of declared params the client
   # sent (reserved params aside) must exactly match one of them — checked before
-  # defaults are merged, mirroring upstream's validate_params semantics.
+  # defaults are merged, mirroring the upstream API's exact-set combination semantics.
   defp check_combination(%Endpoint{combinations: []}, _request), do: :ok
 
   defp check_combination(%Endpoint{combinations: combos}, request) do
@@ -364,7 +364,7 @@ defmodule Offloader.Compiler do
 
   # A string/enum-param filter compares stringly — CAST(col AS VARCHAR) = $n — so a
   # string value like "ALL" against a non-VARCHAR column filters to no rows instead of
-  # erroring (upstream_serving_api semantics; a no-op cast on VARCHAR columns). Date params
+  # erroring (the upstream API's stringly comparison; a no-op cast on VARCHAR columns). Date params
   # cast the PARAM side (::DATE); integer params compare natively.
   defp filter_column_sql(endpoint, f) do
     case param_type(endpoint, f.param) do

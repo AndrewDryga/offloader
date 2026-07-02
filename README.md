@@ -10,7 +10,7 @@ compute by serving approved object-storage snapshots through governed REST
 contracts on infrastructure the customer already operates.
 
 Status: the V1 gateway is **feature-complete and validated against real production
-data** (see the `upstream_serving_api` replacement below). The commercial offer is a paid
+data** (see the upstream-API replacement below). The commercial offer is a paid
 diagnostic plus offload pilot, not a broad data platform.
 
 ## Product boundary
@@ -49,7 +49,7 @@ Offloader is not:
 - Enforce API keys, endpoint allowlists, compiler-inserted tenant filters, and column
   allowlists — **or** run fully public (`auth: none`, accepted only when no endpoint
   is tenant-scoped).
-- Serve nested `STRUCT`/`MAP`/`LIST` columns as native JSON, and upstream-style query
+- Serve nested `STRUCT`/`MAP`/`LIST` columns as native JSON, and the same query
   ergonomics: `combinations`, per-param value `aliases`, applied `defaults`, and an
   allowlist-bounded `?columns=` subset.
 - Scale: a DuckDB read-connection pool + per-request serving in the caller process
@@ -60,9 +60,9 @@ Offloader is not:
 - Preserve the previous good snapshot on refresh failure (`rollback`), and ship a
   signed container image via CI on every version tag.
 
-## Replacing an existing serving API (upstream_serving_api)
+## Replacing an existing serving API
 
-Offloader was built and proven to replace `upstream_serving_api`'s production serving:
+Offloader was built and proven to replace a real warehouse-backed serving API's production serving:
 `offloader import-schema` converts a `serving_schema.json` into a whole project, and
 `offloader shadow-diff` gates the cutover on proven response parity against the live
 system. See **`docs/cutover-runbook.md`** for the shadow → canary → cutover playbook.

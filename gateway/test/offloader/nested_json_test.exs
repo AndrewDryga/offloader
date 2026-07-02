@@ -1,7 +1,7 @@
 defmodule Offloader.NestedJsonTest do
   # A dataset column declared `JSON` (a nested STRUCT/MAP/LIST in the snapshot) is
   # served whole: the compiler projects it via to_json and the engine decodes it into
-  # a nested term. This is what lets Offloader serve upstream_serving_api-shaped payloads.
+  # a nested term. This is what lets Offloader serve upstream-API-shaped nested payloads.
   use ExUnit.Case, async: true
 
   alias Offloader.{Catalog, Compiler}
@@ -61,7 +61,7 @@ defmodule Offloader.NestedJsonTest do
     assert Enum.find(ep.select, &(&1.as == "data")).json?
     refute Enum.find(ep.select, &(&1.as == "champion_id")).json?
 
-    {:ok, plan} = Compiler.compile(ep, %{"champion_id" => "1"}, "upstream", {:table, "champion"})
+    {:ok, plan} = Compiler.compile(ep, %{"champion_id" => "1"}, "acme", {:table, "champion"})
 
     # the nested column is projected via to_json (not raw) and flagged for decode
     assert plan.sql =~ ~s|to_json("data")::VARCHAR AS "data"|

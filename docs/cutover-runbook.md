@@ -1,6 +1,6 @@
-# Cutover runbook — upstream_serving_api → Offloader
+# Cutover runbook — an upstream serving API → Offloader
 
-How to move production read traffic from `upstream_serving_api` to Offloader safely, with a
+How to move production read traffic from an upstream serving API to Offloader safely, with a
 proven-parity gate and a one-command rollback at every step. Nothing here is
 irreversible until the final DNS/route switch, and even that reverts in seconds.
 
@@ -10,10 +10,10 @@ irreversible until the final DNS/route switch, and even that reverts in seconds.
   `offloader import-schema --from serving_schema.json --hints <hints>.json
   --out ./project --bucket <bucket>` (see `developer-experience.md`). This also writes
   `project/mapping.json` (upstream query → Offloader endpoint), used by the diff harness.
-- Offloader deployed alongside upstream, reading the SAME GCS bucket
+- Offloader deployed alongside the upstream, reading the SAME GCS bucket
   (`OFFLOADER_GCS_AUTH=bearer` or HMAC), warm (all datasets `ready` — check
   `/ready` on the admin port).
-- Scrape `/metrics` into the same Prometheus as upstream (see the request + pool series
+- Scrape `/metrics` into the same Prometheus as the upstream (see the request + pool series
   in `benchmarks.md`).
 
 ## 1. Parity gate (offline, before any traffic)
@@ -38,7 +38,7 @@ mismatch/error, so it gates a CI job. Investigate every mismatch:
 - **missing-in-offloader / extra-in-offloader rows** — usually a filter-combination or
   a param-alias difference; check the endpoint's `combinations`/`aliases`.
 - **error** — an unmapped query (a `--skip-broken` casualty from import) or an endpoint
-  not ready. Unmapped queries must stay on upstream until converted.
+  not ready. Unmapped queries must stay on the upstream until converted.
 
 Do not proceed until the representative set is clean (or every remaining diff is
 understood and signed off).
@@ -46,7 +46,7 @@ understood and signed off).
 ## 2. Shadow (mirror) — no user impact
 
 Mirror a copy of live prod traffic to Offloader (via your proxy/load-balancer's
-mirror/shadow feature) while ALL real responses still come from upstream. Watch for a
+mirror/shadow feature) while ALL real responses still come from the upstream. Watch for a
 soak period (≥ 24 h across a refresh cycle):
 
 - `offloader_requests_total{status="server_error"}` and `{status="not_ready"}` — must be ~0.
@@ -60,23 +60,23 @@ soak period (≥ 24 h across a refresh cycle):
 Shift a percentage of REAL traffic to Offloader at your edge, pausing at each step.
 Advance only when, over the step's window, ALL hold:
 
-- error rate (5xx) at parity with upstream or better,
+- error rate (5xx) at parity with the upstream or better,
 - p99 within SLO,
 - the parity harness (run against live-sampled requests) stays clean,
 - no unexpected `not_ready` (a dataset fell behind its source).
 
-Roll back a step instantly by returning the weight to upstream — Offloader holds no
+Roll back a step instantly by returning the weight to the upstream — Offloader holds no
 write state, so there is nothing to reconcile.
 
 ## 4. Cutover + decommission
 
-At 100% and stable for a full soak, make Offloader the default route and leave upstream
+At 100% and stable for a full soak, make Offloader the default route and leave the upstream
 running (cheap insurance) for one more cycle before decommissioning. Keep the generated
 project + `mapping.json` in version control so the schema and the routing stay in sync.
 
 ## Rollback (any step)
 
-Return the edge weight/route to upstream. Because Offloader is read-only over immutable
+Return the edge weight/route to the upstream. Because Offloader is read-only over immutable
 snapshots, rollback is a routing change with no data migration. If Offloader itself is
 unhealthy, `/live` (liveness) stays up while `/ready` reports the problem — so an
 orchestrator restarts it rather than routing to a cold instance.

@@ -1,7 +1,7 @@
 defmodule OffloaderWeb.PublicServingHTTPTest do
   # A project with `auth: none` + a non-tenant dataset + a nested JSON column serves
-  # over HTTP with no bearer token and returns nested objects — the upstream_serving_api
-  # shape. async: false (Runtime is a singleton + DuckDB).
+  # over HTTP with no bearer token and returns nested objects — the shape of a public
+  # upstream data API. async: false (Runtime is a singleton + DuckDB).
   use ExUnit.Case, async: false
   import Phoenix.ConnTest
 

@@ -346,8 +346,8 @@ defmodule Offloader.Catalog.Endpoint do
 
   defp aliases_err(_p, _path, _file), do: []
 
-  # `combinations` restricts which SETS of declared params a request may send (upstream
-  # semantics: exact set match, checked before defaults). Each combination must be a
+  # `combinations` restricts which SETS of declared params a request may send (the
+  # upstream API's semantics: exact set match, checked before defaults). Each must be a
   # list of declared param names, without duplicates.
   defp combinations_errors(raw, file, param_names) do
     case raw["combinations"] do

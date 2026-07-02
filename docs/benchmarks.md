@@ -37,7 +37,7 @@ remote_scan) is in `dev/scripts/bench-modes.exs`.
 
 ## Prod-scale run (real data, 2026-07-02)
 
-Full `upstream_serving_api` prod serving schema converted with `offloader import-schema`
+A full production serving schema converted with `offloader import-schema`
 (**66 datasets / 67 endpoints**), booted in `MIX_ENV=prod` against the **real GCS
 bucket** (OAuth bearer), `OFFLOADER_POOL_SIZE=32`, `OFFLOADER_DUCKDB_MEMORY_LIMIT=6GB`,
 `OFFLOADER_DUCKDB_THREADS=6` on an Apple-silicon laptop.
