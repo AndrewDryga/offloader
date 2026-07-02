@@ -1,0 +1,8 @@
+# Prometheus scrape config for Offloader. Add this job to your prometheus.yml.
+# The admin port is private — scrape it from inside your network, never publicly.
+# Alert rules over these metrics: docs/operations/alerts.example.yml.
+scrape_configs:
+  - job_name: offloader
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["offloader-admin:4001"] # admin Service / private address:admin-port

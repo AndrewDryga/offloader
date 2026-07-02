@@ -1,0 +1,106 @@
+# Provider-neutral Kubernetes example for Offloader. Shows the container shape:
+# separate API/admin services, mounted config, a cache PVC, env-var secrets,
+# non-root, and probes on the admin port. Adapt the config source to your setup
+# (see README.md) — do NOT expose the admin Service to the public internet.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: offloader-secrets
+type: Opaque
+stringData:
+  # Generate these with: openssl rand -base64 48 / openssl rand -base64 24
+  OFFLOADER_SECRET_KEY_BASE: "REPLACE_ME_secret_key_base"
+  OFFLOADER_ADMIN_TOKEN: "REPLACE_ME_admin_token"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: offloader-config
+data:
+  # The top-level config. Supply datasets/endpoints/keys the same way (more keys, a
+  # git-sync sidecar, a config image, or remote object-store mode) — see README.md.
+  offloader.yml: |
+    version: 1
+    datasets_dir: datasets
+    endpoints_dir: endpoints
+    keys: keys/keys.yml
+    object_store_mode: local
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: offloader-cache
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: offloader
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: offloader }
+  template:
+    metadata:
+      labels: { app: offloader }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: offloader
+          image: ghcr.io/OWNER/offloader:1.0.0 # pin a version; never :latest
+          envFrom:
+            - secretRef: { name: offloader-secrets }
+          env:
+            - { name: OFFLOADER_CONFIG, value: /etc/offloader/offloader.yml }
+            - { name: OFFLOADER_LOG_LEVEL, value: info }
+          ports:
+            - { name: api, containerPort: 4000 }
+            - { name: admin, containerPort: 4001 }
+          readinessProbe:
+            httpGet: { path: /ready, port: admin }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /live, port: admin }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - { name: config, mountPath: /etc/offloader, readOnly: true }
+            - { name: cache, mountPath: /var/lib/offloader/cache }
+      volumes:
+        - name: config
+          configMap: { name: offloader-config }
+        - name: cache
+          persistentVolumeClaim: { claimName: offloader-cache }
+---
+# Product traffic. Front this with your own Ingress/Gateway + TLS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: offloader-api
+spec:
+  selector: { app: offloader }
+  ports:
+    - { name: api, port: 4000, targetPort: api }
+---
+# Operator surface. Keep this internal (ClusterIP) — do NOT put it behind a public Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: offloader-admin
+  labels: { app: offloader }
+spec:
+  type: ClusterIP
+  selector: { app: offloader }
+  ports:
+    - { name: admin, port: 4001, targetPort: admin }

@@ -1,0 +1,33 @@
+# Docker Compose deployment for Offloader (single node, mounted cache volume).
+#
+#   OFFLOADER_SECRET_KEY_BASE=$(openssl rand -base64 48) \
+#   OFFLOADER_ADMIN_TOKEN=$(openssl rand -base64 24) \
+#   docker compose up
+#
+# Mounts a config directory (put your offloader.yml + datasets/endpoints/keys here)
+# and a named cache volume. The admin port is bound to loopback only — expose it to
+# operators through your own private network, not the public internet.
+services:
+  offloader:
+    image: ghcr.io/OWNER/offloader:1.0.0 # pin a version; never :latest
+    restart: unless-stopped
+    environment:
+      OFFLOADER_CONFIG: /etc/offloader/offloader.yml
+      OFFLOADER_SECRET_KEY_BASE: ${OFFLOADER_SECRET_KEY_BASE:?set OFFLOADER_SECRET_KEY_BASE}
+      OFFLOADER_ADMIN_TOKEN: ${OFFLOADER_ADMIN_TOKEN:?set OFFLOADER_ADMIN_TOKEN}
+      OFFLOADER_LOG_LEVEL: info
+    ports:
+      - "4000:4000" # API port — product traffic
+      - "127.0.0.1:4001:4001" # ADMIN port — keep private
+    volumes:
+      - ./offloader:/etc/offloader:ro # config directory (read-only)
+      - offloader-cache:/var/lib/offloader/cache # persistent materialization cache
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4001/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  offloader-cache:

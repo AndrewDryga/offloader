@@ -1,0 +1,14 @@
+# Prometheus Operator ServiceMonitor scraping the private admin Service's /metrics.
+# Requires the kube-prometheus-stack CRDs. Keep the admin Service internal.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: offloader
+  labels: { release: kube-prometheus-stack }
+spec:
+  selector:
+    matchLabels: { app: offloader }
+  endpoints:
+    - port: admin # the admin Service port (4001)
+      path: /metrics
+      interval: 30s
