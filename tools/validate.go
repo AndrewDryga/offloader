@@ -42,10 +42,12 @@ type columnYML struct {
 }
 
 type sourceYML struct {
-	Type            string `yaml:"type"`
-	Bucket          string `yaml:"bucket"`
-	Prefix          string `yaml:"prefix"`
-	IntervalSeconds int    `yaml:"interval_seconds"`
+	Type   string `yaml:"type"`
+	Bucket string `yaml:"bucket"`
+	Prefix string `yaml:"prefix"`
+	// Pointer so an explicit `0` (which the gateway rejects) is distinguishable from
+	// an omitted interval (which it allows).
+	IntervalSeconds *int `yaml:"interval_seconds"`
 }
 
 type datasetYML struct {
@@ -121,7 +123,7 @@ func validateSnapshotOrigin(rel string, ds datasetYML, out *findings) {
 		if ds.Source.Prefix == "" {
 			out.add(rel, "source.prefix", "missing", "source.prefix is required and must be a non-empty string", "")
 		}
-		if ds.Source.IntervalSeconds < 0 {
+		if ds.Source.IntervalSeconds != nil && *ds.Source.IntervalSeconds <= 0 {
 			out.add(rel, "source.interval_seconds", "invalid_value", "source.interval_seconds must be a positive integer", "")
 		}
 	}
@@ -222,6 +224,7 @@ func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *finding
 				out.add(rel, fmt.Sprintf("params[%d].name", i), "unsafe_identifier", fmt.Sprintf("param name %q is not a safe identifier", p.Name), "")
 			}
 			declared[p.Name] = true
+			validateParamType(rel, i, p, out)
 			validateParamAliases(rel, i, p, out)
 		}
 		validateCombinations(rel, ep.Combinations, declared, out)
@@ -232,17 +235,36 @@ func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *finding
 	return endpoints
 }
 
+var paramTypes = map[string]bool{"string": true, "integer": true, "date": true, "enum": true}
+
+// A param type must be one of the supported set, and an enum must list its values.
+// Mirrors Offloader.Catalog.Endpoint type_err.
+func validateParamType(rel string, i int, p paramYML, out *findings) {
+	if p.Type == "enum" {
+		if len(p.Enum) == 0 {
+			out.add(rel, fmt.Sprintf("params[%d].enum", i), "missing", "enum params must list their allowed values", "")
+		}
+		return
+	}
+	if !paramTypes[p.Type] {
+		out.add(rel, fmt.Sprintf("params[%d].type", i), "invalid_value", fmt.Sprintf("type %q is invalid", p.Type), "one of: string, integer, date, enum")
+	}
+}
+
 // Aliases are a value→value rewrite on string/enum params; for an enum every alias
 // target must itself be an allowed enum value. Mirrors Offloader.Catalog.Endpoint.
 func validateParamAliases(rel string, i int, p paramYML, out *findings) {
-	if len(p.Aliases) == 0 {
+	// nil == absent; an explicit empty map ({}) is present and still type-checked.
+	if p.Aliases == nil {
 		return
 	}
 	path := fmt.Sprintf("params[%d].aliases", i)
 	if p.Type != "string" && p.Type != "enum" {
 		out.add(rel, path, "invalid_value", fmt.Sprintf("aliases are not supported on %q params", p.Type), "only string and enum params can declare aliases")
 	}
-	if p.Type == "enum" {
+	// Only cross-check targets when the enum actually lists values — a missing enum is
+	// reported by validateParamType, not here (avoids a misleading double-report).
+	if p.Type == "enum" && len(p.Enum) > 0 {
 		allowed := map[string]bool{}
 		for _, v := range p.Enum {
 			allowed[v] = true
@@ -304,6 +326,9 @@ func loadKeys(path, rel string, knownEndpoints map[string]bool, out *findings) {
 		}
 		if k.Status != "active" && k.Status != "revoked" {
 			out.add(rel, p+".status", "invalid_value", fmt.Sprintf("status %q is invalid", k.Status), "one of: active, revoked")
+		}
+		if len(k.Endpoints) == 0 {
+			out.add(rel, p+".endpoints", "missing", "key must grant at least one endpoint", "")
 		}
 		for _, e := range k.Endpoints {
 			if !knownEndpoints[e] {

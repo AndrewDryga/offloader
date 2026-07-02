@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -232,6 +233,52 @@ combinations: [[rank], [rank, map_code]]
 	})
 	if fs := validateProject(project); len(fs) != 0 {
 		t.Fatalf("valid combinations/aliases endpoint had findings: %v", fs)
+	}
+}
+
+func TestValidateMirrorsGatewayRules(t *testing.T) {
+	base := `name: e
+dataset: customer_usage
+tenant:
+  column: tenant_id
+columns: [account_id]
+`
+	cases := []struct {
+		name, endpoint, dataset, keys, wantCode string
+	}{
+		{"source interval 0 rejected", base + "params: []\n", "id: customer_usage\nsource: { type: databricks, bucket: b, prefix: p/, interval_seconds: 0 }\nschema:\n  - { name: tenant_id, type: VARCHAR }\n  - { name: account_id, type: VARCHAR }\n", "", "invalid_value"},
+		{"param type gibberish rejected", base + "params:\n  - { name: x, type: gibberish }\n", goodDataset, "", "invalid_value"},
+		{"enum param without values rejected", base + "params:\n  - { name: x, type: enum }\n", goodDataset, "", "missing"},
+		{"aliases on integer param rejected", base + "params:\n  - { name: x, type: integer, aliases: {} }\n", goodDataset, "", "invalid_value"},
+		{"key with empty endpoints rejected", goodEndpoint, goodDataset, "keys:\n  - id: k1\n    hash: \"" + strings.Repeat("a", 64) + "\"\n    tenant: t\n    endpoints: []\n    status: active\n", "missing"},
+	}
+
+	for _, tc := range cases {
+		files := map[string]string{
+			"offloader.yml":               "version: 1\n",
+			"datasets/customer_usage.yml": tc.dataset,
+			"endpoints/e.yml":             tc.endpoint,
+		}
+		if tc.keys != "" {
+			files["offloader.yml"] = "version: 1\nkeys: keys/keys.yml\n"
+			files["keys/keys.yml"] = tc.keys
+		}
+		project := writeProject(t, files)
+		if !slicesContains(validateProject(project).codes(), tc.wantCode) {
+			t.Errorf("%s: expected %q, got %v", tc.name, tc.wantCode, validateProject(project).codes())
+		}
+	}
+}
+
+func TestValidateAcceptsOmittedInterval(t *testing.T) {
+	// An omitted interval_seconds (nil) is fine — only an explicit non-positive is not.
+	project := writeProject(t, map[string]string{
+		"offloader.yml":   "version: 1\n",
+		"datasets/d.yml":  "id: d\nsource: { type: databricks, bucket: b, prefix: p/ }\nschema:\n  - { name: c, type: VARCHAR }\n",
+		"endpoints/e.yml": "name: e\ndataset: d\ncolumns: [c]\n",
+	})
+	if fs := validateProject(project); len(fs) != 0 {
+		t.Fatalf("omitted interval should pass: %v", fs)
 	}
 }
 
