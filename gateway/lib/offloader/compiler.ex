@@ -54,7 +54,7 @@ defmodule Offloader.Compiler do
   defp reject_unknown(endpoint, request) do
     allowed = MapSet.new(Enum.map(endpoint.params, & &1.name) ++ @reserved)
 
-    case Enum.find(Map.keys(request), &(&1 not in allowed)) do
+    case Enum.find(Map.keys(request), &(not MapSet.member?(allowed, &1))) do
       nil -> :ok
       key -> {:error, ApiError.new(:invalid_param, "unknown param #{inspect(key)}")}
     end
@@ -107,7 +107,7 @@ defmodule Offloader.Compiler do
   end
 
   defp coerce(%{type: "enum", name: name, enum: values}, raw) do
-    if raw in values,
+    if Enum.member?(values, raw),
       do: {:ok, raw},
       else: {:error, "param #{inspect(name)} is not an allowed value"}
   end

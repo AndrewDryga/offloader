@@ -420,7 +420,7 @@ defmodule Offloader.Catalog.Endpoint do
         []
 
       true ->
-        unknown = for g <- group_by, g not in select_as, do: g
+        unknown = for g <- group_by, not Enum.member?(select_as, g), do: g
         not_grouped = non_agg_as -- group_by
 
         unknown_err =
@@ -510,7 +510,7 @@ defmodule Offloader.Catalog.Endpoint do
     ]
 
   defp param_ref_err(param, path, file, param_names) do
-    if is_binary(param) and param in param_names,
+    if is_binary(param) and Enum.member?(param_names, param),
       do: [],
       else: [
         Error.new(
@@ -549,7 +549,7 @@ defmodule Offloader.Catalog.Endpoint do
     do: [Error.new(file, path, :invalid_type, "order_by item must be a mapping")]
 
   defp order_column_err(col, path, file, select_as) do
-    if is_binary(col) and col in select_as,
+    if is_binary(col) and Enum.member?(select_as, col),
       do: [],
       else: [
         Error.new(

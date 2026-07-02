@@ -84,7 +84,7 @@ defmodule Offloader.Catalog.Dataset do
               )
             ]
 
-          col not in schema_names ->
+          not Enum.member?(schema_names, col) ->
             [
               Error.new(
                 file,

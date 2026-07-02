@@ -45,7 +45,7 @@ defmodule Offloader.Auth do
   """
   @spec authorize(Key.t(), String.t()) :: {:ok, String.t()} | {:error, ApiError.t()}
   def authorize(%Key{} = key, endpoint_name) do
-    if endpoint_name in key.endpoints,
+    if Enum.member?(key.endpoints, endpoint_name),
       do: {:ok, key.tenant},
       else: {:error, ApiError.new(:not_found, "endpoint not found")}
   end

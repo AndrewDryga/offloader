@@ -10,7 +10,7 @@ defmodule Offloader.Catalog.Parse do
   @doc "Errors for any key in `map` that is not in `allowed` — catches typos and misconfig."
   @spec unknown_keys(term(), [String.t()], String.t(), String.t()) :: [Error.t()]
   def unknown_keys(map, allowed, file, path) when is_map(map) do
-    for {k, _v} <- map, k not in allowed do
+    for {k, _v} <- map, not Enum.member?(allowed, k) do
       Error.new(
         file,
         join(path, k),

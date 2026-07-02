@@ -418,7 +418,7 @@ defmodule Offloader.Manifest do
         []
 
       v ->
-        if v in allowed,
+        if Enum.member?(allowed, v),
           do: [],
           else: [
             Error.new(
