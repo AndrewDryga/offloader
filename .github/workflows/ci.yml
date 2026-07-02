@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    name: gateway (Elixir gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the toolchain the release image ships (gateway/Dockerfile).
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.0.1"
+          elixir-version: "1.20.1"
+
+      - name: Cache deps and _build
+        uses: actions/cache@v4
+        with:
+          path: |
+            gateway/deps
+            gateway/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('gateway/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+
+      - name: The gate — format, warnings-as-errors, tests
+        working-directory: gateway
+        run: |
+          mix deps.get
+          mix format --check-formatted
+          mix compile --warnings-as-errors
+          mix test
+
+  tools:
+    name: tools (Go gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
+
+      - name: The gate — gofmt, vet, test, build
+        working-directory: tools
+        run: |
+          test -z "$(gofmt -l .)" || { echo "gofmt: files need formatting:"; gofmt -l .; exit 1; }
+          go vet ./...
+          go test ./...
+          go build -o /tmp/offloader .
+
+      - name: Config drift — the example projects validate with the tool
+        working-directory: tools
+        run: |
+          go build -o /tmp/offloader .
+          for p in ../examples/*/offloader.yml; do
+            echo "validate $p"; /tmp/offloader validate --config "$p"
+          done
+          for m in ../examples/*/data/*/manifest.json; do
+            echo "manifest $m"; /tmp/offloader manifest validate "$m"
+          done
+
+  docs:
+    name: docs (presence + no overclaims)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./dev/scripts/docs-check.sh

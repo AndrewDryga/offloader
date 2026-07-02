@@ -1,5 +1,7 @@
 # Offloader
 
+[![CI](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml)
+
 Warehouse offload for production analytics APIs.
 
 Offloader is a self-hostable container that moves repeated product-facing
