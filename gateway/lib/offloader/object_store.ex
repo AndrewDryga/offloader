@@ -38,13 +38,23 @@ defmodule Offloader.ObjectStore do
   def configure(_conn, nil), do: :ok
 
   def configure(conn, %{} = config) do
-    with {:ok, resolved} <- resolve_credentials(config),
-         {:ok, _} <- Duckdbex.query(conn, "INSTALL httpfs;"),
+    # Resolve first (bearer mode fetches the token into `resolved`), THEN register the
+    # secret — and scrub against `resolved`, since that is the map whose credential the
+    # DDL embedded and could echo back in an error. A resolve failure carries no
+    # credential, so it needs no scrub.
+    with {:ok, resolved} <- resolve_credentials(config) do
+      case apply_secret(conn, resolved) do
+        :ok -> :ok
+        {:error, reason} -> {:error, redact(reason, resolved)}
+      end
+    end
+  end
+
+  defp apply_secret(conn, resolved) do
+    with {:ok, _} <- Duckdbex.query(conn, "INSTALL httpfs;"),
          {:ok, _} <- Duckdbex.query(conn, "LOAD httpfs;"),
          {:ok, _} <- Duckdbex.query(conn, secret_ddl(resolved)) do
       :ok
-    else
-      {:error, reason} -> {:error, scrub(reason, config)}
     end
   end
 
@@ -64,15 +74,20 @@ defmodule Offloader.ObjectStore do
 
   defp resolve_credentials(config), do: {:ok, config}
 
-  # Replace any configured credential value that leaked into an error message.
-  defp scrub(reason, config) when is_binary(reason) do
+  @doc """
+  Replace any credential value from `config` that leaked into an error `reason`. Public
+  and pure so the redaction of every credential shape (bearer token, HMAC key/secret,
+  session token) is directly testable — the token is the whole reason this exists.
+  """
+  @spec redact(term(), t()) :: term()
+  def redact(reason, config) when is_binary(reason) do
     [:secret, :token, :key_id, :session_token]
     |> Enum.map(&config[&1])
     |> Enum.filter(&(is_binary(&1) and &1 != ""))
     |> Enum.reduce(reason, &String.replace(&2, &1, "[redacted]"))
   end
 
-  defp scrub(reason, _config), do: reason
+  def redact(reason, _config), do: reason
 
   @doc """
   The `CREATE OR REPLACE SECRET` DDL for a config. Pure and testable; values are

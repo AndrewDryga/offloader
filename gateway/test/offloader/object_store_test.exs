@@ -77,22 +77,39 @@ defmodule Offloader.ObjectStoreTest do
     end
 
     test "an error never echoes the credential values" do
-      # A bogus connection reference makes Duckdbex raise/err; simulate the scrub on
-      # the message path via a config whose token would appear in a failure string.
       {:ok, db} = Duckdbex.open()
       {:ok, conn} = Duckdbex.connection(db)
-      # Force a failure by making the DDL invalid through a crafted type — use the
-      # public seam: an unknown secret type fails inside DuckDB with the DDL echoed.
       config = %{type: "s3", key_id: "AKIA_SENSITIVE", secret: "SECRET_VALUE", region: "bad'"}
 
       case ObjectStore.configure(conn, config) do
-        :ok ->
-          :ok
-
-        {:error, reason} ->
-          refute reason =~ "SECRET_VALUE"
-          refute reason =~ "AKIA_SENSITIVE"
+        :ok -> :ok
+        {:error, reason} -> refute reason =~ "SECRET_VALUE" or reason =~ "AKIA_SENSITIVE"
       end
+    end
+  end
+
+  describe "redact/2 (credential scrubbing for object-store errors)" do
+    test "redacts an S3 key_id/secret/session_token that appears in a message" do
+      config = %{type: "s3", key_id: "AKIAXX", secret: "s3cr3t", session_token: "sess"}
+      msg = "CREATE SECRET ... KEY_ID 'AKIAXX' SECRET 's3cr3t' SESSION_TOKEN 'sess' failed"
+      out = ObjectStore.redact(msg, config)
+      for leak <- ["AKIAXX", "s3cr3t", "sess"], do: refute(out =~ leak)
+      assert out =~ "[redacted]"
+    end
+
+    test "redacts a resolved GCS bearer token (the production path the scrub protects)" do
+      # This is the regression: bearer mode resolves the token into the map the DDL
+      # embeds; redaction must run against THAT map, not the pre-resolution config.
+      config = %{type: "gcs_bearer", token: "ya29.LIVE_ACCESS_TOKEN"}
+      msg = "... BEARER_TOKEN 'ya29.LIVE_ACCESS_TOKEN' ... Connection Error"
+      out = ObjectStore.redact(msg, config)
+      refute out =~ "ya29.LIVE_ACCESS_TOKEN"
+      assert out =~ "[redacted]"
+    end
+
+    test "a non-string reason (or one with no credentials) passes through" do
+      assert ObjectStore.redact({:some, :atom}, %{type: "s3"}) == {:some, :atom}
+      assert ObjectStore.redact("plain error", %{type: "gcs_bearer"}) == "plain error"
     end
   end
 
