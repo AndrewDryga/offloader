@@ -24,8 +24,8 @@ tools-check: ## Helper tooling (Go) gate: gofmt, vet, tidy, race tests
 	git diff --exit-code -- tools/go.mod tools/go.sum
 	cd tools && go test -race -count=1 ./...
 
-docs-check: ## Docs checks — wired by the docs tasks (D01, D02)
-	@echo "  skip     docs-check: no automated docs checks yet (lands in D01/D02)"
+docs-check: ## Docs gate: core docs exist and carry no forbidden overclaims
+	./dev/scripts/docs-check.sh
 
 e2e: ## End-to-end manifest -> materialize -> HTTP smoke against the example
 	./dev/scripts/e2e.sh
