@@ -2,6 +2,7 @@ defmodule Offloader.Application do
   @moduledoc false
 
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
@@ -15,7 +16,36 @@ defmodule Offloader.Application do
       ] ++ runtime_children()
 
     opts = [strategy: :one_for_one, name: Offloader.Supervisor]
-    Supervisor.start_link(children, opts)
+
+    case Supervisor.start_link(children, opts) do
+      {:ok, pid} ->
+        log_ports()
+        {:ok, pid}
+
+      other ->
+        other
+    end
+  end
+
+  # Print a single, unambiguous line about which port is which — so an operator can
+  # see at a glance that the ADMIN surface (health/metrics/diagnostics/docs) is a
+  # separate port they must keep private (it is NOT an identity product).
+  defp log_ports do
+    api = port(OffloaderWeb.ApiEndpoint)
+    admin = port(OffloaderWeb.AdminEndpoint)
+
+    Logger.info(
+      "Offloader ports — API #{api} (product traffic, API-key auth); " <>
+        "ADMIN #{admin} (health/metrics/diagnostics/docs). " <>
+        "Keep the ADMIN port private with your own network/proxy/IAM controls."
+    )
+  end
+
+  defp port(endpoint) do
+    case endpoint.config(:http) do
+      http when is_list(http) -> Keyword.get(http, :port, "unset")
+      _ -> "unset"
+    end
   end
 
   # Phoenix calls this on a hot config change so each endpoint re-reads its config.
