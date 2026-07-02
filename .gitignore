@@ -13,3 +13,6 @@
 erl_crash.dump
 
 # docs/ is the committed source of truth (P00/D01/D02/O01/P03) — do NOT ignore it.
+
+# Release artifacts (dev/scripts/release.sh)
+dist/
