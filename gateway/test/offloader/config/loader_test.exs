@@ -33,11 +33,15 @@ defmodule Offloader.Config.LoaderTest do
 
     @impl true
     def get_object(_bucket, name) do
+      Agent.update(__MODULE__, &Map.update(&1, :get_calls, 1, fn n -> n + 1 end))
+
       case Agent.get(__MODULE__, &Map.get(&1, :bodies, %{}))[name] do
         nil -> {:error, {:not_found, name}}
         body -> {:ok, body}
       end
     end
+
+    def get_calls, do: Agent.get(__MODULE__, &Map.get(&1, :get_calls, 0))
 
     defp filter(objects, prefix),
       do: Enum.filter(objects, &String.starts_with?(&1["name"], prefix))
@@ -147,12 +151,60 @@ defmodule Offloader.Config.LoaderTest do
       with_fake(objects: [], bodies: %{}, list_error: :unauthorized)
       assert {:error, :unauthorized} = Loader.load("gs://my-bucket/proj", tmp_cache())
     end
+
+    test "a crafted object name that escapes the config dir is rejected" do
+      body = "version: 1\n"
+      # name resolves to a `..`-escaping relative path under the prefix
+      objects = [
+        %{
+          "name" => "proj/../evil.yml",
+          "size" => Integer.to_string(byte_size(body)),
+          "updated" => "t"
+        }
+      ]
+
+      with_fake(objects: objects, bodies: %{"proj/../evil.yml" => body})
+      cache = tmp_cache()
+
+      assert {:error, {:unsafe_config_path, _}} = Loader.load("gs://my-bucket/proj", cache)
+      refute File.exists?(Path.join(cache, "evil.yml"))
+    end
   end
 
   describe "unsupported schemes" do
     test "s3:// config is rejected (GCS-only for v1)" do
       assert {:error, {:unsupported_config_scheme, "s3"}} =
                Loader.load("s3://bucket/path", tmp_cache())
+    end
+  end
+
+  describe "digest (change detection)" do
+    test "is stable for an unchanged tree and reads via LIST only (no downloads)" do
+      {objects, _bodies} = example_objects("proj")
+      with_fake(objects: objects, bodies: %{})
+
+      assert {:ok, d1} = Loader.digest("gs://my-bucket/proj")
+      assert {:ok, d2} = Loader.digest("gs://my-bucket/proj")
+      assert d1 == d2
+      # digest must never download objects — only list them
+      assert FakeGcs.get_calls() == 0
+    end
+
+    test "changes when an object's updated/size changes" do
+      {objects, _bodies} = example_objects("proj")
+      with_fake(objects: objects, bodies: %{})
+      assert {:ok, before} = Loader.digest("gs://my-bucket/proj")
+
+      bumped = Enum.map(objects, fn o -> Map.put(o, "updated", "2026-08-01T00:00:00Z") end)
+      FakeGcs.stop()
+      FakeGcs.start(objects: bumped, bodies: %{})
+      assert {:ok, later} = Loader.digest("gs://my-bucket/proj")
+      refute before == later
+    end
+
+    test "works for a local path (mtime/size based)" do
+      assert {:ok, token} = Loader.digest(Path.join(@example, "offloader.yml"))
+      assert is_binary(token)
     end
   end
 

@@ -39,6 +39,58 @@ defmodule Offloader.Config.Loader do
     end
   end
 
+  @doc """
+  A cheap change-token for the config at `config_path` WITHOUT downloading it: for a `gs://…`
+  path, a hash of the sorted `{name, updated, size}` from a single LIST call; for a local path,
+  a hash of the sorted `{relpath, mtime, size}` of its `.yml`/`.yaml` files. Equal token ⇒ the
+  config is unchanged, so the sync loop can skip a fetch + reload.
+  """
+  @spec digest(String.t()) :: {:ok, binary()} | {:error, term()}
+  def digest("gs://" <> _ = url) do
+    with {:ok, {bucket, prefix}} <- parse_gs(url) do
+      list_prefix = if prefix == "", do: "", else: prefix <> "/"
+
+      with_retry(fn ->
+        with {:ok, items} <- client().list_objects(bucket, list_prefix) do
+          token =
+            items
+            |> Enum.filter(&yaml_name?(&1["name"]))
+            |> Enum.map(&{&1["name"], &1["updated"], &1["size"]})
+            |> Enum.sort()
+            |> hash()
+
+          {:ok, token}
+        end
+      end)
+    end
+  end
+
+  def digest(path) do
+    case URI.parse(path) do
+      %URI{scheme: scheme} when scheme in ["s3", "https", "http"] ->
+        {:error, {:unsupported_config_scheme, scheme}}
+
+      _ ->
+        dir = Path.dirname(path)
+
+        token =
+          Path.join(dir, "**/*.{yml,yaml}")
+          |> Path.wildcard()
+          |> Enum.map(fn file ->
+            case File.stat(file, time: :posix) do
+              {:ok, %{mtime: mtime, size: size}} -> {Path.relative_to(file, dir), mtime, size}
+              _ -> {Path.relative_to(file, dir), 0, 0}
+            end
+          end)
+          |> Enum.sort()
+          |> hash()
+
+        {:ok, token}
+    end
+  end
+
+  defp hash(term), do: :crypto.hash(:sha256, :erlang.term_to_binary(term))
+
   # ── resolve config_path → a local offloader.yml ────────────────────────────────
 
   defp resolve("gs://" <> _ = url, cache_dir) do
@@ -106,15 +158,22 @@ defmodule Offloader.Config.Loader do
         name = item["name"]
         rel = String.replace_prefix(name, list_prefix, "")
 
-        case client().get_object(bucket, name) do
-          {:ok, body} ->
-            path = Path.join(dir, rel)
-            File.mkdir_p!(Path.dirname(path))
-            File.write!(path, body)
-            {:cont, :ok}
+        cond do
+          # Defense in depth: a crafted object name must never write outside <cache>/config.
+          not safe_rel?(rel) ->
+            {:halt, {:error, {:unsafe_config_path, rel}}}
 
-          {:error, reason} ->
-            {:halt, {:error, {:fetch_failed, rel, reason}}}
+          true ->
+            case client().get_object(bucket, name) do
+              {:ok, body} ->
+                path = Path.join(dir, rel)
+                File.mkdir_p!(Path.dirname(path))
+                File.write!(path, body)
+                {:cont, :ok}
+
+              {:error, reason} ->
+                {:halt, {:error, {:fetch_failed, rel, reason}}}
+            end
         end
       end)
 
@@ -159,6 +218,10 @@ defmodule Offloader.Config.Loader do
 
   defp yaml_name?(name) when is_binary(name), do: Path.extname(name) in @yaml_exts
   defp yaml_name?(_), do: false
+
+  # A downloaded object's relative path must stay inside the config dir: relative, no `..`,
+  # no absolute segment.
+  defp safe_rel?(rel), do: Path.type(rel) == :relative and ".." not in Path.split(rel)
 
   defp total_bytes(items),
     do: Enum.reduce(items, 0, fn item, acc -> acc + parse_size(item["size"]) end)

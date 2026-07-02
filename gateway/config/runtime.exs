@@ -53,6 +53,18 @@ config :offloader,
   config_path: System.get_env("OFFLOADER_CONFIG"),
   cache_dir:
     System.get_env("OFFLOADER_CACHE_DIR") || Path.join(System.tmp_dir!(), "offloader-cache"),
+  # Hot config auto-sync cadence (seconds → ms). Unset/0 disables it (opt-in).
+  config_sync_interval_ms:
+    (case System.get_env("OFFLOADER_CONFIG_SYNC_INTERVAL") do
+       nil ->
+         nil
+
+       raw ->
+         case Integer.parse(raw) do
+           {n, ""} when n > 0 -> n * 1000
+           _ -> nil
+         end
+     end),
   pool_size: pool_size,
   object_store: object_store,
   gcs_token: System.get_env("OFFLOADER_GCS_TOKEN"),

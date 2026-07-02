@@ -44,7 +44,8 @@ Offloader is not:
   credentials from env (never a request).
 - Boot **fully stateless**: point `OFFLOADER_CONFIG` at a `gs://…` prefix and the whole
   project (datasets, endpoints, keys) is fetched from the bucket at startup — config and
-  data in the same place, nothing mounted.
+  data in the same place, nothing mounted. With `OFFLOADER_CONFIG_SYNC_INTERVAL` it also
+  **hot-reloads** bucket changes with **zero downtime**, blue-green even across a schema change.
 - Follow a producer that publishes on its own schedule: a **Databricks
   commit-protocol resolver** discovers the latest `_committed_<tid>` in GCS and
   refreshes per-dataset, isolated so one slow/broken source never blocks the rest;

@@ -76,6 +76,58 @@ defmodule Offloader.Refresh do
   def snapshot_table(dataset_id, snapshot_id),
     do: "snap_" <> dataset_id <> "_" <> String.replace(snapshot_id, ~r/[^a-zA-Z0-9_]/, "_")
 
+  @doc """
+  Materialize the dataset's latest snapshot into `table` WITHOUT swapping the live view — the
+  blue-green BUILD step for a zero-downtime schema cutover. `table` is a caller-chosen name
+  DISTINCT from the live snapshot table, so the build never touches what's serving; the Runtime
+  performs the atomic `Engine.swap` onto it later. Returns `{:staged, snap}` (new table built,
+  not yet live) or a rejection/failure whose `attempt` explains why — in which case the old
+  snapshot keeps serving, untouched.
+  """
+  @spec stage(
+          GenServer.server(),
+          Offloader.Catalog.Dataset.t(),
+          {:static, String.t()} | {:source, map()},
+          String.t()
+        ) :: {:staged, snap()} | {:rejected, attempt()} | {:failed, attempt()}
+  def stage(engine, dataset, how, table) do
+    case resolve(dataset, how) do
+      {:ok, :none} ->
+        {:failed, attempt(nil, :failed, "source has no committed snapshot")}
+
+      {:ok, %Manifest{} = manifest} ->
+        stage_manifest(engine, dataset, manifest, table)
+
+      {:rejected, snapshot_id, summary} ->
+        log(dataset, :rejected, summary)
+        {:rejected, attempt(snapshot_id, :rejected, summary)}
+
+      {:failed, summary} ->
+        log(dataset, :failed, summary)
+        {:failed, attempt(nil, :failed, summary)}
+    end
+  end
+
+  defp stage_manifest(engine, dataset, manifest, table) do
+    case Manifest.compatibility(manifest, dataset) do
+      {:error, errors} ->
+        summary = summarize(errors)
+        log(dataset, :rejected, summary)
+        {:rejected, attempt(manifest.snapshot_id, :rejected, summary)}
+
+      :ok ->
+        case Engine.materialize(engine, table, manifest) do
+          {:ok, _} ->
+            {:staged, snap(manifest, table)}
+
+          {:error, error} ->
+            summary = "materialize failed: #{error.message}"
+            log(dataset, :failed, summary)
+            {:failed, attempt(manifest.snapshot_id, :failed, summary)}
+        end
+    end
+  end
+
   # ── resolve the candidate manifest ─────────────────────────────────────────────
 
   defp resolve(_dataset, {:static, path}) do
@@ -122,15 +174,7 @@ defmodule Offloader.Refresh do
 
     with {:materialize, {:ok, _}} <- {:materialize, Engine.materialize(engine, table, manifest)},
          {:swap, :ok} <- {:swap, Engine.swap(engine, dataset.id, table)} do
-      snap = %{
-        snapshot_id: manifest.snapshot_id,
-        watermark: manifest.watermark,
-        table: table,
-        files: manifest.files,
-        dir: manifest.dir
-      }
-
-      {:swapped, snap, attempt(manifest.snapshot_id, :ok, nil)}
+      {:swapped, snap(manifest, table), attempt(manifest.snapshot_id, :ok, nil)}
     else
       {step, {:error, error}} ->
         summary = "#{step} failed: #{error.message}"
@@ -140,6 +184,15 @@ defmodule Offloader.Refresh do
   end
 
   # ── helpers ─────────────────────────────────────────────────────────────────────
+
+  defp snap(manifest, table),
+    do: %{
+      snapshot_id: manifest.snapshot_id,
+      watermark: manifest.watermark,
+      table: table,
+      files: manifest.files,
+      dir: manifest.dir
+    }
 
   defp attempt(snapshot_id, status, error),
     do: %{snapshot_id: snapshot_id, status: status, error: error, at: DateTime.utc_now()}

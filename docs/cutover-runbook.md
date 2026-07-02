@@ -74,6 +74,11 @@ At 100% and stable for a full soak, make Offloader the default route and leave t
 running (cheap insurance) for one more cycle before decommissioning. Keep the generated
 project + `mapping.json` in version control so the schema and the routing stay in sync.
 
+After cutover, evolve the project without a redeploy: host the config in the same bucket
+(`OFFLOADER_CONFIG=gs://…`) and set `OFFLOADER_CONFIG_SYNC_INTERVAL` so pushes hot-reload with
+zero downtime — even schema changes cut over blue-green (see `developer-experience.md`). Sequence a
+schema change as **data first, then config**.
+
 ## Rollback (any step)
 
 Return the edge weight/route to the upstream. Because Offloader is read-only over immutable

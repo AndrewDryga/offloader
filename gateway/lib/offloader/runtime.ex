@@ -40,12 +40,22 @@ defmodule Offloader.Runtime do
     :cache_table,
     :cache_dir,
     :worker_sup,
-    :refresh_interval_ms
+    :refresh_interval_ms,
+    # hot config reload: datasets mid schema-cutover, monitor refs of their in-flight staging
+    # builds, and the auth mode the latest config asked for (the SERVED mode may lag it while a
+    # tenant-scoped endpoint is still cutting over).
+    pending: %{},
+    staging_refs: %{},
+    stage_gen: 0,
+    intended_auth_mode: nil
   ]
 
   @snapshots_ets [:public, :set, read_concurrency: true]
   @cache_ets [:public, :set, read_concurrency: true, write_concurrency: true]
   @sidecar "snapshots.json"
+  # How long to wait before re-staging a schema cutover whose build wasn't ready yet
+  # (the producer may not have published matching data at the moment config changed).
+  @stage_retry_ms 30_000
 
   # ── public API ────────────────────────────────────────────────────────────────
 
@@ -103,6 +113,16 @@ defmodule Offloader.Runtime do
     # The handler runs a writer swap (120s budget), so the CALL must allow at least
     # that — the 5s default would crash the caller for an action that still applies.
     do: GenServer.call(server, {:rollback, dataset_id}, 120_000)
+
+  @doc """
+  Hot-reload the served project from an already-validated catalog — no restart, zero
+  downtime. Endpoint/data changes apply at once; a dataset SCHEMA change is staged
+  blue-green (the old snapshot + endpoints keep serving while the new-schema table builds,
+  then that dataset's table and endpoints flip together). Called by `Offloader.Config.Sync`.
+  """
+  @spec reload(GenServer.server(), Catalog.t()) :: :ok
+  def reload(server \\ __MODULE__, %Catalog{} = catalog),
+    do: GenServer.call(server, {:reload, catalog}, 120_000)
 
   @doc "The snapshot state for a dataset: %{active, previous, last_attempted}."
   @spec snapshot_state(GenServer.server(), String.t()) :: map() | nil
@@ -186,7 +206,8 @@ defmodule Offloader.Runtime do
         cache_table: :ets.new(:offloader_cache, @cache_ets),
         cache_dir: cache_dir,
         worker_sup: worker_sup,
-        refresh_interval_ms: opts[:refresh_interval_ms]
+        refresh_interval_ms: opts[:refresh_interval_ms],
+        intended_auth_mode: catalog.auth_mode
       }
 
       # Publish the read context before the initial refresh so reads resolve at once.
@@ -227,6 +248,61 @@ defmodule Offloader.Runtime do
   def handle_call({:rollback, dataset_id}, _from, state) do
     {state, result} = do_rollback(state, dataset_id)
     {:reply, result, state}
+  end
+
+  # Hot config reload: reconcile the running project against a new validated catalog.
+  @impl true
+  def handle_call({:reload, catalog}, _from, state) do
+    {:reply, :ok, apply_reload(state, catalog)}
+  end
+
+  # A staged (blue-green) schema build finished — cut it over if it's still the current target
+  # for this dataset, else drop the table it built. (async_nolink delivers `{ref, result}`.)
+  @impl true
+  def handle_info({ref, result}, state) when is_reference(ref) do
+    case Map.pop(state.staging_refs, ref) do
+      {{dataset_id, gen}, refs} ->
+        Process.demonitor(ref, [:flush])
+        {:noreply, on_staged_result(%{state | staging_refs: refs}, dataset_id, gen, result)}
+
+      {nil, _} ->
+        {:noreply, state}
+    end
+  end
+
+  # A staging build crashed before delivering a result — retry it (unless superseded).
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
+    case Map.pop(state.staging_refs, ref) do
+      {{dataset_id, gen}, refs} ->
+        Logger.error("staged build for #{dataset_id} crashed (#{inspect(reason)}) — will retry")
+        state = %{state | staging_refs: refs}
+
+        state =
+          if match?(%{gen: ^gen}, state.pending[dataset_id]) do
+            Process.send_after(self(), {:retry_stage, dataset_id, gen}, @stage_retry_ms)
+            state
+          else
+            state
+          end
+
+        {:noreply, state}
+
+      {nil, _} ->
+        {:noreply, state}
+    end
+  end
+
+  # Re-attempt a schema cutover whose build wasn't ready last time (data may have caught up).
+  @impl true
+  def handle_info({:retry_stage, dataset_id, gen}, state) do
+    state =
+      case state.pending[dataset_id] do
+        %{gen: ^gen} -> start_staging(state, dataset_id, gen)
+        _ -> state
+      end
+
+    {:noreply, state}
   end
 
   # ── boot: warm start + initial refresh + workers ────────────────────────────────
@@ -276,23 +352,312 @@ defmodule Offloader.Runtime do
   end
 
   defp start_workers(state) do
-    runtime = self()
+    for {_id, dataset} <- state.catalog.datasets, reduce: state do
+      acc -> start_worker_for(acc, dataset)
+    end
+  end
 
-    for {_id, dataset} <- state.catalog.datasets do
-      {:ok, _pid} =
-        DynamicSupervisor.start_child(
-          state.worker_sup,
-          {Worker,
-           runtime: runtime,
-           dataset: dataset,
-           engine: state.engine,
-           config_dir: state.catalog.config_dir,
-           refresh_interval_ms: state.refresh_interval_ms}
-        )
+  defp start_worker_for(state, dataset) do
+    {:ok, _pid} =
+      DynamicSupervisor.start_child(
+        state.worker_sup,
+        {Worker,
+         runtime: self(),
+         dataset: dataset,
+         engine: state.engine,
+         config_dir: state.catalog.config_dir,
+         refresh_interval_ms: state.refresh_interval_ms}
+      )
+
+    state
+  end
+
+  defp terminate_worker(state, dataset_id) do
+    case Worker.whereis(self(), dataset_id) do
+      pid when is_pid(pid) -> DynamicSupervisor.terminate_child(state.worker_sup, pid)
+      _ -> :ok
     end
 
     state
   end
+
+  defp restart_worker(state, dataset_id, dataset),
+    do: state |> terminate_worker(dataset_id) |> start_worker_for(dataset)
+
+  # ── hot config reload: zero-downtime reconcile (single writer) ──────────────────
+
+  # Reconcile the running project against a new validated catalog. Removed/added/data-only
+  # dataset changes and all endpoint/key/auth changes apply at once; a dataset SCHEMA change
+  # is staged blue-green (see stage_one/cutover) so nothing it serves ever breaks.
+  defp apply_reload(state, new) do
+    old_ids = Map.keys(state.catalog.datasets)
+    new_ids = Map.keys(new.datasets)
+
+    state =
+      state
+      |> teardown_removed(old_ids -- new_ids)
+      |> reconcile_common(new, old_ids -- (old_ids -- new_ids))
+      |> add_new(new, new_ids -- old_ids)
+
+    # Serve `new` everywhere except datasets still mid schema-cutover, which keep their
+    # currently-served (old) dataset + endpoints until their build cuts over.
+    served = merge_pending(new, Map.keys(state.pending), state.catalog)
+    state = %{state | catalog: served, intended_auth_mode: new.auth_mode}
+
+    Logger.info(
+      "config reload applied (#{map_size(new.datasets)} datasets, #{map_size(new.endpoints)} endpoints)"
+    )
+
+    republish(state)
+  end
+
+  defp teardown_removed(state, ids) do
+    for id <- ids, reduce: state do
+      acc ->
+        acc = terminate_worker(acc, id)
+        entry = current_entry(acc, id)
+        drop_table_async(acc.engine, entry.active, nil)
+        drop_table_async(acc.engine, entry.previous, nil)
+        :ets.delete(acc.snapshots_table, id)
+
+        %{
+          acc
+          | snapshots: Map.delete(acc.snapshots, id),
+            pending: Map.delete(acc.pending, id)
+        }
+    end
+  end
+
+  defp add_new(state, new, ids) do
+    for id <- ids, reduce: state do
+      # Boot does a synchronous initial refresh; a reload doesn't, so kick the new worker to
+      # materialize now (a static/no-interval dataset would otherwise never poll).
+      acc -> acc |> start_worker_for(new.datasets[id]) |> trigger_refresh(id)
+    end
+  end
+
+  defp reconcile_common(state, new, ids) do
+    for id <- ids, reduce: state do
+      acc ->
+        served = acc.catalog.datasets[id]
+        target = new.datasets[id]
+
+        cond do
+          served == target and not Map.has_key?(acc.pending, id) ->
+            acc
+
+          schema_or_tenant_changed?(served, target) ->
+            stage_one(acc, new, id)
+
+          # data-only change, or a revert that cancels an in-flight cutover: the schema the
+          # live endpoints expect is unchanged, so adopt the new def and refresh in place.
+          true ->
+            acc |> drop_pending(id) |> restart_worker(id, target) |> trigger_refresh(id)
+        end
+    end
+  end
+
+  # Nudge a dataset's worker to refresh now (used after a reload adds or re-points a dataset —
+  # boot already refreshes synchronously, but a reload must trigger it explicitly).
+  defp trigger_refresh(state, dataset_id) do
+    case Worker.whereis(self(), dataset_id) do
+      pid when is_pid(pid) -> send(pid, :poll)
+      _ -> :ok
+    end
+
+    state
+  end
+
+  defp schema_or_tenant_changed?(a, b),
+    do: a.schema != b.schema or a.tenant_column != b.tenant_column
+
+  # Begin (or supersede) a blue-green schema cutover: freeze the old worker so no stale
+  # refresh can clobber the swap, record the target under a fresh generation, and build the
+  # new table off to the side. The old snapshot + endpoints keep serving until it's ready.
+  defp stage_one(state, new, id) do
+    target = new.datasets[id]
+
+    case state.pending[id] do
+      %{new_dataset: ^target} ->
+        # already staging exactly this target — let the in-flight build finish
+        state
+
+      _ ->
+        gen = state.stage_gen + 1
+
+        %{state | stage_gen: gen}
+        |> terminate_worker(id)
+        |> put_pending(id, %{
+          gen: gen,
+          new_dataset: target,
+          new_endpoints: endpoints_of(new, id),
+          status: :staging
+        })
+        |> start_staging(id, gen)
+    end
+  end
+
+  defp start_staging(state, id, gen) do
+    dataset = state.pending[id].new_dataset
+    how = how(dataset, state)
+    engine = state.engine
+    # A table unique to this build generation, distinct from the live snapshot table — the
+    # build never touches what's currently serving.
+    table = Refresh.snapshot_table(id, "stg#{gen}")
+
+    # async_nolink monitors the build, so a task that dies before delivering a result surfaces
+    # as a :DOWN and self-heals (retry) instead of wedging the dataset in `pending` forever.
+    task =
+      Task.Supervisor.async_nolink(Offloader.TaskSupervisor, fn ->
+        Refresh.stage(engine, dataset, how, table)
+      end)
+
+    put_in(state.staging_refs[task.ref], {id, gen})
+  end
+
+  defp on_staged_result(state, id, gen, result) do
+    case state.pending[id] do
+      %{gen: ^gen} = pending ->
+        case result do
+          {:staged, snap} ->
+            cutover(state, id, pending, snap)
+
+          {_status, attempt} ->
+            Logger.warning("staged schema cutover for #{id} not ready yet: #{attempt.error}")
+            Process.send_after(self(), {:retry_stage, id, gen}, @stage_retry_ms)
+            put_pending(state, id, %{pending | status: {:error, attempt.error}})
+        end
+
+      _ ->
+        # superseded by a newer reload (or the dataset was removed): drop the built table.
+        drop_staged(state, result)
+    end
+  end
+
+  # The cutover. Order matters for tenant isolation: publish the NEW contract BEFORE flipping
+  # the physical view. The only inconsistent read window is then new-endpoint-vs-OLD-table,
+  # which fails CLOSED (a new tenant filter or a new column hits the old table and errors). The
+  # reverse order could serve an OLD no-filter endpoint against the NEW (multi-tenant) table and
+  # leak another tenant's rows. A schema cutover is not a rollback target, so the old-schema
+  # tables are dropped and `previous` is cleared.
+  defp cutover(state, id, pending, snap) do
+    old_catalog = state.catalog
+
+    published =
+      state
+      |> drop_pending(id)
+      |> adopt(id, pending.new_dataset, pending.new_endpoints)
+      |> republish()
+
+    case Engine.swap(published.engine, id, snap.table) do
+      :ok ->
+        entry = current_entry(published, id)
+        drop_table_async(published.engine, entry.active, snap)
+        drop_table_async(published.engine, entry.previous, snap)
+
+        published
+        |> put_snapshot(id, %{active: snap, previous: nil, last_attempted: ok_attempt(snap)})
+        |> flush_cache()
+        |> start_worker_for(pending.new_dataset)
+        |> tap(fn _ ->
+          Logger.info("config reload: schema cutover complete for #{id} → #{snap.snapshot_id}")
+        end)
+
+      {:error, error} ->
+        # The view never flipped. Revert to the old contract (don't keep serving new-endpoint-
+        # vs-old-table errors) and retry the build. Swap of an existing table effectively never
+        # fails, so this path is a belt-and-suspenders guard.
+        Logger.error("cutover swap failed for #{id}: #{inspect(error)} — reverting, will retry")
+        Process.send_after(self(), {:retry_stage, id, pending.gen}, @stage_retry_ms)
+
+        %{published | catalog: old_catalog}
+        |> republish()
+        |> put_pending(id, pending)
+    end
+  end
+
+  # Replace a dataset's contract + its endpoint group in the served catalog.
+  defp adopt(state, id, dataset, endpoints) do
+    kept = for {n, ep} <- state.catalog.endpoints, ep.dataset != id, into: %{}, do: {n, ep}
+
+    catalog = %{
+      state.catalog
+      | datasets: Map.put(state.catalog.datasets, id, dataset),
+        endpoints: Map.merge(kept, endpoints)
+    }
+
+    %{state | catalog: catalog}
+  end
+
+  # Overlay the pending (still-building) datasets' currently-served defs onto the new catalog,
+  # so those datasets keep serving exactly what they serve now until their cutover lands.
+  defp merge_pending(new, [], _served), do: new
+
+  defp merge_pending(new, pending_ids, served) do
+    pset = MapSet.new(pending_ids)
+
+    datasets =
+      for id <- pending_ids, reduce: new.datasets do
+        acc -> Map.put(acc, id, served.datasets[id])
+      end
+
+    endpoints =
+      Map.merge(
+        for(
+          {n, ep} <- new.endpoints,
+          not MapSet.member?(pset, ep.dataset),
+          into: %{},
+          do: {n, ep}
+        ),
+        for({n, ep} <- served.endpoints, MapSet.member?(pset, ep.dataset), into: %{}, do: {n, ep})
+      )
+
+    %{new | datasets: datasets, endpoints: endpoints}
+  end
+
+  # Publish the served catalog and flush the response cache. Never serve `auth: none` while a
+  # tenant-scoped endpoint is mid-cutover — fail closed to `required` until it lands.
+  defp republish(state) do
+    served_auth = served_auth_mode(state.intended_auth_mode, state.catalog.endpoints)
+    state = put_in(state.catalog.auth_mode, served_auth)
+    :persistent_term.put({__MODULE__, self()}, context_of(state))
+    flush_cache(state)
+  end
+
+  defp flush_cache(state) do
+    :ets.delete_all_objects(state.cache_table)
+    state
+  end
+
+  defp served_auth_mode("none", endpoints) do
+    if Enum.any?(endpoints, fn {_n, ep} -> ep.tenant_column != nil end) do
+      Logger.warning(
+        "auth: none deferred — a tenant-scoped endpoint is still mid-cutover; staying auth: required"
+      )
+
+      "required"
+    else
+      "none"
+    end
+  end
+
+  defp served_auth_mode(mode, _endpoints), do: mode
+
+  defp endpoints_of(catalog, id),
+    do: for({n, ep} <- catalog.endpoints, ep.dataset == id, into: %{}, do: {n, ep})
+
+  defp put_pending(state, id, entry), do: %{state | pending: Map.put(state.pending, id, entry)}
+  defp drop_pending(state, id), do: %{state | pending: Map.delete(state.pending, id)}
+
+  defp drop_staged(state, {:staged, snap}) do
+    drop_table_async(state.engine, %{table: snap.table}, nil)
+    state
+  end
+
+  defp drop_staged(state, _result), do: state
+
+  defp ok_attempt(snap),
+    do: %{snapshot_id: snap.snapshot_id, status: :ok, error: nil, at: DateTime.utc_now()}
 
   # ── applying refresh outcomes (single writer) ───────────────────────────────────
 
@@ -396,12 +761,41 @@ defmodule Offloader.Runtime do
       pool: Engine.pool_stats(ctx.engine),
       disk: disk_free(ctx.cache_dir),
       ready: all_active?(ctx),
+      config_sync: config_sync_diag(),
       datasets:
         Enum.map(ctx.catalog.datasets, fn {id, dataset} ->
           dataset_diagnostics(ctx, id, dataset)
         end)
     }
   end
+
+  # Hot config auto-sync status, JSON-safe (or {enabled: false} when it isn't running). Read
+  # caller-side from the Config.Sync process — never touches the Runtime mailbox.
+  defp config_sync_diag do
+    case GenServer.whereis(Offloader.Config.Sync) do
+      pid when is_pid(pid) ->
+        # lock-free read — the diagnostics/metrics path must never block on the Sync mailbox
+        s = Offloader.Config.Sync.published_status()
+
+        %{
+          enabled: true,
+          result: sync_result(s.result),
+          error: sync_error(s.result),
+          last_checked: iso8601(s.last_checked),
+          last_applied: iso8601(s.last_applied)
+        }
+
+      _ ->
+        %{enabled: false}
+    end
+  end
+
+  defp sync_result({:error, _}), do: "error"
+  defp sync_result(result) when is_atom(result), do: Atom.to_string(result)
+  defp sync_error({:error, reason}), do: inspect(reason)
+  defp sync_error(_result), do: nil
+  defp iso8601(nil), do: nil
+  defp iso8601(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 
   defp dataset_diagnostics(ctx, id, dataset) do
     entry = lookup_snapshot(ctx, id) || %{active: nil, previous: nil, last_attempted: nil}

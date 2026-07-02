@@ -23,6 +23,7 @@ defmodule Offloader.Metrics do
       }),
       pool_gauges(diag),
       disk_gauge(diag),
+      config_sync_gauges(diag),
       dataset_gauges(diag)
     ]
     |> List.flatten()
@@ -78,6 +79,18 @@ defmodule Offloader.Metrics do
       )
     ]
   end
+
+  # Hot config auto-sync: is it on, and did the last sync avoid an error? (Alert on
+  # offloader_config_sync_ok == 0 — the bucket config stopped applying.)
+  defp config_sync_gauges(%{config_sync: %{enabled: true} = cs}) do
+    ok = if cs[:result] == "error", do: "0", else: "1"
+
+    gauge("offloader_config_sync_enabled", "1 if hot config auto-sync is enabled", "1") ++
+      gauge("offloader_config_sync_ok", "1 if the last config sync did not error", ok)
+  end
+
+  defp config_sync_gauges(_diag),
+    do: gauge("offloader_config_sync_enabled", "1 if hot config auto-sync is enabled", "0")
 
   defp disk_gauge(diag) do
     case get_in(diag, [:disk, :cache_dir_free_bytes]) do

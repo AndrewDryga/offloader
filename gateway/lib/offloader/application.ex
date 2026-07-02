@@ -68,10 +68,16 @@ defmodule Offloader.Application do
   # Only run the serving runtime when a config file is mounted (OFFLOADER_CONFIG).
   # Without it the gateway still boots and serves health; endpoints answer not_ready.
   # Tests start their own named Offloader.Runtime, so skip the boot one under :test.
+  # Config.Sync starts AFTER the Runtime (it reloads it) and only when auto-sync is enabled.
   defp runtime_children do
     if Offloader.Config.config_path() && offloader_env() != :test,
-      do: [Offloader.Runtime],
+      do: [Offloader.Runtime | sync_children()],
       else: []
+  end
+
+  defp sync_children do
+    interval = Offloader.Config.config_sync_interval_ms()
+    if is_integer(interval) and interval > 0, do: [Offloader.Config.Sync], else: []
   end
 
   defp offloader_env do

@@ -17,6 +17,13 @@ defmodule Offloader.Config do
   @spec cache_dir() :: String.t()
   def cache_dir, do: Application.get_env(:offloader, :cache_dir)
 
+  @doc """
+  Config auto-sync interval in milliseconds (`OFFLOADER_CONFIG_SYNC_INTERVAL`, seconds), or
+  nil to disable. When set, `Offloader.Config.Sync` re-checks the config and hot-reloads it.
+  """
+  @spec config_sync_interval_ms() :: pos_integer() | nil
+  def config_sync_interval_ms, do: Application.get_env(:offloader, :config_sync_interval_ms)
+
   @doc "Admin token (`OFFLOADER_ADMIN_TOKEN`) gating the admin `/diagnostics` route, or nil."
   @spec admin_token() :: String.t() | nil
   def admin_token, do: Application.get_env(:offloader, :admin_token)

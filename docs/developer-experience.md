@@ -90,6 +90,27 @@ stateless: env vars in, config and data both in the bucket, nothing mounted.
   under a **separate, tighter-ACL bucket/prefix** from the bulk data if you want to limit who can
   read the hashes.
 
+### Hot config auto-sync
+
+Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` (unset/0 = off) and Offloader re-checks the config
+on that interval and hot-reloads changes **with no restart**:
+
+- Change detection is cheap — a single object LIST (no downloads) when nothing changed.
+- Endpoint, key, and data-source changes apply at once (the response cache is flushed).
+- A dataset **schema** change is applied **blue-green with zero downtime**: the old snapshot and its
+  endpoints keep serving while the new-schema table is materialized off to the side, then that
+  dataset's table and endpoints flip together atomically. A staged build that fails compatibility
+  (e.g. the producer hasn't published matching data yet) keeps the old version serving and is
+  retried — nothing it serves ever breaks.
+- A bad sync (network, invalid YAML, validation error) is logged and the **running config is kept** —
+  a broken bucket revision never takes the service down.
+- `/metrics` exposes `offloader_config_sync_enabled` and `offloader_config_sync_ok` (alert on the
+  latter == 0); admin `/diagnostics` shows the last sync result + timestamps.
+
+Push a new revision the boring way: update the objects under the config prefix and the next tick picks
+them up. Sequence a schema change as **data first, then config**, so the new-schema build succeeds on
+the first try.
+
 ## Useful helper commands
 
 - `offloader validate`
