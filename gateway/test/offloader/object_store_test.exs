@@ -137,12 +137,4 @@ defmodule Offloader.ObjectStoreTest do
       assert :ok = ObjectStore.configure(conn, %{type: "gcs_bearer"})
     end
   end
-
-  describe "from_env/1" do
-    test "builds a config only when a supported type is set" do
-      assert ObjectStore.from_env(%{type: "s3", key_id: "k", secret: "s"}).type == "s3"
-      assert ObjectStore.from_env(%{type: nil}) == nil
-      assert ObjectStore.from_env(%{}) == nil
-    end
-  end
 end

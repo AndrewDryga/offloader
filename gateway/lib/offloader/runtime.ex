@@ -190,6 +190,8 @@ defmodule Offloader.Runtime do
       # Publish the read context before the initial refresh so reads resolve at once.
       :persistent_term.put({__MODULE__, self()}, context_of(state))
 
+      warn_missing_source_credentials(catalog)
+
       # Warm-start from disk first (already-materialized datasets serve at once), then
       # a per-dataset initial refresh — fault-isolated: a slow/failing source records
       # an attempt and boot moves on (engine calls return {:error}, never raise), so
@@ -254,6 +256,22 @@ defmodule Offloader.Runtime do
     do: {:static, Path.join(state.catalog.config_dir, dataset.manifest)}
 
   defp how(%{source: source}, _state), do: {:source, source}
+
+  # A `source: databricks` dataset reads from GCS: the resolver lists via the OAuth
+  # token chain, and DuckDB reads via HMAC (gs://) or the bearer secret (https://). If
+  # NO credentials are configured, reads 403 on a private bucket — surface that as a
+  # clear boot warning instead of a silent runtime failure.
+  defp warn_missing_source_credentials(catalog) do
+    has_source = Enum.any?(catalog.datasets, fn {_id, ds} -> ds.source != nil end)
+
+    if has_source and is_nil(Config.object_store()) do
+      Logger.warning(
+        "a dataset uses a `source:` (remote GCS) but no object-store credentials are " <>
+          "configured (set OFFLOADER_GCS_AUTH=bearer or OFFLOADER_S3_TYPE=gcs) — remote " <>
+          "reads will fail on a private bucket"
+      )
+    end
+  end
 
   defp start_workers(state) do
     runtime = self()
@@ -389,8 +407,9 @@ defmodule Offloader.Runtime do
     %{
       dataset: id,
       source: if(dataset.source, do: dataset.source.type, else: "static_manifest"),
+      # `active_snapshot` IS the last good one — a failed refresh never changes it.
+      # `last_attempted` (below) carries when we last tried and its status.
       active_snapshot: snapshot_summary(entry.active),
-      last_good_snapshot: snapshot_summary(entry.active),
       last_attempted: attempt_summary(entry.last_attempted),
       refresh_error: refresh_error(entry.last_attempted),
       source_reachable: source_reachable(ctx, dataset, entry),

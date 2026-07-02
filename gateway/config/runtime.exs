@@ -53,7 +53,6 @@ config :offloader,
   config_path: System.get_env("OFFLOADER_CONFIG"),
   cache_dir:
     System.get_env("OFFLOADER_CACHE_DIR") || Path.join(System.tmp_dir!(), "offloader-cache"),
-  object_store_mode: System.get_env("OFFLOADER_OBJECT_STORE_MODE") || "local",
   pool_size: pool_size,
   object_store: object_store,
   gcs_token: System.get_env("OFFLOADER_GCS_TOKEN"),

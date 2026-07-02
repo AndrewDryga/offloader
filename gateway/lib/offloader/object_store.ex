@@ -140,32 +140,6 @@ defmodule Offloader.ObjectStore do
 
   def remote_path?(_), do: false
 
-  @doc """
-  Build a config map from parsed env, or `nil` when no remote store is configured.
-  `type` gates it: unset ⇒ local mode.
-  """
-  @spec from_env(map()) :: t() | nil
-  def from_env(env) when is_map(env) do
-    case env[:type] do
-      t when t in ["s3", "gcs"] ->
-        %{
-          type: t,
-          key_id: env[:key_id],
-          secret: env[:secret],
-          region: env[:region],
-          endpoint: env[:endpoint],
-          url_style: env[:url_style],
-          use_ssl: env[:use_ssl],
-          session_token: env[:session_token]
-        }
-
-      _ ->
-        nil
-    end
-  end
-
-  def from_env(_), do: nil
-
   # ── internals ──────────────────────────────────────────────────────────────────
 
   # GCS HMAC uses only KEY_ID/SECRET; S3 (and S3-compatible incl. GCS-over-S3) takes

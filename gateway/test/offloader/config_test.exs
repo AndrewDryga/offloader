@@ -1,10 +1,6 @@
 defmodule Offloader.ConfigTest do
   use ExUnit.Case, async: true
 
-  test "object_store_mode defaults to \"local\"" do
-    assert Offloader.Config.object_store_mode() == "local"
-  end
-
   test "cache_dir has a concrete default path" do
     assert is_binary(Offloader.Config.cache_dir())
   end

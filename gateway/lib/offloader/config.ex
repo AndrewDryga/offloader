@@ -17,17 +17,6 @@ defmodule Offloader.Config do
   @spec cache_dir() :: String.t()
   def cache_dir, do: Application.get_env(:offloader, :cache_dir)
 
-  @doc ~S"""
-  Object-store access mode (`OFFLOADER_OBJECT_STORE_MODE`), default `"local"`.
-
-  `"local"` reads manifests and Parquet files from the local filesystem. Remote
-  snapshots need no mode switch: a manifest file path that is an `s3://`/`gs://`/
-  `https://` URL is read directly via DuckDB httpfs, with credentials from
-  `object_store/0` (`OFFLOADER_S3_*`). See `Offloader.ObjectStore`.
-  """
-  @spec object_store_mode() :: String.t()
-  def object_store_mode, do: Application.get_env(:offloader, :object_store_mode)
-
   @doc "Admin token (`OFFLOADER_ADMIN_TOKEN`) gating the admin `/diagnostics` route, or nil."
   @spec admin_token() :: String.t() | nil
   def admin_token, do: Application.get_env(:offloader, :admin_token)
