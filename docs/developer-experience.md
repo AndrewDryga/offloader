@@ -73,6 +73,7 @@ error bodies, or support bundles (values are scrubbed; bundles are redacted).
 - `offloader validate`
 - `offloader manifest validate`
 - `offloader import-schema`
+- `offloader shadow-diff`
 - `offloader endpoint test`
 - `offloader snapshot status`
 - `offloader keys create`
