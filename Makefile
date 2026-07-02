@@ -23,9 +23,8 @@ tools-check: ## Helper tooling (Go) gate — wired by C01
 docs-check: ## Docs checks — wired by the docs tasks (D01, D02)
 	@echo "  skip     docs-check: no automated docs checks yet (lands in D01/D02)"
 
-e2e: ## End-to-end manifest -> HTTP smoke (needs a runnable gateway: G01, E02)
-	@echo "e2e: not wired yet — needs the gateway (G01) and the e2e script (E02)." >&2
-	@exit 1
+e2e: ## End-to-end manifest -> materialize -> HTTP smoke against the example
+	./dev/scripts/e2e.sh
 
 deploy-check: ## Build + boot the production image locally (needs the image: I01, I04)
 	@echo "deploy-check: not wired yet — needs the production image (I01) and script (I04)." >&2
