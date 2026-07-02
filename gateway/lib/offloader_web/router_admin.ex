@@ -23,6 +23,10 @@ defmodule OffloaderWeb.AdminRouter do
     get "/live", HealthController, :live
     get "/ready", HealthController, :ready
     get "/status", HealthController, :status
+
+    # Generated product-API docs (no secrets; admin-port only, never the API port).
+    get "/docs", DocsController, :catalog
+    get "/openapi.json", DocsController, :openapi
   end
 
   # /metrics returns Prometheus text — no JSON accepts constraint, so any scraper works.

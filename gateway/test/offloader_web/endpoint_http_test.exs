@@ -123,7 +123,7 @@ defmodule OffloaderWeb.EndpointHTTPTest do
   end
 
   test "no docs/schema/diagnostics are reachable on the API port" do
-    for path <- ["/docs", "/v1/docs", "/schema", "/diagnostics", "/metrics"] do
+    for path <- ["/docs", "/openapi.json", "/v1/docs", "/schema", "/diagnostics", "/metrics"] do
       conn = get(build_conn(), path)
       assert conn.status == 404, "#{path} must not be served on the API port"
     end

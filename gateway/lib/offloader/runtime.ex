@@ -71,6 +71,10 @@ defmodule Offloader.Runtime do
   @spec diagnostics(GenServer.server()) :: map()
   def diagnostics(server \\ __MODULE__), do: GenServer.call(server, :diagnostics)
 
+  @doc "The loaded catalog (used to generate docs/OpenAPI that match what the runtime enforces)."
+  @spec catalog(GenServer.server()) :: Catalog.t()
+  def catalog(server \\ __MODULE__), do: GenServer.call(server, :catalog)
+
   # ── GenServer ─────────────────────────────────────────────────────────────────
 
   @impl true
@@ -152,6 +156,11 @@ defmodule Offloader.Runtime do
   @impl true
   def handle_call(:diagnostics, _from, state) do
     {:reply, build_diagnostics(state), state}
+  end
+
+  @impl true
+  def handle_call(:catalog, _from, state) do
+    {:reply, state.catalog, state}
   end
 
   @impl true
