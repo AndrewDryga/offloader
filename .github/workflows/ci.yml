@@ -36,13 +36,15 @@ jobs:
           key: mix-${{ runner.os }}-${{ hashFiles('gateway/mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
 
-      - name: The gate — format, warnings-as-errors, tests
+      - name: The gate — format, warnings-as-errors, tests + coverage floor
         working-directory: gateway
         run: |
           mix deps.get
           mix format --check-formatted
           mix compile --warnings-as-errors
-          mix test
+          # --cover enforces the coverage floor in mix.exs (test_coverage threshold),
+          # so a coverage regression fails CI, not just local runs.
+          mix test --cover
 
   tools:
     name: tools (Go gate)
