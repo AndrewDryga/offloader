@@ -247,6 +247,15 @@ strong { font-weight: 600; }
 .proof-foot .fn { font-family: var(--mono); color: var(--accent-2); margin-right: 0.35rem; }
 @media (max-width: 720px) { .proof-grid { grid-template-columns: 1fr; } }
 
+/* ── what you serve (use cases) ─────────────────────────────────────── */
+/* 3 fixed columns so 6 items always fill exactly two rows — no orphan hairline cells. */
+.use-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
+.use-grid li { background: var(--paper); padding: clamp(1.5rem, 3vw, 2.25rem); }
+.use-grid h3 { font-size: var(--fs-h3); letter-spacing: -0.015em; margin-bottom: 0.55rem; }
+.use-grid p { font-size: 0.94rem; line-height: 1.55; color: var(--ink-2); max-width: 34ch; }
+@media (max-width: 860px) { .use-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .use-grid { grid-template-columns: 1fr; } }
+
 /* ── fit ────────────────────────────────────────────────────────────── */
 .fit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.5rem, 4vw, 3.5rem); }
 .fit-col h3 { display: flex; align-items: center; gap: 0.6ch; font-size: var(--fs-h3); padding-bottom: 1rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--line); }
