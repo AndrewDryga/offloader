@@ -1,12 +1,11 @@
 /* One honest flourish: the cost ledger ticks the last stretch up to its resting
-   value shortly after load — the same query, still being billed. Every visible
-   frame already reads "a lot", and it settles on the round total. No motion
-   preference (or no JS) → the final values already in the HTML simply stand. */
+   value shortly after load — the same query, still being billed. The HTML seeds the
+   *start* of that stretch (910,000 × $0.012 = $10,920, internally consistent), so
+   there's never a downward flash. Reduced motion → jump straight to the resting
+   values (the ones the aria-label and the pricing ledger quote). No JS → the seed
+   stands, still consistent and labeled illustrative. */
 (function () {
   "use strict";
-  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduce) return;
-
   var calls = document.querySelector(".js-count");
   var cost = document.querySelector(".js-cost");
   if (!calls || !cost) return;
@@ -18,6 +17,14 @@
 
   var nfInt = new Intl.NumberFormat("en-US");
   var nfUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) {
+    // No animation — rest immediately at the values the aria-label and pricing quote.
+    calls.textContent = nfInt.format(callsTo);
+    cost.textContent = nfUsd.format(costTo);
+    return;
+  }
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
 
