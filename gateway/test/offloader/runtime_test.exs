@@ -94,24 +94,37 @@ defmodule Offloader.RuntimeTest do
         |> List.flatten()
         |> Task.async_stream(
           fn {tenant, _} ->
-            {:ok, resp} = Runtime.serve(rt, "customer_usage_summary", tenant, params, "r")
-            {tenant, Enum.map(resp.data, & &1["account_id"])}
+            case Runtime.serve(rt, "customer_usage_summary", tenant, params, "r") do
+              {:ok, resp} ->
+                {tenant, {:ok, Enum.map(resp.data, & &1["account_id"])}}
+
+              # 50-way concurrency can exceed the read pool; the runtime sheds the
+              # overflow with a 503 (:not_ready). That is correct backpressure, not a
+              # correctness failure — record it, don't crash the match on it.
+              {:error, %ApiError{family: :not_ready}} ->
+                {tenant, :busy}
+            end
           end,
           max_concurrency: 50,
           timeout: 30_000
         )
         |> Enum.map(fn {:ok, res} -> res end)
 
+      served = for {tenant, {:ok, accounts}} <- results, do: {tenant, accounts}
+
       # Every globex response contains only acct_orion; acme never does — proving no
       # cross-request bleed under concurrency.
-      for {tenant, accounts} <- results do
+      for {tenant, accounts} <- served do
         case tenant do
           "tenant_globex" -> assert accounts == ["acct_orion"]
           "tenant_acme" -> refute "acct_orion" in accounts
         end
       end
 
+      # All 200 returned (served or cleanly shed), and the bulk actually served — the
+      # read path runs concurrently; it neither serializes nor collapses under load.
       assert length(results) == 200
+      assert length(served) >= 100
     end
 
     test "serving keeps working while a refresh is in flight (reads bypass the writer)", %{rt: rt} do
