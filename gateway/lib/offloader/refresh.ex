@@ -47,6 +47,7 @@ defmodule Offloader.Refresh do
         ) :: outcome()
   def perform(engine, dataset, active, how, opts \\ []) do
     force = Keyword.get(opts, :force, false)
+    quarantined = Keyword.get(opts, :quarantined)
 
     case resolve(dataset, how) do
       {:ok, :none} ->
@@ -56,6 +57,17 @@ defmodule Offloader.Refresh do
         cond do
           not force and active != nil and manifest.snapshot_id == active.snapshot_id ->
             {:unchanged, attempt(manifest.snapshot_id, :unchanged, nil)}
+
+          # This snapshot was just rolled back from — an auto-poll must NOT re-pull it, or
+          # the operator's rollback silently undoes itself. It stays skipped until a NEWER
+          # snapshot appears (which clears the quarantine) or a forced manual refresh.
+          not force and manifest.snapshot_id == quarantined ->
+            {:unchanged,
+             attempt(
+               manifest.snapshot_id,
+               :unchanged,
+               "snapshot was rolled back; waiting for a newer one"
+             )}
 
           true ->
             check_and_swap(engine, dataset, manifest)

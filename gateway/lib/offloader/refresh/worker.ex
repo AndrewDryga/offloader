@@ -81,24 +81,36 @@ defmodule Offloader.Refresh.Worker do
 
   @impl true
   def handle_info(:poll, state) do
-    how =
-      case state.dataset.source do
-        nil -> {:static, default_manifest_path(state)}
-        source -> {:source, source}
-      end
-
-    _outcome = run(state, how, force: false)
+    _outcome = run(state, poll_how(state), force: false)
     schedule(state)
+    {:noreply, state}
+  end
+
+  # An out-of-band kick from the Runtime (a hot-added or re-pointed dataset): refresh once
+  # now, but do NOT arm a timer — the init-scheduled poll stays the sole cadence. Sending a
+  # plain `:poll` here would spawn a second self-perpetuating timer chain, so the dataset
+  # would poll at 2× its configured interval forever.
+  @impl true
+  def handle_info(:refresh_now, state) do
+    _outcome = run(state, poll_how(state), force: false)
     {:noreply, state}
   end
 
   # ── internals ─────────────────────────────────────────────────────────────────
 
+  defp poll_how(state) do
+    case state.dataset.source do
+      nil -> {:static, default_manifest_path(state)}
+      source -> {:source, source}
+    end
+  end
+
   # Perform the refresh HERE (slow), then let the Runtime apply the bookkeeping
   # (fast). The synchronous apply means a manual caller reads its own write.
   defp run(state, how, opts) do
-    active = Offloader.Runtime.snapshot_active(state.runtime, state.dataset.id)
-    outcome = Refresh.perform(state.engine, state.dataset, active, how, opts)
+    entry = Offloader.Runtime.snapshot_state(state.runtime, state.dataset.id) || %{}
+    opts = Keyword.put_new(opts, :quarantined, Map.get(entry, :quarantined))
+    outcome = Refresh.perform(state.engine, state.dataset, Map.get(entry, :active), how, opts)
     :ok = GenServer.call(state.runtime, {:apply_refresh, state.dataset.id, outcome}, 30_000)
     outcome
   end

@@ -1,13 +1,15 @@
 defmodule Offloader.RefreshTest do
   use ExUnit.Case, async: false
 
-  alias Offloader.Runtime
+  alias Offloader.{Catalog, Engine, Refresh, Runtime}
 
   @dir Path.expand("../../../examples/customer-analytics", __DIR__)
   @project Path.join(@dir, "offloader.yml")
+  @good_manifest Path.join(@dir, "data/customer_usage/manifest.json")
   @csv Path.join(@dir, "data/customer_usage/customer_usage.csv")
   @fl Path.join(@dir, "failure-lab")
   @good_snapshot "2026-06-01T00:00:00Z_r0007"
+  @second_snapshot "2026-06-05T00:00:00Z_r0099"
 
   setup do
     dir = Path.join(System.tmp_dir!(), "offl_refresh_#{System.unique_integer([:positive])}")
@@ -126,6 +128,47 @@ defmodule Offloader.RefreshTest do
 
   test "rollback with no previous snapshot is an error", %{rt: rt} do
     assert {:error, :no_previous} = Runtime.rollback(rt, "customer_usage")
+  end
+
+  test "a rolled-back snapshot is quarantined: an auto-poll won't re-pull it, but force or a newer one does" do
+    # This is the invariant behind Runtime.rollback: after an operator rolls back a bad
+    # snapshot, the source still advertises it as latest, so a non-forced poll must SKIP it
+    # (else the rollback silently undoes itself on the next interval).
+    {:ok, cat} = Catalog.load(@project)
+    dataset = cat.datasets["customer_usage"]
+
+    edir = Path.join(System.tmp_dir!(), "offl_quar_#{System.unique_integer([:positive])}")
+    {:ok, eng} = Engine.start_link(cache_dir: edir)
+
+    on_exit(fn ->
+      if Process.alive?(eng), do: Engine.stop(eng)
+      File.rm_rf!(edir)
+    end)
+
+    # Active = the good snapshot; the source now offers @second_snapshot, which we quarantine.
+    assert {:swapped, active, _} =
+             Refresh.perform(eng, dataset, nil, {:static, @good_manifest}, force: true)
+
+    assert active.snapshot_id == @good_snapshot
+
+    # auto-poll (force: false) resolving the quarantined snapshot → skipped, not swapped
+    assert {:unchanged, att} =
+             Refresh.perform(eng, dataset, active, {:static, second_manifest()},
+               quarantined: @second_snapshot
+             )
+
+    assert att.snapshot_id == @second_snapshot
+
+    # a forced manual refresh re-pulls it despite the quarantine
+    assert {:swapped, _, _} =
+             Refresh.perform(eng, dataset, active, {:static, second_manifest()},
+               force: true,
+               quarantined: @second_snapshot
+             )
+
+    # and a normal poll with NO quarantine applies it (a producer's newer snapshot recovers)
+    assert {:swapped, _, _} =
+             Refresh.perform(eng, dataset, active, {:static, second_manifest()})
   end
 
   # ── helpers ────────────────────────────────────────────────────────────────────

@@ -472,8 +472,10 @@ defmodule Offloader.Runtime do
   # Nudge a dataset's worker to refresh now (used after a reload adds or re-points a dataset —
   # boot already refreshes synchronously, but a reload must trigger it explicitly).
   defp trigger_refresh(state, dataset_id) do
+    # `:refresh_now`, not `:poll`: a one-shot kick that does NOT arm a timer, so a
+    # hot-added/re-pointed dataset can't end up with two poll chains (2× its interval).
     case Worker.whereis(self(), dataset_id) do
-      pid when is_pid(pid) -> send(pid, :poll)
+      pid when is_pid(pid) -> send(pid, :refresh_now)
       _ -> :ok
     end
 
@@ -686,7 +688,10 @@ defmodule Offloader.Runtime do
       put_snapshot(state, dataset_id, %{
         active: snap,
         previous: entry.active,
-        last_attempted: attempt
+        last_attempted: attempt,
+        # A good snapshot landed → clear any rollback quarantine (this is how a producer's
+        # fix auto-recovers a rolled-back dataset).
+        quarantined: nil
       })
 
     # Drop only THIS dataset's cached responses. A new snapshot_id already makes them
@@ -714,7 +719,13 @@ defmodule Offloader.Runtime do
         :ok = Engine.swap(state.engine, dataset_id, previous.table)
 
         state =
-          put_snapshot(state, dataset_id, %{entry | active: previous, previous: entry.active})
+          put_snapshot(state, dataset_id, %{
+            entry
+            | active: previous,
+              previous: entry.active,
+              # Quarantine the snapshot we're rolling back FROM so an auto-poll can't re-pull it.
+              quarantined: entry.active && entry.active.snapshot_id
+          })
 
         # Drop this dataset's entries: the bad snapshot's are now unreachable, and a
         # forced re-serve should recompute rather than trust anything the bad build left.
@@ -931,7 +942,13 @@ defmodule Offloader.Runtime do
   # ── state helpers ─────────────────────────────────────────────────────────────
 
   defp current_entry(state, dataset_id),
-    do: Map.get(state.snapshots, dataset_id, %{active: nil, previous: nil, last_attempted: nil})
+    do:
+      Map.get(state.snapshots, dataset_id, %{
+        active: nil,
+        previous: nil,
+        last_attempted: nil,
+        quarantined: nil
+      })
 
   # Writer source of truth is the state map; mirror each change into ETS for readers.
   defp put_snapshot(state, dataset_id, entry) do
