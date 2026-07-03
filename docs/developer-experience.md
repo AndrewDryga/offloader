@@ -150,6 +150,26 @@ Offloader fetches the whole project tree (`offloader.yml`, `datasets/`, `endpoin
 file) from GCS into `<cache_dir>/config/` and loads it from there — so the container is fully
 stateless: env vars in, config and data both in the bucket, nothing mounted.
 
+Host your `offloader.yml` (and its `datasets/`/`endpoints/`/`keys/` tree) under a `gs://…` prefix
+and boot the published image straight against it — the only volume is the optional
+[warm-start cache](#the-cache-directory-warm-vs-cold-restarts):
+
+```sh
+docker run \
+  -e OFFLOADER_CONFIG=gs://your-bucket/offloader/ \
+  -e OFFLOADER_GCS_AUTH=bearer \
+  -e OFFLOADER_SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+  -e OFFLOADER_CACHE_DIR=/var/lib/offloader/cache \
+  -v offloader-cache:/var/lib/offloader/cache \
+  -p 4000:4000 \
+  -p 127.0.0.1:4001:4001 \
+  ghcr.io/andrewdryga/offloader:edge   # or pin a release, e.g. :1.0.0
+```
+
+On GKE/GCE the bearer token comes from the metadata server (no credential env needed); on a
+laptop it falls back to `gcloud`. Add `OFFLOADER_CONFIG_SYNC_INTERVAL` and edits you publish to
+the prefix hot-reload with no restart (below).
+
 - Uses the **GCS bearer token chain** (the same one the Databricks source lists with):
   `OFFLOADER_GCS_TOKEN`, the GCE metadata server, or `gcloud` — set `OFFLOADER_GCS_AUTH=bearer`.
   Remote config is GCS-only for now (`s3://`/`https://` config is not yet supported).

@@ -199,6 +199,22 @@ low-QPS endpoints; keep <code>local_table</code> (the default) for the hot ones.
 Offloader fetches the whole project tree (<code>offloader.yml</code>, <code>datasets/</code>, <code>endpoints/</code>, the keys
 file) from GCS into <code>&lt;cache_dir&gt;/config/</code> and loads it from there — so the container is fully
 stateless: env vars in, config and data both in the bucket, nothing mounted.</p>
+<p>Host your <code>offloader.yml</code> (and its <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code> tree) under a <code>gs://…</code> prefix
+and boot the published image straight against it — the only volume is the optional
+<a href="#the-cache-directory-warm-vs-cold-restarts">warm-start cache</a>:</p>
+<pre tabindex="0"><code class="language-sh">docker run \
+  -e OFFLOADER_CONFIG=gs://your-bucket/offloader/ \
+  -e OFFLOADER_GCS_AUTH=bearer \
+  -e OFFLOADER_SECRET_KEY_BASE=&quot;$(openssl rand -base64 48)&quot; \
+  -e OFFLOADER_CACHE_DIR=/var/lib/offloader/cache \
+  -v offloader-cache:/var/lib/offloader/cache \
+  -p 4000:4000 \
+  -p 127.0.0.1:4001:4001 \
+  ghcr.io/andrewdryga/offloader:edge   # or pin a release, e.g. :1.0.0
+</code></pre>
+<p>On GKE/GCE the bearer token comes from the metadata server (no credential env needed); on a
+laptop it falls back to <code>gcloud</code>. Add <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> and edits you publish to
+the prefix hot-reload with no restart (below).</p>
 <ul>
 <li>Uses the <strong>GCS bearer token chain</strong> (the same one the Databricks source lists with):
 <code>OFFLOADER_GCS_TOKEN</code>, the GCE metadata server, or <code>gcloud</code> — set <code>OFFLOADER_GCS_AUTH=bearer</code>.

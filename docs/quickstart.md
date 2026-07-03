@@ -10,11 +10,14 @@ first (5 minutes) — it defines the words used below.
 ## 0. Prerequisites
 
 Docker, and this repo (for the example config in `examples/customer-analytics/`).
-A published image will be `ghcr.io/andrewdryga/offloader:<version>`; until then, build it:
+Pull the published image — the rolling `edge` build of `main`, or a pinned release tag:
 
 ```sh
-docker build -t offloader:dev -f gateway/Dockerfile gateway
+docker pull ghcr.io/andrewdryga/offloader:edge
 ```
+
+Prefer to build it yourself? `docker build -t offloader:dev -f gateway/Dockerfile gateway`,
+then use `offloader:dev` in place of the `ghcr.io/…` image below.
 
 ## 1. Run the container
 
@@ -30,7 +33,7 @@ docker run --rm \
   -p 127.0.0.1:4001:4001 \
   -v "$PWD/examples/customer-analytics:/etc/offloader:ro" \
   -v offloader-cache:/var/lib/offloader/cache \
-  offloader:dev
+  ghcr.io/andrewdryga/offloader:edge
 ```
 
 Wait until the admin **readiness** probe returns 200 (it stays 503 until the snapshot
