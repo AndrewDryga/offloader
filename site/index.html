@@ -428,9 +428,9 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
       <aside class="start-run" aria-label="Run it">
         <div class="run-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span> <span class="run-title">docker</span></div>
 <pre class="run-code">$ docker run \
-    -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
+    -e OFFLOADER_CONFIG=/cfg/offloader.yml \
     -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -base64 48) \
-    -v ./examples/public-metrics:/etc/offloader:ro \
+    -v ./examples/public-metrics:/cfg:ro \
     -p 4000:4000 offloader
 
 $ curl "localhost:4000/v1/endpoints/champion?champion_id=1"
