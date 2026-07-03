@@ -17,6 +17,10 @@ erl_crash.dump
 # Release artifacts (dev/scripts/release.sh)
 dist/
 
+# Go CLI build output (built to /tmp or dist/, never committed)
+tools/tools
+tools/offloader
+
 # Docs-site build tooling deps (the generator + generated site/docs/*.html are committed)
 node_modules/
 dev/docs-site/node_modules/
