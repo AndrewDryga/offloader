@@ -18,7 +18,7 @@ the handful of words the rest of the docs use — no prior…">
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
@@ -92,7 +92,7 @@ be <strong>a few minutes or hours fresh</strong> — not up-to-the-second.</p>
 <h2 id="what-offloader-does">What Offloader does</h2>
 <p>Offloader serves those repeated questions from <strong>cheap, pre-computed copies of the
 data</strong> instead of hitting the warehouse every time.</p>
-<pre><code class="language-text">BEFORE:  every request  -&gt;  data warehouse   ($$$ per query, too slow for a live screen)
+<pre tabindex="0"><code class="language-text">BEFORE:  every request  -&gt;  data warehouse   ($$$ per query, too slow for a live screen)
 
 AFTER:   every request  -&gt;  Offloader        (cheap, fast) -&gt; reads a pre-computed
                                               snapshot you publish to object storage
@@ -106,6 +106,7 @@ traffic.</p>
 <p>It runs as a <strong>single container on your own infrastructure</strong>. Nothing leaves your
 environment; there&#39;s no Offloader cloud.</p>
 <h2 id="is-it-a-fit">Is it a fit?</h2>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -130,8 +131,10 @@ environment; there&#39;s no Offloader cloud.</p>
 <td>Native warehouse acceleration already solves it</td>
 </tr>
 </tbody></table>
+</div>
 <h2 id="the-words-we-use">The words we use</h2>
 <p>You only need these dozen terms to read the rest of the docs.</p>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -188,13 +191,14 @@ environment; there&#39;s no Offloader cloud.</p>
 <td>A secret token a caller sends to use an endpoint; you can scope it to specific endpoints and one tenant.</td>
 </tr>
 </tbody></table>
+</div>
 <p>Two more you&#39;ll see in operations:</p>
 <ul>
 <li><strong>DuckDB</strong> — the small, fast engine embedded inside the container that runs the queries. You don&#39;t install or manage it; it&#39;s just there.</li>
 <li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the fast default) or straight from the snapshot files (<code>remote_scan</code>, for big/cold data). Most endpoints use the default.</li>
 </ul>
 <h2 id="how-the-pieces-fit">How the pieces fit</h2>
-<pre><code class="language-text">  Your pipeline            Object storage (S3/GCS)       Offloader container        Your app
+<pre tabindex="0"><code class="language-text">  Your pipeline            Object storage (S3/GCS)       Offloader container        Your app
   (on your schedule)                                     (on your servers)
   ----------------         -----------------------       ------------------         --------
   warehouse --export--&gt;  snapshot Parquet + manifest  --&gt;  loads the latest    --&gt;  GET /v1/endpoints/...
@@ -235,6 +239,6 @@ environment; there&#39;s no Offloader cloud.</p>
     <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
   </div>
 </footer>
-<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
 </body>
 </html>

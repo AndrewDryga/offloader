@@ -18,7 +18,7 @@
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
@@ -80,7 +80,7 @@
 (dataset, endpoint, snapshot, project)? Read <a href="concepts.html">Concepts</a> first. For a complete
 working project to copy, see <code>examples/customer-analytics/</code>.</p>
 <p>A project is four kinds of file:</p>
-<pre><code class="language-text">offloader.yml       project file — which dirs to load, auth mode, keys path
+<pre tabindex="0"><code class="language-text">offloader.yml       project file — which dirs to load, auth mode, keys path
 datasets/*.yml      one per dataset — the table + the columns you expect
 endpoints/*.yml     one per endpoint — the REST contract over a dataset
 keys/keys.yml       API keys (hashes only) — omit for a public (auth: none) API
@@ -90,6 +90,7 @@ every problem at once.</p>
 <hr>
 <h2 id="offloaderyml"><code>offloader.yml</code></h2>
 <p>The top-level project file <code>OFFLOADER_CONFIG</code> points at.</p>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -136,7 +137,8 @@ every problem at once.</p>
 <td>Informational tag for the snapshot source (<code>local</code>, <code>gcs</code>, …). Credentials come from env vars, never this file.</td>
 </tr>
 </tbody></table>
-<pre><code class="language-yaml">version: 1
+</div>
+<pre tabindex="0"><code class="language-yaml">version: 1
 datasets_dir: datasets
 endpoints_dir: endpoints
 keys: keys/keys.yml
@@ -144,6 +146,7 @@ keys: keys/keys.yml
 <hr>
 <h2 id="datasetsyml"><code>datasets/*.yml</code></h2>
 <p>A dataset is a named table Offloader serves, plus the schema it expects. One file per dataset.</p>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -190,10 +193,12 @@ keys: keys/keys.yml
 <td>A remote source that discovers the latest snapshot itself (see below).</td>
 </tr>
 </tbody></table>
+</div>
 <p><strong>Column types</strong> (<code>schema[].type</code>): <code>DATE</code>, <code>TIMESTAMP</code>, <code>VARCHAR</code>, <code>INTEGER</code>, <code>BIGINT</code>,
 <code>DOUBLE</code>, <code>BOOLEAN</code>, <code>JSON</code>. Use <strong><code>JSON</code></strong> for a nested column (<code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> in the
 snapshot); the endpoint serves it as a nested JSON object.</p>
 <p><strong><code>source:</code> (a self-updating remote snapshot):</strong></p>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -223,7 +228,8 @@ snapshot); the endpoint serves it as a nested JSON object.</p>
 <td>How often to re-check for a newer snapshot.</td>
 </tr>
 </tbody></table>
-<pre><code class="language-yaml">id: customer_usage
+</div>
+<pre tabindex="0"><code class="language-yaml">id: customer_usage
 description: Daily product-usage rollup, one row per (usage_date, tenant_id, account_id).
 tenant_column: tenant_id
 manifest: data/customer_usage/manifest.json      # or use `source:` for a remote bucket
@@ -239,6 +245,7 @@ schema:
 <h2 id="endpointsyml"><code>endpoints/*.yml</code></h2>
 <p>An endpoint is the REST contract over a dataset — its URL, params, query, and limits. There is
 no SQL here; the compiler turns this into a safe, parameterized query. One file per endpoint.</p>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -333,7 +340,9 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 <td><code>none</code> (default) or <code>snapshot</code> (cache responses; a new snapshot invalidates them).</td>
 </tr>
 </tbody></table>
+</div>
 <h3 id="params"><code>params[]</code></h3>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -378,6 +387,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 <td>Rewrites a client value to a stored one before filtering (e.g. <code>&quot;25&quot;: &quot;1-25&quot;</code>).</td>
 </tr>
 </tbody></table>
+</div>
 <h3 id="query"><code>query</code></h3>
 <ul>
 <li><code>select</code>: list of <code>{as, column}</code> or <code>{as, column, agg}</code>. <strong><code>agg</code></strong> ∈ <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>.</li>
@@ -389,7 +399,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 <p>Optional. Each entry is an exact set of the <strong>client-sent</strong> param names allowed together
 (checked before defaults are applied). Omit <code>combinations</code> to allow any subset. Reserved params
 (<code>limit</code>, <code>offset</code>, <code>columns</code>) never count toward a combination.</p>
-<pre><code class="language-yaml">name: customer_usage_summary
+<pre tabindex="0"><code class="language-yaml">name: customer_usage_summary
 version: 1
 dataset: customer_usage
 serving_mode: local_table
@@ -426,6 +436,7 @@ contract.</p>
 <p>API keys, as a top-level <code>keys:</code> list. Tokens are never stored — only the SHA-256 hash. Mint one
 with <code>offloader keys create</code> (it prints the token once and its hash). Omit this file for a public
 (<code>auth: none</code>) API.</p>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -460,7 +471,8 @@ with <code>offloader keys create</code> (it prints the token once and its hash).
 <td><code>revoked</code> is always denied.</td>
 </tr>
 </tbody></table>
-<pre><code class="language-yaml">keys:
+</div>
+<pre tabindex="0"><code class="language-yaml">keys:
   - id: acme_prod
     hash: &quot;745ce437a64ab1f020c303be50aa3785e742b72e61533d692f7aa024ff16b121&quot;
     tenant: tenant_acme
@@ -486,6 +498,6 @@ with <code>offloader keys create</code> (it prints the token once and its hash).
     <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
   </div>
 </footer>
-<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
 </body>
 </html>

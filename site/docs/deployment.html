@@ -18,7 +18,7 @@ env vars, mounted config conventions, health checks, metrics, and smoke…">
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
@@ -81,7 +81,7 @@ env vars, mounted config conventions, health checks, metrics, and smoke tests.
 Customers decide how to run it on their servers, Kubernetes clusters, Nomad
 clusters, ECS tasks, VMs, or other internal platforms.</p>
 <h2 id="runtime-shape">Runtime shape</h2>
-<pre><code class="language-text">product traffic -&gt; API port      -&gt; endpoint API keys and tenant enforcement
+<pre tabindex="0"><code class="language-text">product traffic -&gt; API port      -&gt; endpoint API keys and tenant enforcement
 operators       -&gt; admin port    -&gt; health, readiness, metrics, diagnostics, docs
 </code></pre>
 <p>The admin port is not an identity product. Customers expose it only through their
@@ -101,7 +101,7 @@ restart — see the <a href="developer-experience.html#config-from-object-storag
 </ul>
 <h2 id="rollout-verification-and-rollback">Rollout verification and rollback</h2>
 <p>Before rolling out an image, run the same gate the project uses:</p>
-<pre><code class="language-sh">make deploy-check   # builds the prod image, boots it, verifies ports, health,
+<pre tabindex="0"><code class="language-sh">make deploy-check   # builds the prod image, boots it, verifies ports, health,
                     # diagnostics/metrics, and a manifest -&gt; HTTP smoke, then exits 0
 </code></pre>
 <p><code>dev/scripts/deploy-check.sh</code> is the reusable shape — a customer&#39;s deployment
@@ -148,6 +148,6 @@ snapshot, roll the dataset back to its previous good snapshot (see
     <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
   </div>
 </footer>
-<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
 </body>
 </html>

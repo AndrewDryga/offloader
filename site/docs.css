@@ -43,8 +43,10 @@
 .docs-nav li a:hover { color: var(--ink); background: var(--paper-2); }
 .docs-nav li a[aria-current="page"] {
   color: var(--accent-2); font-weight: 550;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);   /* scheme-independent cue — the tint alone vanishes on dark paper */
 }
+.docs-home[aria-current="page"] { color: var(--accent-2); }
 
 /* ── prose ──────────────────────────────────────────────────────────────── */
 .doc-kicker {
@@ -52,8 +54,11 @@
   letter-spacing: var(--track-label); text-transform: uppercase; color: var(--accent-2);
   margin: 0 0 0.9rem;
 }
-.prose { max-width: 46rem; }
+/* Prose text stays at a readable measure; wide reference tables and code blocks get the
+   full main column (a 4-column config table shouldn't be boxed into 46rem on a 1280px screen). */
+.prose { max-width: none; }
 .prose > * + * { margin-top: 1.15rem; }
+.prose > :is(p, ul, ol, blockquote, h1) { max-width: 46rem; }
 .prose h1 {
   font-family: var(--display); font-weight: 700; letter-spacing: -0.03em; line-height: 1.02;
   font-size: clamp(2rem, 1.3rem + 2.2vw, 2.85rem); margin: 0 0 0.3rem;
@@ -101,10 +106,10 @@
 .prose pre code { background: none; border: 0; padding: 0; font-size: inherit; color: inherit; white-space: pre; }
 
 /* tables — bordered, mono header labels, horizontal scroll on small screens */
-.prose table {
-  width: 100%; margin: 1.5rem 0; border-collapse: collapse; font-size: 0.95rem;
-  display: block; overflow-x: auto;
-}
+/* wrap the scroll on a container, NOT on the table (display:block would strip row/cell roles) */
+.prose .table-scroll { margin: 1.5rem 0; overflow-x: auto; }
+.prose .table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.prose table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .prose thead th {
   text-align: left; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500;
   letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);

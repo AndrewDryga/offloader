@@ -110,6 +110,17 @@ function rewriteLinks(html, srcRepoRel) {
   return html.replace(/(<a\b[^>]*\bhref=")([^"]+)(")/g, (_m, pre, href, post) => pre + resolveHref(href, srcRepoRel) + post);
 }
 
+// Wide tables and long code blocks scroll horizontally. Make those scroll containers
+// keyboard-focusable (WCAG 2.1.1 — a keyboard-only user must be able to reach clipped
+// content) and keep the table's real semantics: wrap it rather than setting
+// display:block on the <table>, which would strip its row/cell roles for screen readers.
+function makeScrollRegionsFocusable(html) {
+  return html
+    .replace(/<pre>/g, '<pre tabindex="0">')
+    .replace(/<table>/g, '<div class="table-scroll" tabindex="0">\n<table>')
+    .replace(/<\/table>/g, "</table>\n</div>");
+}
+
 const firstText = (html, tag) => {
   const m = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
   return m ? m[1].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() : "";
@@ -130,7 +141,7 @@ function header(active) {
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home">${BRAND_MARK}<span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html"${active === "docs" ? ' aria-current="page"' : ""}>Docs</a></li>
+      <li><a href="index.html"${active === "docs" ? ' aria-current="true"' : ""}>Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
@@ -177,7 +188,9 @@ const FOOT = `<footer class="doc-foot">
   </div>
 </footer>`;
 
-const NAV_COLLAPSE = `<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>`;
+// Collapse the docs list on narrow screens; keep it open on wide ones. Re-evaluates on
+// resize/rotate. Enhancement only — without JS the <details open> leaves the nav usable.
+const NAV_COLLAPSE = `<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>`;
 
 function page({ title, description, active, activeSlug, main }) {
   return `<!DOCTYPE html>
@@ -219,6 +232,7 @@ for (let i = 0; i < FLAT.length; i++) {
   let body = marked.parse(md);
   body = addHeadingIds(body);
   body = rewriteLinks(body, p.src);
+  body = makeScrollRegionsFocusable(body);
 
   const h1 = firstText(body, "h1") || p.title;
   const desc = truncate(firstText(body, "p") || p.blurb, 155);

@@ -18,7 +18,7 @@ generated docs, and see a failure fail safely — in about fifteen…">
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
@@ -84,12 +84,12 @@ first (5 minutes) — it defines the words used below.</p>
 <h2 id="0-prerequisites">0. Prerequisites</h2>
 <p>Docker, and this repo (for the example config in <code>examples/customer-analytics/</code>).
 A published image will be <code>ghcr.io/OWNER/offloader:&lt;version&gt;</code>; until then, build it:</p>
-<pre><code class="language-sh">docker build -t offloader:dev -f gateway/Dockerfile gateway
+<pre tabindex="0"><code class="language-sh">docker build -t offloader:dev -f gateway/Dockerfile gateway
 </code></pre>
 <h2 id="1-run-the-container">1. Run the container</h2>
 <p>The config directory (<code>offloader.yml</code> + <code>datasets/</code>, <code>endpoints/</code>, <code>keys/</code>, data) is
 mounted; secrets come from env vars; the admin port is bound to loopback.</p>
-<pre><code class="language-sh">docker run --rm \
+<pre tabindex="0"><code class="language-sh">docker run --rm \
   -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
   -e OFFLOADER_SECRET_KEY_BASE=&quot;$(openssl rand -base64 48)&quot; \
   -e OFFLOADER_ADMIN_TOKEN=&quot;$(openssl rand -base64 24)&quot; \
@@ -101,15 +101,15 @@ mounted; secrets come from env vars; the admin port is bound to loopback.</p>
 </code></pre>
 <p>Wait until the admin <strong>readiness</strong> probe returns 200 (it stays 503 until the snapshot
 is materialized):</p>
-<pre><code class="language-sh">curl -fsS http://127.0.0.1:4001/ready
+<pre tabindex="0"><code class="language-sh">curl -fsS http://127.0.0.1:4001/ready
 # {&quot;status&quot;:&quot;ok&quot;,&quot;ready&quot;:true}
 </code></pre>
 <h2 id="2-call-your-first-endpoint">2. Call your first endpoint</h2>
 <p>The example ships a demo key <code>offl_demo_acme_key</code> bound to <code>tenant_acme</code>:</p>
-<pre><code class="language-sh">curl -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
+<pre tabindex="0"><code class="language-sh">curl -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
   &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&quot;
 </code></pre>
-<pre><code class="language-json">{
+<pre tabindex="0"><code class="language-json">{
   &quot;data&quot;: [ { &quot;account_id&quot;: &quot;acct_zephyr&quot;, &quot;active_users_total&quot;: 244, &quot;api_calls_total&quot;: 56839, &quot;storage_gb_avg&quot;: 34.3 }, &quot;…&quot; ],
   &quot;meta&quot;: {
     &quot;request_id&quot;: &quot;…&quot;, &quot;endpoint&quot;: &quot;customer_usage_summary&quot;,
@@ -125,7 +125,7 @@ snapshot you&#39;re reading. (<code>stale:true</code> here just means the demo d
 <h2 id="3-read-the-generated-docs">3. Read the generated docs</h2>
 <p>The endpoint catalog and OpenAPI spec are generated from the enforced contracts and
 served on the <strong>admin</strong> port (never the API port):</p>
-<pre><code class="language-sh">curl -s http://127.0.0.1:4001/docs | jq &#39;.endpoints[].name&#39;
+<pre tabindex="0"><code class="language-sh">curl -s http://127.0.0.1:4001/docs | jq &#39;.endpoints[].name&#39;
 curl -s http://127.0.0.1:4001/openapi.json | jq &#39;.paths | keys&#39;
 </code></pre>
 <p>A product engineer integrates from these — params, defaults, limits, response shape,
@@ -133,14 +133,14 @@ error families, and curl/TypeScript/Python snippets are all there.</p>
 <h2 id="4-validate-config-optional-helper">4. Validate config (optional helper)</h2>
 <p><code>offloader</code> is an <strong>optional Go helper</strong> (not part of the container). Build it once, then it
 checks config the same way the container does:</p>
-<pre><code class="language-sh">cd tools &amp;&amp; go build -o offloader .   # produces ./offloader; or run inline with `go run . …`
+<pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .   # produces ./offloader; or run inline with `go run . …`
 </code></pre>
-<pre><code class="language-sh">offloader validate --config examples/customer-analytics/offloader.yml   # &quot;config OK&quot;
+<pre tabindex="0"><code class="language-sh">offloader validate --config examples/customer-analytics/offloader.yml   # &quot;config OK&quot;
 offloader manifest validate examples/customer-analytics/data/customer_usage/manifest.json
 </code></pre>
 <h2 id="5-see-a-failure-fail-safely">5. See a failure fail safely</h2>
 <p>Bad input is rejected with a named error family — never a leak, never a 500:</p>
-<pre><code class="language-sh"># an unknown/undeclared param (e.g. smuggling a tenant) -&gt; 422 invalid_param
+<pre tabindex="0"><code class="language-sh"># an unknown/undeclared param (e.g. smuggling a tenant) -&gt; 422 invalid_param
 curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
   &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&amp;tenant_id=tenant_globex&quot;
 # 422
@@ -157,6 +157,7 @@ size, upgrade, roll back.</li>
 <li><a href="https://github.com/AndrewDryga/offloader/blob/main/dev/scripts/e2e.sh"><code>make e2e</code></a> — the manifest→HTTP smoke this quickstart mirrors.</li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -185,6 +186,7 @@ size, upgrade, roll back.</li>
 <td>A param is missing/mistyped/out of range, or an undeclared param was sent.</td>
 </tr>
 </tbody></table>
+</div>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="concepts.html"><span>Previous</span><b>What Offloader is</b></a>
@@ -204,6 +206,6 @@ size, upgrade, roll back.</li>
     <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
   </div>
 </footer>
-<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
 </body>
 </html>

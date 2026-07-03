@@ -18,7 +18,7 @@ diagnostics fields. It links to the deep docs rather than repeating…">
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
@@ -143,7 +143,7 @@ traffic goes, fronted by your ingress + TLS. Tests prove the admin surface is no
 reachable on the API port.</p>
 <h2 id="support-bundle-handling">Support bundle handling</h2>
 <p>When you need help, produce a <strong>redacted</strong> bundle:</p>
-<pre><code class="language-sh">offloader support-bundle --config /etc/offloader/offloader.yml \
+<pre tabindex="0"><code class="language-sh">offloader support-bundle --config /etc/offloader/offloader.yml \
   --admin-url http://127.0.0.1:4001 --admin-token &quot;$OFFLOADER_ADMIN_TOKEN&quot; \
   --out offloader-support.tar.gz
 </code></pre>
@@ -192,6 +192,6 @@ classification (Offloader vs customer environment vs upstream data) from <code>/
     <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
   </div>
 </footer>
-<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
 </body>
 </html>
