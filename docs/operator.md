@@ -7,9 +7,15 @@ diagnostics fields. It links to the deep docs rather than repeating them.
 
 - Examples for `docker run`, Compose, Kubernetes, and Prometheus:
   [`../deploy/`](../deploy/README.md).
-- The container reads env vars + a mounted config directory; nothing is baked into the
-  image. Required: `OFFLOADER_CONFIG`, `OFFLOADER_SECRET_KEY_BASE`. Recommended:
-  `OFFLOADER_ADMIN_TOKEN` (gates `/diagnostics`), `OFFLOADER_LOG_LEVEL`.
+- The container reads env vars + config; nothing is baked into the image. Required:
+  `OFFLOADER_CONFIG`, `OFFLOADER_SECRET_KEY_BASE`. Recommended: `OFFLOADER_ADMIN_TOKEN`
+  (gates `/diagnostics`), `OFFLOADER_LOG_LEVEL`.
+- **Config source:** `OFFLOADER_CONFIG` is either a **mounted directory** (a path to
+  `offloader.yml`) or a **`gs://…` bucket prefix**, fetched at boot so the container is fully
+  stateless. Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` and Offloader re-checks the bucket
+  on that interval and **hot-reloads changes with no restart** — even a dataset schema change
+  cuts over with zero downtime, and a bad revision is ignored (the running config keeps serving).
+  Full details: [config guide](developer-experience.md#config-from-object-storage-optional).
 - Two ports: **API** (product traffic, API-key auth) and **ADMIN** (health, metrics,
   diagnostics, docs). Keep the admin port private — see "Port exposure" below.
 
@@ -42,10 +48,10 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
   snapshot plus a retained previous snapshot, plus margin. `offloader_cache_disk_free_bytes`
   alerts before it fills.
 - **CPU:** reads are served from a materialized table across a pool of DuckDB read
-  connections (`OFFLOADER_POOL_SIZE`, default 16), and each request runs in its own
-  process — concurrent queries scale with the pool, not a single mailbox. When every
-  connection is busy a request is shed as `503` rather than queueing unboundedly;
-  raise the pool size (and CPU) if you see that under load. Watch p95 with the harness.
+  connections (`OFFLOADER_POOL_SIZE`, default 16); requests run concurrently, so throughput
+  scales with the pool size, not a single queue. When every connection is busy a request is
+  shed as `503` rather than queueing unboundedly; raise the pool size (and CPU) if you see
+  that under load. Watch p95 (95th-percentile latency) with the [benchmark harness](benchmarks.md).
 
 ## Security model
 
@@ -83,9 +89,16 @@ you choose to. Offloader makes no outbound telemetry calls.
 
 `curl -H "Authorization: Bearer $OFFLOADER_ADMIN_TOKEN" http://127.0.0.1:4001/diagnostics`
 returns, per dataset: active/last-good/last-attempted snapshot, refresh error, source
-reachability, manifest validity, staleness, plus DuckDB status, disk free, and
-build/config versions. `offloader snapshot status --admin-url … --admin-token …`
+reachability, manifest validity, staleness, plus DuckDB status, disk free, config-sync
+status, and build/config versions. `offloader snapshot status --admin-url … --admin-token …`
 prints a concise per-dataset summary. Metrics for alerting are on `/metrics`.
+
+Alerts worth setting (all on `/metrics`):
+
+- `offloader_config_sync_ok == 0` — auto-sync (if enabled) stopped applying the bucket config.
+- `offloader_snapshot_age_seconds` too high, or `offloader_refresh_ok == 0` — a dataset fell behind its source.
+- `offloader_pool_busy` sustained near `offloader_pool_connections` — you're shedding load; raise `OFFLOADER_POOL_SIZE`.
+- `offloader_cache_disk_free_bytes` low — the cache volume is filling.
 
 ## Support tiers and exclusions
 

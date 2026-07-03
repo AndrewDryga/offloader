@@ -53,11 +53,9 @@ bucket** (OAuth bearer), `OFFLOADER_POOL_SIZE=32`, `OFFLOADER_DUCKDB_MEMORY_LIMI
   req/s, 0 failures**, p50 14 ms / p95 26 ms / p99 35 ms, ~290 MB/s transferred.
 - **Correctness:** every endpoint served its current snapshot (the resolver follows
   the latest Databricks commit); zero refresh errors across 66 datasets.
-- **Boot resilience (regression):** a materialize that exceeds its budget, or a
-  down engine, now returns `{:error}` from the engine boundary instead of a raised
-  exit — so one slow/broken dataset can neither crash boot nor wedge a refresh worker.
-  Found and fixed by this very scale run (an earlier attempt died at 32/66 on a 5 s
-  swap timeout under a large persistent DB).
+- **Boot resilience:** a materialize that exceeds its budget, or a down engine, returns an
+  error at the engine boundary instead of crashing — so one slow or broken dataset can neither
+  crash startup nor wedge a refresh worker; it records a failed attempt and the rest serve.
 
 `/metrics` exposes `offloader_pool_connections` / `offloader_pool_busy` and, per
 endpoint, `offloader_requests_total{status}` plus an `offloader_request_duration_ms`

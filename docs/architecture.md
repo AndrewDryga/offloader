@@ -10,7 +10,8 @@ Use a small, boring, customer-run data plane:
 - Local on-disk materialization as the default hot path.
 - Direct object-store Parquet scanning as an explicit mode for cold, low-QPS, or
   oversized endpoints after benchmarking.
-- Environment variables and mounted config as the primary deployment interface.
+- Environment variables plus config from a mounted directory OR a `gs://` bucket (fetched at
+  boot, with optional zero-downtime hot-reload) as the deployment interface.
 - Separate API and admin/metrics ports. Customers own network exposure, reverse
   proxies, IAM, SSO, RBAC, and service discovery outside the container.
 - Optional helper tooling for validation, diagnostics, endpoint tests, and
@@ -79,7 +80,9 @@ whose repeated same-param reads are worth caching; leave it `none` otherwise.
 
 ## Snapshot manifest contract
 
-Required fields:
+A manifest is a small JSON file that points Offloader at one snapshot's files and declares its
+shape. You rarely hand-write one — `offloader import-schema` and the Databricks source generate
+it, and `offloader manifest validate` checks it. Required fields:
 
 - `dataset_id`
 - `snapshot_id`
@@ -116,7 +119,7 @@ Rules:
 
 ## Pre-pilot technical gates
 
-- One non-game dataset family, 3 endpoints, generic public routes, and generated
+- One representative dataset family, 3 endpoints, generic public routes, and generated
   docs/schema on the admin port.
 - Manifest validator rejects missing files, schema mismatch, duplicate columns,
   unsupported types, and bad snapshot IDs.

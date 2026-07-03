@@ -4,6 +4,9 @@ Run Offloader as a container against the bundled example, call an endpoint, read
 generated docs, and see a failure fail safely — in about fifteen minutes, no cloud
 required. Every command here is exercised by `make e2e` and `make deploy-check`.
 
+New to the idea of Offloader? Read [What Offloader is, in plain language](concepts.md)
+first (5 minutes) — it defines the words used below.
+
 ## 0. Prerequisites
 
 Docker, and this repo (for the example config in `examples/customer-analytics/`).
@@ -78,8 +81,12 @@ error families, and curl/TypeScript/Python snippets are all there.
 
 ## 4. Validate config (optional helper)
 
-The helper CLI (`tools/`, `go build -o offloader .`) checks config the same way the
-container does:
+`offloader` is an **optional Go helper** (not part of the container). Build it once, then it
+checks config the same way the container does:
+
+```sh
+cd tools && go build -o offloader .   # produces ./offloader; or run inline with `go run . …`
+```
 
 ```sh
 offloader validate --config examples/customer-analytics/offloader.yml   # "config OK"
@@ -102,10 +109,12 @@ set (bad manifest, stale dataset, forbidden tenant, …) and what each must prod
 
 ## 6. Next
 
-- [Config layout](developer-experience.md) — how to publish your own dataset + endpoint.
-- The generated endpoint docs (step 3) — integrate a product engineer.
+- [Config guide](developer-experience.md) — how to publish your own dataset + endpoint, and
+  how to load config from a `gs://` bucket (fully stateless, with zero-downtime hot-reload).
+- The generated endpoint docs (step 3) — hand these to a product engineer to integrate.
+- [Operator guide](operator.md) · [Deployment](deployment.md) — run it in production: deploy,
+  size, upgrade, roll back.
 - [`make e2e`](../dev/scripts/e2e.sh) — the manifest→HTTP smoke this quickstart mirrors.
-- [Operator docs](deployment.md) — deploy, upgrade, rollback, and support.
 
 ## Troubleshooting
 

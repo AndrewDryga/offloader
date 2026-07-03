@@ -1,48 +1,57 @@
-# Developer Experience Contract
+# Config guide — publish your datasets and endpoints
 
-V1 must feel like running a production-ready self-hosted container, not learning
-a bespoke CLI. Tooling is welcome, but the happy path starts with env vars,
-mounted config, and a health check.
+The reference for the config files Offloader loads. New to the ideas here (dataset,
+endpoint, snapshot, manifest, project)? Read
+[What Offloader is, in plain language](concepts.md) first.
 
-## First-hour golden path
+## A project is just files
 
-```sh
-cp examples/customer-analytics/offloader.yml ./offloader.yml
-docker run --rm \
-  -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
-  -e OFFLOADER_CACHE_DIR=/var/lib/offloader/cache \
-  -e OFFLOADER_API_PORT=4000 \
-  -e OFFLOADER_ADMIN_PORT=4001 \
-  -p 4000:4000 \
-  -p 127.0.0.1:4001:4001 \
-  -v "$PWD/offloader.yml:/etc/offloader/offloader.yml:ro" \
-  -v offloader-cache:/var/lib/offloader/cache \
-  ghcr.io/<owner>/offloader:dev
-curl -H "Authorization: Bearer $OFFLOADER_DEMO_KEY" \
-  http://localhost:4000/v1/endpoints/customer_usage_summary
+Your configuration — your **project** — is a small tree of YAML:
+
+```text
+offloader.yml       # top level: which dirs to load, the auth mode, the keys file
+datasets/*.yml      # one per dataset: the table + the columns you expect
+endpoints/*.yml     # one per endpoint: the REST URL, its params, query, and limits
+keys/keys.yml       # API keys (stored as hashes) — omit entirely for a public API
 ```
 
-Acceptance:
+Offloader loads this at startup from `OFFLOADER_CONFIG` — either a **mounted directory**
+(point it at `.../offloader.yml`) or, fully stateless, a **`gs://…` bucket prefix**
+(fetched at boot — see [Config from object storage](#config-from-object-storage-optional)).
+Nothing is baked into the image.
 
-- A buyer sees a running container, working endpoint, docs, manifest, config,
-  metrics, and one failure example in under 15 minutes locally.
-- A data engineer can publish the first endpoint by mounting config and a local
-  Parquet manifest, then move the same config to S3/GCS manifests.
-- A product engineer can integrate from generated docs without reading operator
-  docs.
+To see a complete, working project, run the **[Quickstart](quickstart.md)** against
+`examples/customer-analytics/` — it boots a container and serves a real endpoint in about
+15 minutes. Copy that example and edit it.
 
-## Required container env vars
+## The `offloader` CLI (optional)
 
-- `OFFLOADER_CONFIG`
-- `OFFLOADER_CACHE_DIR`
-- `OFFLOADER_API_PORT`
-- `OFFLOADER_ADMIN_PORT`
-- `OFFLOADER_SECRET_KEY_BASE`
-- `OFFLOADER_LOG_LEVEL`
+The `offloader …` commands in this guide are an **optional Go helper**, not part of the
+container. The container needs only the files above plus env vars. Build the helper once:
 
-Tuning (optional): `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
-`OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the
-container's cgroup allocation).
+```sh
+cd tools && go build -o offloader .     # then ./offloader <command>   (or: go run . <command>)
+```
+
+## Container env vars
+
+You only have to set **two**:
+
+- `OFFLOADER_CONFIG` — path to `offloader.yml`, or a `gs://…` bucket prefix.
+- `OFFLOADER_SECRET_KEY_BASE` — any random string (`openssl rand -base64 48`).
+
+Everything else has a sensible default:
+
+- `OFFLOADER_CACHE_DIR` (default `/var/lib/offloader/cache`), `OFFLOADER_API_PORT` (4000),
+  `OFFLOADER_ADMIN_PORT` (4001), `OFFLOADER_LOG_LEVEL` (info).
+- `OFFLOADER_ADMIN_TOKEN` — recommended: gates the `/diagnostics` route (unset ⇒ it fails closed).
+- `OFFLOADER_CONFIG_SYNC_INTERVAL` — seconds between bucket config re-checks (unset ⇒ off).
+- Tuning: `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
+  `OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the container's
+  memory allocation).
+
+Object-store credentials are needed only when your config reads from a remote source (below);
+the local example needs no cloud vars and makes no outbound calls.
 
 Source-specific object-store credentials are configured only when the mounted
 config references that source. Offloader should not require cloud-provider env
@@ -126,18 +135,21 @@ the first try.
 
 ### Importing an existing serving schema
 
-`offloader import-schema` generates a whole Offloader project from a
-`serving_schema.json` (one dataset per `{game,table}` as a Databricks GCS source, one
-endpoint per query, the source `defaults`/`combinations`/`param_aliases` preserved, plus a
-`mapping.json` for the cutover diff harness). Column types are not in the schema file
-(the source is `SELECT *`), so supply a hints file — one DESCRIBE per table, mapping
-nested `STRUCT`/`MAP`/`LIST` columns to `JSON`:
+If you already run a warehouse-backed serving API described by a `serving_schema.json`,
+`offloader import-schema` generates a whole Offloader project from it: one dataset per
+source table, one endpoint per query, with the source's `defaults`/`combinations`/
+`param_aliases` preserved, plus a `mapping.json` the cutover diff harness uses. (In that
+schema format each query is grouped by its `game` and `table` fields — hence the
+`game__table` keys below; those are the schema's own field names, whatever your domain.)
+
+Column types aren't in the schema file (its queries are `SELECT *`), so supply a hints
+file — one DESCRIBE per table, mapping nested `STRUCT`/`MAP`/`LIST` columns to `JSON`:
 
 ```bash
-# one row per {game,table}: {"game__table": [{"name":"c","type":"VARCHAR"}, ...]}
+# one row per source table: {"game__table": [{"name":"c","type":"VARCHAR"}, ...]}
 offloader import-schema \
   --from serving_schema.json --hints schema_hints.json \
-  --out ./project --bucket databricks-serving-databases
+  --out ./project --bucket your-snapshot-bucket
 ```
 
 Queries whose params aren't columns of their table (or whose table has no hints) fail
@@ -147,16 +159,14 @@ are set (see below).
 
 ## Config layout
 
+The project directory `OFFLOADER_CONFIG` points at:
+
 ```text
-offloader/
-  offloader.yml
-  sources/
-  datasets/
-  endpoints/
-  policies/
-  keys/
-  examples/
-  tests/
+offloader.yml       # top-level project file (version, dirs, auth mode, keys path)
+datasets/           # one *.yml per dataset (the table contract)
+endpoints/          # one *.yml per endpoint (the REST contract)
+keys/keys.yml       # API keys, as hashes — omit for a public (auth: none) API
 ```
 
-Every config file gets JSON Schema, versioning, examples, and CI validation.
+`offloader validate` checks the whole tree the same way the container does — run it in CI
+before you ship a change. See `examples/customer-analytics/` for a complete, working project.

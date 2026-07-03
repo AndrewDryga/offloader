@@ -1,43 +1,69 @@
 # Security Model
 
-Offloader is a customer-run data-serving container. Treat configs, manifests,
-query params, object-store paths, logs, support bundles, diagnostics, and metrics
-as potentially sensitive.
+Offloader runs **in your environment** and serves **read-only** data. This page explains,
+in plain terms, what it protects for you and what you remain responsible for. (Newer to the
+concepts? See [What Offloader is](concepts.md).)
 
-## P0 requirements
+## The short version
 
-- No arbitrary SQL exposed to consumers.
-- API keys are hashed at rest and revocable.
-- Consumer keys are scoped to explicit endpoints.
-- Tenant binding is enforced server-side.
-- Column allowlists are enforced before execution.
-- Docs, schema, diagnostics, and metrics live on a separate admin port.
-- Read-only object-store credentials.
-- Stable security errors do not reveal forbidden dataset existence.
-- Logs and metrics never include raw API keys, tokens, credentialed URIs, or
-  unredacted params by default.
-- Support bundles are redacted and include a manifest of included artifacts.
-- No RBAC, SSO, organization model, team management, or hosted control plane in
-  V1. Customers own access to the admin port with their existing network and
-  identity controls.
+- Your data, config, logs, and metrics **stay in your environment**. Offloader makes no
+  outbound telemetry calls.
+- Consumers reach data only through **named endpoints** on the API port, using an **API key**
+  you issue. There is no arbitrary SQL.
+- Each key is scoped to **specific endpoints** and bound to **one tenant** (customer/account).
+  Offloader inserts the tenant filter itself — a caller **cannot** widen it or read another
+  tenant's rows.
+- Operator surfaces (docs, metrics, diagnostics) are on a **separate admin port** that **you**
+  keep private. Offloader is not a login/identity product.
 
-## Customer-run boundary
+## Who can reach what
 
-Raw serving data, metadata, manifests, schemas, logs, metrics, and diagnostics
-stay in the customer's environment by default. Offloader should not make outbound
-calls for telemetry in V1. Support bundles are operator-created artifacts and are
-shared only when the customer chooses to share them.
+| Port | Who | What they get | Guarded by |
+| --- | --- | --- | --- |
+| **API (4000)** | your product / consumers | only the endpoints their key is granted, only their tenant's rows, only allowed columns | the API key + rules Offloader enforces (below) |
+| **Admin (4001)** | your operators | health, metrics, generated docs, diagnostics | **you** — network / firewall / proxy / IAM. Keep it off the public internet. |
 
-Do not claim that access control is solved by the product. The product provides
-separate ports and redaction; the customer decides how the admin port is exposed,
-proxied, authenticated, or firewalled.
+An API key is a bearer token you mint with `offloader keys create`. Only its **SHA-256 hash**
+is stored in config — never the token itself. Revoke a key by changing its status; it's denied
+immediately.
 
-## Required tests
+## What Offloader enforces (you get these for free)
 
-- API key bypass attempts.
-- Tenant parameter override attempts.
-- Column selection outside allowlist.
-- Params/filter injection.
-- Docs/schema/diagnostics not exposed on the API port.
-- Secret redaction in logs and support bundle.
-- Failed manifest rollback.
+- **No arbitrary SQL** reaches consumers — only your declared endpoints.
+- **Endpoint allowlist** per key: a key can call only the endpoints granted to it.
+- **Tenant isolation:** the tenant filter is inserted server-side from the key and cannot be
+  overridden by a request parameter.
+- **Column allowlist:** an endpoint can return only its declared columns — checked before the
+  query runs.
+- **Safe errors:** a forbidden endpoint and a non-existent one return the **same** response, so
+  probing can't discover what exists.
+- **Secrets stay out of the open:** logs, metrics, diagnostics, and support bundles never
+  include API keys, tokens, credentialed URLs, or raw params by default; support bundles are
+  redacted and list what's inside.
+- **Read-only object-store credentials** are the intended posture — Offloader only reads snapshots.
+
+## What you're responsible for
+
+- **Exposing the admin port safely.** Offloader ships the separation (two ports) and redaction;
+  you decide how the admin port is reached — loopback, an internal network, a proxy, or your IAM.
+- **TLS and ingress** in front of the API port.
+- **The snapshot pipeline** that publishes data to object storage, and the object-store
+  permissions themselves.
+
+Offloader does **not** provide RBAC, SSO, org/team management, or a hosted control plane. If you
+need enterprise access controls, run the admin port behind the ones you already use.
+
+## Co-hosting config in the bucket
+
+If you load config from a bucket (`OFFLOADER_CONFIG=gs://…`), the config tree includes the keys
+file — but keys are stored as **hashes, never tokens**, so bucket-read exposure leaks hashes plus
+the endpoint/tenant access map, not usable credentials. A **public** deployment (`auth: none`)
+has no keys file at all. For an authed deployment, put the config under a **tighter-ACL
+bucket/prefix** than the bulk data if you want to limit who can read the hashes.
+
+## How we prove it
+
+An adversarial test suite (`gateway/test/offloader/security_suite_test.exs`) exercises the
+invariants above on every build: API-key bypass attempts, tenant-override attempts, column
+selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
+port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.

@@ -15,6 +15,11 @@ operators       -> admin port    -> health, readiness, metrics, diagnostics, doc
 The admin port is not an identity product. Customers expose it only through their
 own network, proxy, firewall, IAM, SSO, or RBAC controls.
 
+**Config** comes from `OFFLOADER_CONFIG`: either a mounted directory (a ConfigMap/volume with
+`offloader.yml` + `datasets/`/`endpoints/`/`keys/`) or a `gs://…` bucket prefix fetched at boot
+(fully stateless). With `OFFLOADER_CONFIG_SYNC_INTERVAL` set, bucket changes hot-reload with no
+restart — see the [config guide](developer-experience.md#config-from-object-storage-optional).
+
 ## Required examples
 
 - Single-node `docker run`.
@@ -49,6 +54,7 @@ If a check fails, roll back:
 - **Bad snapshot** — the gateway never swaps in a snapshot that fails validation or
   compatibility, so serving is already protected. To revert a *good-but-wrong*
   snapshot, roll the dataset back to its previous good snapshot (see
+  [runbooks](operations/runbooks.md) → "Rollback to previous snapshot").
 
 ## Non-goals
 

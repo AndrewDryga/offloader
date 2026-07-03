@@ -4,14 +4,35 @@
 
 Warehouse offload for production analytics APIs.
 
-Offloader is a self-hostable container that moves repeated product-facing
-analytical reads off Databricks, Snowflake, BigQuery, and similar warehouse
-compute by serving approved object-storage snapshots through governed REST
-contracts on infrastructure the customer already operates.
+**In plain terms:** your product's dashboards and stats pages run queries against an
+expensive data warehouse (Snowflake, Databricks, BigQuery) on every page load.
+Offloader serves those same reads from cheap, pre-computed snapshots on your own
+servers instead — cutting warehouse cost and speeding up responses. New to the idea?
+Start with **[What Offloader is, in plain language](docs/concepts.md)**.
+
+Offloader is a self-hostable container that moves repeated product-facing analytical
+reads off Databricks, Snowflake, BigQuery, and similar warehouses by serving approved
+object-storage snapshots through governed REST endpoints — on infrastructure you
+already operate. Nothing leaves your environment; there is no Offloader cloud.
 
 Status: the V1 gateway is **feature-complete and validated against real production
-data** (see the upstream-API replacement below). The commercial offer is a paid
-diagnostic plus offload pilot, not a broad data platform.
+data**. The commercial offer is a paid diagnostic plus offload pilot, not a broad data
+platform.
+
+## Documentation
+
+**New here → [What Offloader is, in plain language](docs/concepts.md)** (the words and
+the mental model, no jargon).
+
+Then, by what you want to do:
+
+- **Try it** — [Quickstart](docs/quickstart.md): run it against a bundled example in ~15 minutes, no cloud needed.
+- **Define your endpoints** — [Config guide](docs/developer-experience.md): what the `offloader.yml` + `datasets/`/`endpoints/`/`keys/` files look like.
+- **Run it in production** — [Operator guide](docs/operator.md) · [Deployment](docs/deployment.md).
+- **Security** — [Security model](docs/security-model.md): what's protected, and what you own.
+- **Replace an existing serving API** — [Cutover runbook](docs/cutover-runbook.md): the safe, gradual switch-over.
+- **Cost case** — [ROI diagnostic](docs/roi.md) · [Benchmarks](docs/benchmarks.md).
+
 
 ## Product boundary
 
@@ -36,6 +57,8 @@ Offloader is not:
 - A control plane, RBAC system, or SSO provider.
 
 ## What it does
+
+The engineer's-eye view (the plain-language version is in [concepts](docs/concepts.md)):
 
 - Serve named, versioned REST endpoints over approved Parquet/CSV snapshots,
   materialized into DuckDB and swapped in atomically.
@@ -69,12 +92,28 @@ Offloader is not:
 Offloader was built and proven to replace a real warehouse-backed serving API's production serving:
 `offloader import-schema` converts a `serving_schema.json` into a whole project, and
 `offloader shadow-diff` gates the cutover on proven response parity against the live
-system. See **`docs/cutover-runbook.md`** for the shadow → canary → cutover playbook.
+system. See **[the cutover runbook](docs/cutover-runbook.md)** for the shadow → canary → cutover playbook.
+
+## Runtime configuration
+
+The primary product surface is the container plus environment variables. A standard
+deployment needs only:
+
+```sh
+docker run \
+  -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
+  -e OFFLOADER_CACHE_DIR=/var/lib/offloader/cache \
+  -e OFFLOADER_SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+  -v ./offloader.yml:/etc/offloader/offloader.yml:ro \
+  -v offloader-cache:/var/lib/offloader/cache \
+  -p 4000:4000 \
+  -p 127.0.0.1:4001:4001 \
+  ghcr.io/<owner>/offloader:<version>
+```
+
+The full env-var reference is in the [config guide](docs/developer-experience.md).
 
 ## Repository layout
-
-The layout follows the same language-rooted style as `../emisar`, but keeps
-deployment customer-run and container-first.
 
 ```text
 gateway/          Elixir/Phoenix self-hostable container: REST APIs, auth,
@@ -89,58 +128,12 @@ examples/         Local demo manifests, endpoint configs, and sample datasets
 dev/              Local verification, benchmark, and deployment-check scripts
 ```
 
-## First technical gate
+## Project status (for contributors)
 
-Before promising an external deployment, prove:
-
-1. One non-game dataset family.
-2. Three generic endpoints.
-3. Manifest to DuckDB materialization to HTTP response.
-4. Docs/schema endpoints served on the admin port.
-5. API-key auth and tenant enforcement.
-6. Failed refresh keeps previous good snapshot.
-7. Cold load, warm restart, memory, disk, p95, and p99 measurements.
-8. Standalone container starts from empty and warm cache.
-
-The authoritative, citeable version — every gate mapped to its owning task and
-`Q01` audits the release against it.
-
-## Development gate
-
-The exact gate will harden as components land. The intended V1 gate is:
+(technical + commercial proof gates). The development gate is:
 
 ```sh
-make check
-make e2e
-make deploy-check
+make check        # format, warnings-as-errors, tests
+make e2e          # manifest -> HTTP smoke
+make deploy-check # build the prod image, boot it, verify both ports
 ```
-
-Early tasks should add these targets as soon as the component skeletons exist.
-
-## Runtime configuration
-
-The primary V1 product surface is the container plus environment variables.
-Helper tooling is useful, but a standard deployment must be possible with:
-
-```sh
-docker run \
-  -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
-  -e OFFLOADER_CACHE_DIR=/var/lib/offloader/cache \
-  -e OFFLOADER_API_PORT=4000 \
-  -e OFFLOADER_ADMIN_PORT=4001 \
-  -v ./offloader.yml:/etc/offloader/offloader.yml:ro \
-  -v offloader-cache:/var/lib/offloader/cache \
-  -p 4000:4000 \
-  -p 127.0.0.1:4001:4001 \
-  ghcr.io/<owner>/offloader:<version>
-```
-
-## Planning
-
-- [Quickstart — the first hour](docs/quickstart.md)
-- [Operator guide](docs/operator.md)
-- [Architecture](docs/architecture.md)
-- [Deployment](docs/deployment.md)
-- [Security model](docs/security-model.md)
-
-Implementation work is queued with `coop tasks` under `.agent/tasks/`.
