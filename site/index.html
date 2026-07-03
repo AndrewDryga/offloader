@@ -370,6 +370,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span>
         <h2 id="faq-h" class="h2">The questions we actually get.</h2>
       </div>
       <div class="faq-list">
+        <h3 class="faq-group-h">How it’s different</h3>
         <details class="faq-item">
           <summary>Isn’t this just a cache in front of my warehouse?</summary>
           <div class="faq-a"><p>No. A cache still calls the warehouse on a miss and knows nothing about who’s asking. Offloader answers reads <em>entirely</em> from the snapshot — the warehouse is never on the live path — through named, versioned endpoints with a compiled-in tenant filter and a column allowlist. There’s no arbitrary SQL to cache, and no per-request warehouse bill.</p></div>
@@ -382,6 +383,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span>
           <summary>How is this different from ClickHouse, Tinybird, or warehouse-native acceleration?</summary>
           <div class="faq-a"><p>A dedicated serving database — ClickHouse, Tinybird, Rockset — is a second system to load, sync, scale, and operate: a dual write and a new source of truth to reconcile with the warehouse. Offloader is a container and a bucket. Your warehouse stays the source of truth; you serve <em>its</em> snapshots, unchanged. Warehouse-native acceleration (BI Engine, serverless SQL, materialized views) keeps you on the vendor’s meter and its cold starts — you’re still paying per query or per compute-hour for the same high-volume reads. Offloader moves those reads off the meter, onto a flat-cost box you own.</p></div>
         </details>
+        <h3 class="faq-group-h">Will it fit your data</h3>
         <details class="faq-item">
           <summary>How fresh is the data?</summary>
           <div class="faq-a"><p>As fresh as you publish snapshots — minutes to hours, your call. Every response carries its <code>snapshot_id</code> and a freshness watermark, so a client always knows exactly what it read. If you need up-to-the-second data, Offloader isn’t the right tool, and we’ll tell you.</p></div>
@@ -395,16 +397,17 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span>
           <div class="faq-a"><p>Tenant <em>count</em> doesn’t matter: an endpoint is one table plus a compiled-in filter, so a million users share one snapshot and each request reads only its own slice. What matters is total snapshot <em>bytes</em>. In the validation, all 66 datasets sat in about <strong>4&nbsp;GiB of RAM</strong> on one instance; you cap it with a memory limit and scale by running more stateless instances or partitioning snapshots by time. If your working set genuinely won’t fit a box, that’s exactly the case we’ll tell you isn’t a fit.</p></div>
         </details>
         <details class="faq-item">
-          <summary>Is there lock-in?</summary>
-          <div class="faq-a"><p>No. It’s a container you run on your own infrastructure; the config is a handful of YAML files and the data is your own Parquet in your own bucket. Turn it off and your warehouse, data, and app are exactly as they were.</p></div>
-        </details>
-        <details class="faq-item">
           <summary>Which warehouses does it work with?</summary>
           <div class="faq-a"><p>Any that can export Parquet — Snowflake, BigQuery, Redshift, a Spark job — via a small manifest. Databricks additionally discovers the latest snapshot for you. Offloader never connects to the warehouse for live traffic; it only reads the snapshots you publish.</p></div>
         </details>
         <details class="faq-item">
           <summary>What does it actually take to run?</summary>
           <div class="faq-a"><p>A container and a bucket. The workload we validated against runs <strong>~135&nbsp;million requests a month</strong>; a single small instance sustains that comfortably — about 52 requests a second on average, well inside the <a href="docs/benchmarks.html">~5,200/s a single instance hit in benchmark</a> — so you’d run <strong>two small instances</strong> for HA, not for capacity. The cost is the box, flat, no matter how many reads hit it: the expensive computation already happened once, in your pipeline.</p></div>
+        </details>
+        <h3 class="faq-group-h">Cost &amp; commitment</h3>
+        <details class="faq-item">
+          <summary>Is there lock-in?</summary>
+          <div class="faq-a"><p>No. It’s a container you run on your own infrastructure; the config is a handful of YAML files and the data is your own Parquet in your own bucket. Turn it off and your warehouse, data, and app are exactly as they were.</p></div>
         </details>
         <details class="faq-item">
           <summary>How does pricing actually work?</summary>

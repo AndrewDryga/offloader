@@ -313,6 +313,8 @@ strong { font-weight: 600; }
 
 /* ── faq (native <details>, no JS) ──────────────────────────────────── */
 .faq-list { max-width: 52rem; border-top: 1px solid var(--line); }
+.faq-group-h { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--accent-2); margin: 0; padding: 1.7rem 0 0.85rem; }
+.faq-list > .faq-group-h:first-child { padding-top: 1.3rem; }
 .faq-item { border-bottom: 1px solid var(--line); }
 .faq-item > summary {
   display: flex; justify-content: space-between; align-items: baseline; gap: 1.5rem; cursor: pointer;
