@@ -103,12 +103,12 @@ strong { font-weight: 600; }
 .nav-links { display: flex; align-items: center; gap: clamp(1rem, 2.4vw, 2.1rem); margin: 0; padding: 0; list-style: none; }
 .nav-links a { font-size: 0.95rem; color: var(--ink-2); transition: color 0.15s var(--ease); }
 .nav-links a:hover { color: var(--ink); }
-.nav-cta { color: var(--ink) !important; font-weight: 500; border: 1px solid var(--line); border-radius: 999px; padding: 0.42rem 0.95rem; }
-.nav-cta:hover { border-color: var(--accent); }
+.nav-cta { color: var(--paper) !important; background: var(--ink); font-weight: 550; border: 1px solid var(--ink); border-radius: 999px; padding: 0.42rem 0.95rem; transition: background 0.15s var(--ease), border-color 0.15s var(--ease); }
+.nav-cta:hover { background: var(--accent); border-color: var(--accent); }
 @media (max-width: 700px) {
   .nav-links { gap: 1rem; }
   .nav-links a { font-size: 0.88rem; }
-  /* keep the high-intent links (How it works · Pricing · Docs · Get started); drop Proof/Fit */
+  /* keep the high-intent links (How it works · Pricing · Docs · Book a call); drop Proof/Fit */
   .nav-links li:nth-child(2), .nav-links li:nth-child(4) { display: none; }
 }
 /* tiny screens: the mark alone stands in for the wordmark so all four links + CTA fit */
@@ -129,6 +129,12 @@ strong { font-weight: 600; }
 .btn-primary:hover { background: var(--accent); transform: translateY(-1px); }
 .btn-ghost { border-color: var(--line); color: var(--ink); }
 .btn-ghost:hover { border-color: var(--ink); transform: translateY(-1px); }
+
+/* closing call-to-action band */
+.cta-band { text-align: center; }
+.cta-band-inner { max-width: 54ch; margin-inline: auto; }
+.cta-band-sub { margin-top: 1.15rem; color: var(--ink-2); font-size: var(--fs-lede); line-height: 1.55; }
+.cta-band-row { justify-content: center; margin-top: 2.25rem; }
 
 /* ── hero ───────────────────────────────────────────────────────────── */
 .hero { padding-top: clamp(2.75rem, 6vw, 5rem); padding-bottom: clamp(3.5rem, 7vw, 6rem); }
@@ -281,11 +287,12 @@ strong { font-weight: 600; }
 
 /* ── pricing ────────────────────────────────────────────────────────── */
 .pricing { background: var(--paper-2); border-top-color: var(--line); }
-.pricing-body { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 5vw, 4.25rem); align-items: start; }
+.pricing-top { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 5vw, 4.25rem); align-items: start; }
+.pricing-top .section-head { margin-bottom: 0; }
 .savings .save { color: var(--ink); }             /* the win — full ink */
 .savings .neg { color: var(--muted); }            /* the fee — recedes */
 .savings .keep { color: var(--ok); font-size: 1em; }  /* 1em keeps the $ column aligned */
-.pricing-notes { display: grid; gap: clamp(1.6rem, 3vw, 2.4rem); }
+.pricing-notes { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.8rem, 4vw, 3.5rem); margin-top: clamp(2.75rem, 5vw, 4.5rem); }
 .pnote { display: grid; grid-template-columns: auto 1fr; gap: 1.15rem; align-items: baseline; }
 .pnote-n { font-family: var(--mono); font-size: 1rem; font-weight: 500; color: var(--accent-2); }
 .pnote h3 { font-size: var(--fs-h3); letter-spacing: -0.015em; margin-bottom: 0.5rem; }
@@ -293,7 +300,7 @@ strong { font-weight: 600; }
 .pnote a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .pricing-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.85rem 1.4rem; margin-top: clamp(2rem, 4vw, 3rem); padding-top: clamp(1.75rem, 3vw, 2.25rem); border-top: 1px solid var(--line); }
 .pricing-cta-note { font-size: var(--fs-small); color: var(--muted); max-width: 42ch; line-height: 1.5; }
-@media (max-width: 860px) { .pricing-body { grid-template-columns: 1fr; gap: 2.5rem; } }
+@media (max-width: 860px) { .pricing-top, .pricing-notes { grid-template-columns: 1fr; gap: 2.5rem; } }
 
 /* ── start / cta ────────────────────────────────────────────────────── */
 .start { background: var(--paper-2); border-top-color: var(--line); }

@@ -55,7 +55,7 @@
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#fit">Fit</a></li>
       <li><a href="docs/index.html">Docs</a></li>
-      <li><a href="#start" class="nav-cta">Get started</a></li>
+      <li><a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
     </ul>
   </nav>
 </header>
@@ -76,12 +76,12 @@
           instead</strong> — the same numbers, at a fraction of the cost, and far faster.
         </p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="docs/quickstart.html">Run it in 15 minutes</a>
-          <a class="btn btn-ghost" href="#how">How it works <span aria-hidden="true">↓</span></a>
+          <a class="btn btn-primary" href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
+          <a class="btn btn-ghost" href="docs/quickstart.html">Run it in 15 minutes</a>
         </div>
         <p class="hero-proof">
-          Self-hosted. Validated on <b>real production data</b> — 66 datasets, 67 endpoints. No
-          vendor cloud — your private data never leaves your environment.
+          Self-hosted. Validated on <b>real production data</b> — dozens of live endpoints serving
+          8&nbsp;TB a month. No vendor cloud — your private data never leaves your environment.
         </p>
       </div>
 
@@ -243,14 +243,14 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
 
       <div class="proof-grid">
         <article class="proof-card">
-          <p class="proof-metric">66 / 67</p>
+          <p class="proof-metric">8 TB / mo</p>
           <h3>Real scale, not a fixture</h3>
-          <p>Validated at 66 datasets and 67 endpoints, cold-booted against a real production GCS bucket.</p>
+          <p>Validated on real production datasets — dozens of live endpoints, cold-booted from an object-storage bucket and serving 8&nbsp;TB of traffic a month.</p>
         </article>
         <article class="proof-card">
           <p class="proof-metric">p95 66 ms</p>
           <h3>Measured in production</h3>
-          <p>p50 37 ms, p95 66 ms at the load balancer, across ~136&nbsp;million requests a month — down from multi-second behind the warehouse.<sup><a href="#methodology">1</a></sup></p>
+          <p>p50 37 ms, p95 66 ms at the load balancer, across ~136&nbsp;million requests a month — down from multi-second behind the warehouse of a top-tier vendor.<sup><a href="#methodology">1</a></sup></p>
         </article>
         <article class="proof-card">
           <p class="proof-metric">tenant = you</p>
@@ -276,7 +276,8 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
   <!-- PRICING ──────────────────────────────────────────────────────── -->
   <section class="band pricing" id="pricing" aria-labelledby="pricing-h">
     <div class="wrap">
-      <div class="section-head">
+      <div class="pricing-top">
+        <div class="section-head">
         <p class="kicker">Pricing</p>
         <h2 id="pricing-h" class="h2">Priced on what we save you.<br>Not on requests.</h2>
         <p class="section-sub">
@@ -287,7 +288,6 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
         </p>
       </div>
 
-      <div class="pricing-body">
         <figure class="ledger savings" aria-labelledby="savings-cap">
           <div class="ledger-tape" role="img" aria-label="A real, anonymized cutover: a 3,000 dollar a month warehouse serving bill became about 440 dollars a month on two small VMs. Of the 2,560 dollars saved each month, our 20 percent fee is 512 dollars, leaving the customer keeping about 2,048 dollars a month.">
 <pre>Warehouse serving, before     <span class="tok">$3,000</span> /mo
@@ -304,6 +304,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
           </figcaption>
           <p class="ledger-scale">What that <b>$440</b> served: <b>136M requests a month</b>, 8&nbsp;TB, 94% cached — at the CDN edge, with no unplanned downtime since cutover, on the customer’s own two VMs.</p>
         </figure>
+      </div>
 
         <div class="pricing-notes">
           <div class="pnote">
@@ -321,7 +322,6 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
             </div>
           </div>
         </div>
-      </div>
       <div class="pricing-cta">
         <a class="btn btn-primary" href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a paid diagnostic</a>
         <span class="pricing-cta-note">Books a call with me — pick a time that works; you talk to a person, not a queue. Fixed scope; we measure your reducible spend before you commit.</span>
@@ -397,7 +397,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
         </details>
         <details class="faq-item">
           <summary>My data is per-user — can a snapshot handle the cardinality?</summary>
-          <div class="faq-a"><p>Tenant <em>count</em> doesn’t matter: an endpoint is one table plus a compiled-in filter, so a million users share one snapshot and each request reads only its own slice. What matters is total snapshot <em>bytes</em>. In the validation, all 66 datasets sat in about <strong>4&nbsp;GiB of RAM</strong> on one instance; you cap it with a memory limit and scale by running more stateless instances or partitioning snapshots by time. If your working set genuinely won’t fit a box, that’s exactly the case we’ll tell you isn’t a fit.</p></div>
+          <div class="faq-a"><p>Tenant <em>count</em> doesn’t matter: an endpoint is one table plus a compiled-in filter, so a million users share one snapshot and each request reads only its own slice. What matters is total snapshot <em>bytes</em>. In the validation, the entire set of datasets sat in about <strong>4&nbsp;GiB of RAM</strong> on one instance; you cap it with a memory limit and scale by running more stateless instances or partitioning snapshots by time. If your working set genuinely won’t fit a box, that’s exactly the case we’ll tell you isn’t a fit.</p></div>
         </details>
         <details class="faq-item">
           <summary>Which warehouses does it work with?</summary>
@@ -458,11 +458,27 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
     -e OFFLOADER_CACHE_DIR=/cache \
     -v ./examples/public-metrics:/cfg:ro \
     -v offloader-cache:/cache \
-    -p 4000:4000 offloader:dev
+    -p 4000:4000 \
+    ghcr.io/andrewdryga/offloader:edge
 
 $ curl "localhost:4000/v1/endpoints/champion?champion_id=1"
 <span class="run-ok">→ 200</span>  served from a snapshot, not your warehouse</pre>
       </aside>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA ──────────────────────────────────────────────────── -->
+  <section class="band cta-band" aria-labelledby="cta-band-h">
+    <div class="wrap cta-band-inner">
+      <p class="kicker">Talk to a person</p>
+      <h2 id="cta-band-h" class="h2">See your number before you commit.</h2>
+      <p class="cta-band-sub">A paid diagnostic measures what’s actually reducible on your
+        warehouse bill and hands you a baseline — on a call with me, not a form to a queue.
+        No saving, no pilot.</p>
+      <div class="cta-row cta-band-row">
+        <a class="btn btn-primary" href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
+        <a class="btn btn-ghost" href="docs/roi.html">See what the diagnostic covers</a>
+      </div>
     </div>
   </section>
 
