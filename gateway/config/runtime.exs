@@ -81,7 +81,15 @@ config :offloader,
      end),
   duckdb_memory_limit: System.get_env("OFFLOADER_DUCKDB_MEMORY_LIMIT"),
   # Gates the admin /diagnostics route. Unset => diagnostics fail closed (403).
-  admin_token: System.get_env("OFFLOADER_ADMIN_TOKEN")
+  admin_token: System.get_env("OFFLOADER_ADMIN_TOKEN"),
+  # Product-API CORS allow-list for browser front-ends: "*" or a comma-separated origin
+  # list, or unset (no CORS headers).
+  cors_origins:
+    (case System.get_env("OFFLOADER_CORS_ORIGINS") do
+       nil -> nil
+       "" -> nil
+       raw -> raw |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+     end)
 
 # Optional log level override (e.g. OFFLOADER_LOG_LEVEL=debug). Unknown values are
 # ignored rather than crashing the boot.

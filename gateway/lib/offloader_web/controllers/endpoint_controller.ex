@@ -23,7 +23,7 @@ defmodule OffloaderWeb.EndpointController do
         {:ok, response} ->
           conn
           |> put_resp_header("x-request-id", request_id)
-          |> json(response)
+          |> serve_ok(response, name, request)
 
         {:error, %ApiError{} = error} ->
           Response.send_error(conn, error, request_id)
@@ -31,6 +31,56 @@ defmodule OffloaderWeb.EndpointController do
 
     record(name, conn.status, start)
     conn
+  end
+
+  # Cache behaviour splits on auth mode. A PUBLIC (auth: none) response is immutable for its
+  # `snapshot_id`, so it's safe to cache at a CDN/browser: emit an ETag + Cache-Control and
+  # answer `If-None-Match` with a cheap 304. An AUTHED response is per-tenant, so it must never
+  # sit in a shared cache: `private, no-store`.
+  defp serve_ok(conn, response, name, request) do
+    if Runtime.public?() do
+      etag = etag_for(name, request, response)
+
+      conn =
+        conn
+        |> put_resp_header("etag", etag)
+        |> put_resp_header(
+          "cache-control",
+          "public, max-age=#{cache_ttl(response)}, stale-while-revalidate=60"
+        )
+
+      if etag_matches?(conn, etag) do
+        send_resp(conn, 304, "")
+      else
+        json(conn, response)
+      end
+    else
+      conn
+      |> put_resp_header("cache-control", "private, no-store")
+      |> json(response)
+    end
+  end
+
+  # Strong ETag over exactly what determines the bytes: endpoint, params, and the snapshot.
+  defp etag_for(name, request, response) do
+    sid = get_in(response, [:meta, :snapshot_id]) || ""
+    digest = :crypto.hash(:sha256, :erlang.term_to_binary({name, request, sid}))
+    "\"" <> (digest |> Base.encode16(case: :lower) |> binary_part(0, 20)) <> "\""
+  end
+
+  defp etag_matches?(conn, etag) do
+    case get_req_header(conn, "if-none-match") do
+      [inm | _] -> inm == "*" or String.contains?(inm, etag)
+      _ -> false
+    end
+  end
+
+  # A safe max-age from the endpoint's freshness window (capped); ETag revalidation covers the rest.
+  defp cache_ttl(response) do
+    case get_in(response, [:meta, :freshness, :max_staleness_minutes]) do
+      m when is_integer(m) and m > 0 -> min(m * 60, 3600)
+      _ -> 60
+    end
   end
 
   # Emit a bounded-cardinality request metric: endpoint name + status CLASS + latency.

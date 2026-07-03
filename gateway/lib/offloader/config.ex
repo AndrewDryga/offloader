@@ -29,6 +29,14 @@ defmodule Offloader.Config do
   def admin_token, do: Application.get_env(:offloader, :admin_token)
 
   @doc """
+  Allowed CORS origins for the product API (`OFFLOADER_CORS_ORIGINS`): `["*"]`, an explicit
+  list of origins, or nil (no CORS headers — the default). Lets a browser front-end call the
+  API directly; `*` suits a public API, an explicit list suits an authed one (credentials).
+  """
+  @spec cors_origins() :: [String.t()] | nil
+  def cors_origins, do: Application.get_env(:offloader, :cors_origins)
+
+  @doc """
   DuckDB read-connection pool size (`OFFLOADER_POOL_SIZE`), or nil for the engine
   default. More connections = more concurrent in-flight queries before callers queue.
   """

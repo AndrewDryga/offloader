@@ -46,6 +46,8 @@ Everything else has a sensible default:
   `OFFLOADER_ADMIN_PORT` (4001), `OFFLOADER_LOG_LEVEL` (info).
 - `OFFLOADER_ADMIN_TOKEN` — recommended: gates the `/diagnostics` route (unset ⇒ it fails closed).
 - `OFFLOADER_CONFIG_SYNC_INTERVAL` — seconds between bucket config re-checks (unset ⇒ off).
+- `OFFLOADER_CORS_ORIGINS` — allow a browser front-end to call the API cross-origin: `*` or a
+  comma-separated origin list (unset ⇒ no CORS). See [serving public data](public-serving.md).
 - Tuning: `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
   `OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the container's
   memory allocation).

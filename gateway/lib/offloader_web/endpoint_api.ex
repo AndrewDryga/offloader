@@ -18,5 +18,7 @@ defmodule OffloaderWeb.ApiEndpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
+  # CORS before the router so a preflight OPTIONS is answered without hitting auth.
+  plug OffloaderWeb.Plugs.Cors
   plug OffloaderWeb.ApiRouter
 end
