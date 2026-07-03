@@ -276,9 +276,10 @@ RUNS    <span class="tok js-count" data-to="1000000">910,000</span>   identical,
         <p class="kicker">Pricing</p>
         <h2 id="pricing-h" class="h2">Priced on what we save you.<br>Not on requests.</h2>
         <p class="section-sub">
-          Warehouses bill per compute-hour; read-API and caching vendors bill <em>per request</em>
-          — both charge you most for exactly the high-volume public reads you’d want to offload.
-          Offloader charges <strong>20% of the savings it creates</strong>. You keep the other 80%.
+          Warehouse serving bills one of two bad ways: <em>always-on compute</em> sized for your
+          peak — paid while it idles, still slow from a cold start — or a <em>per-request meter</em>,
+          where your busiest month is your most expensive. Offloader charges
+          <strong>20% of the savings it creates</strong>. You keep the other 80%.
         </p>
       </div>
 
@@ -371,6 +372,10 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
           <div class="faq-a"><p>No. A cache still calls the warehouse on a miss and knows nothing about who’s asking. Offloader answers reads <em>entirely</em> from the snapshot — the warehouse is never on the live path — through named, versioned endpoints with a compiled-in tenant filter and a column allowlist. There’s no arbitrary SQL to cache, and no per-request warehouse bill.</p></div>
         </details>
         <details class="faq-item">
+          <summary>We already run a CDN in front of it — isn’t that enough?</summary>
+          <div class="faq-a"><p>A CDN only saves the <em>hits</em>. Do the math on a real workload: at 130&nbsp;million requests a month, even a 94% hit rate still sends ~8&nbsp;million requests to the origin — each one billed by the warehouse, and slow when it’s cold. That’s why p95 stays in the seconds behind a “well-cached” warehouse: your tail latency is set by the misses. Offloader fixes the origin instead. Keep your CDN — Offloader emits proper <code>ETag</code>/<code>Cache-Control</code> so it keeps caching — and the misses land on a fast, flat-cost box you own instead of a metered warehouse.</p></div>
+        </details>
+        <details class="faq-item">
           <summary>How fresh is the data?</summary>
           <div class="faq-a"><p>As fresh as you publish snapshots — minutes to hours, your call. Every response carries its <code>snapshot_id</code> and a freshness watermark, so a client always knows exactly what it read. If you need up-to-the-second data, Offloader isn’t the right tool, and we’ll tell you.</p></div>
         </details>
@@ -385,6 +390,10 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
         <details class="faq-item">
           <summary>Which warehouses does it work with?</summary>
           <div class="faq-a"><p>Any that can export Parquet — Snowflake, BigQuery, Redshift, a Spark job — via a small manifest. Databricks additionally discovers the latest snapshot for you. Offloader never connects to the warehouse for live traffic; it only reads the snapshots you publish.</p></div>
+        </details>
+        <details class="faq-item">
+          <summary>What does it actually take to run?</summary>
+          <div class="faq-a"><p>A container and a bucket. One small VM serves thousands of requests a second from a local snapshot; the production workload we validated on serves <strong>~135&nbsp;million requests a month on two small instances</strong> — the second is there for HA, not capacity. The cost is the box, flat, no matter how many reads hit it: the expensive computation already happened once, in your pipeline.</p></div>
         </details>
         <details class="faq-item">
           <summary>How does pricing actually work?</summary>
