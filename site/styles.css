@@ -221,11 +221,6 @@ strong { font-weight: 600; }
   padding: 1.05rem 1.1rem; border: 1px solid var(--line); border-radius: 11px; background: var(--paper);
 }
 .flow .node-k { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); line-height: 1.4; }
-/* In the horizontal track, reserve a two-line kicker slot (bottom-aligned) so every
-   node's TITLE sits on the same line whether its kicker wraps or not. */
-@media (min-width: 821px) {
-  .flow .node-k { display: flex; align-items: flex-end; min-height: calc(2 * 1.4em); }
-}
 .flow .node strong { font-family: var(--display); font-weight: 600; font-size: 1.04rem; letter-spacing: -0.015em; color: var(--ink); }
 .flow .node-sub { font-size: 0.83rem; color: var(--muted); line-height: 1.4; }
 .flow .node-batch { background: transparent; border-style: dashed; }        /* the occasional feed, not the live path */
@@ -240,7 +235,9 @@ strong { font-weight: 600; }
 .flow-cap { margin-top: 1.15rem; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
 .flow-cap .flow-mark { font-family: var(--mono); color: var(--accent-2); }
 .flow-cap b { color: var(--ink); font-weight: 600; }
-@media (max-width: 820px) {
+/* Go vertical while the 4-across track can't give every kicker and title a single
+   line — below this, nodes are too narrow and labels wrap unevenly. */
+@media (max-width: 1199px) {
   .flow-track { flex-direction: column; }
   .flow .hop { flex-direction: row; min-width: 0; width: 100%; justify-content: flex-start; gap: 0.7rem; padding: 0.5rem 0 0.5rem 1.1rem; }
   .flow .arw { width: 1px; height: 1.35rem; }
