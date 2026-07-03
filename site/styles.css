@@ -202,7 +202,10 @@ strong { font-weight: 600; }
 /* code artifacts */
 .artifact { margin: 0; }
 .artifact-cap { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); margin-bottom: 0.85rem; }
-.code, .run-code { margin: 0; padding: 1.5rem clamp(1.25rem, 3vw, 2rem); overflow-x: auto; background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; font-family: var(--mono); font-size: var(--fs-mono); line-height: 1.75; font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: pre; }
+/* overflow-y: hidden is load-bearing — overflow-x: auto alone computes overflow-y to
+   auto, so a horizontal scrollbar eats height and spawns a vertical one; the bottom
+   padding absorbs the bar instead. */
+.code, .run-code { margin: 0; padding: 1.5rem clamp(1.25rem, 3vw, 2rem); overflow-x: auto; overflow-y: hidden; background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; font-family: var(--mono); font-size: var(--fs-mono); line-height: 1.75; font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: pre; }
 .code .k { color: var(--ink); }
 .code .s { color: var(--accent-2); }
 .code .n { color: var(--ink); }
@@ -298,9 +301,9 @@ strong { font-weight: 600; }
 .run-title { margin-left: 0.5rem; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
 .run-code { background: transparent; border: 0; border-radius: 0; color: #C9C7C7; font-size: 0.76rem; line-height: 1.7; }
 .run-code .run-ok { color: #74C79C; font-weight: 500; }
-/* Stack while the terminal's longest line (~60ch mono) can't fit its half — a
-   side-by-side terminal with a horizontal scrollbar is worse than a stacked one. */
-@media (max-width: 1160px) { .start-inner { grid-template-columns: 1fr; } }
+/* Stack while the terminal's longest line (~59ch mono) can't fit its half — a
+   side-by-side terminal with scrollbars is worse than a stacked one. */
+@media (max-width: 1200px) { .start-inner { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .run-code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.72rem; } }
 
 /* ── faq (native <details>, no JS) ──────────────────────────────────── */

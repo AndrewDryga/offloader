@@ -84,10 +84,10 @@
       </div>
 
       <figure class="ledger" aria-labelledby="ledger-cap">
-        <div class="ledger-tape" role="img" aria-label="An illustrative bill at a typical serving-layer list rate of 70 cents per compute unit — about 1.2 cents of compute per read — run a million identical times a month: roughly twelve thousand dollars to your warehouse.">
+        <div class="ledger-tape" role="img" aria-label="An illustrative bill at a typical serving-layer list rate of 70 cents per DBU — about 1.2 cents of DBUs per read — run a million identical times a month: roughly twelve thousand dollars to your warehouse.">
 <pre>QUERY   revenue_by_day(account, from, to)
-PRICE   <span class="tok">$0.70/unit</span>  typical serving-layer rate
-COST    <span class="tok">$0.012</span>      ≈ compute one read burns
+PRICE   <span class="tok">$0.70/DBU</span>   typical serving-layer rate
+COST    <span class="tok">$0.012</span>      ≈ DBUs one read burns
 RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical, this month
         <span class="rule">──────────────────────────</span>
 <span class="bill-line">BILL    <span class="tok-cost js-cost" data-to="12000">$1,200</span>     to your warehouse</span></pre>
@@ -115,7 +115,7 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
       <figure class="flow" aria-labelledby="flow-cap">
         <div class="flow-track">
           <div class="node node-batch">
-            <span class="node-k">Batch · your schedule</span>
+            <span class="node-k">Batch on your schedule</span>
             <strong>Your warehouse</strong>
             <span class="node-sub">Snowflake · Databricks · BigQuery</span>
           </div>
@@ -430,7 +430,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
         <div class="run-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span> <span class="run-title">docker</span></div>
 <pre class="run-code">$ docker run \
     -e OFFLOADER_CONFIG=/cfg/offloader.yml \
-    -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -base64 48) \
+    -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -hex 24) \
     -v ./examples/public-metrics:/cfg:ro \
     -p 4000:4000 offloader
 
