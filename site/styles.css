@@ -159,7 +159,7 @@ strong { font-weight: 600; }
 .ledger-tape { padding: 1.65rem 1.75rem 0.75rem; overflow-x: auto; }
 .ledger pre { margin: 0; font-family: var(--mono); font-size: clamp(0.8rem, 0.72rem + 0.3vw, 0.95rem); line-height: 1.9; font-variant-numeric: tabular-nums; color: var(--muted); white-space: pre; }
 .ledger .js-count { display: inline-block; min-width: 9ch; }  /* reserve final width — no reflow mid-count */
-.ledger .js-cost { display: inline-block; min-width: 7ch; }   /* $1,200 → $12,000 without shifting the line */
+.ledger .js-cost { display: inline-block; min-width: 7.2ch; } /* 7.2ch × 1.25em ≈ 9 base-ch, matching the rows above; $1,200 → $12,000 without shifting the line */
 .ledger .tok { color: var(--ink); }
 .ledger .rule { color: var(--line); }
 .bill-line { color: var(--ink); font-weight: 500; }
@@ -176,7 +176,6 @@ strong { font-weight: 600; }
 @media (max-width: 480px) {
   .ledger-tape { padding: 1.15rem 1.15rem 0.6rem; }
   .ledger pre { font-size: 0.72rem; line-height: 1.85; }
-  .ledger .js-count { min-width: 8ch; }
   .ledger-cap { padding: 0.8rem 1.15rem; }
 }
 
@@ -249,7 +248,8 @@ strong { font-weight: 600; }
 .proof-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
 .proof-card { background: var(--paper); padding: clamp(1.6rem, 3vw, 2.5rem); }
 .proof-metric { font-family: var(--mono); font-size: clamp(1.5rem, 1rem + 1.6vw, 2.1rem); font-weight: 500; letter-spacing: -0.01em; color: var(--accent); font-variant-numeric: tabular-nums; }
-.proof-card h3 { margin: 1rem 0 0.6rem; font-size: var(--fs-h3); }
+.proof-card h3 { margin: 1rem 0 0.6rem; font-size: var(--fs-h3); line-height: 1.25; }
+@media (min-width: 721px) { .proof-card h3 { min-height: 2.5em; } }
 .proof-card p { font-size: 0.94rem; line-height: 1.55; color: var(--ink-2); max-width: 42ch; }
 .proof-foot { margin-top: 2rem; max-width: 68ch; font-size: var(--fs-small); color: var(--muted); line-height: 1.55; }
 .proof-foot .fn { font-family: var(--mono); color: var(--accent-2); margin-right: 0.35rem; }
@@ -259,7 +259,10 @@ strong { font-weight: 600; }
 /* 3 fixed columns so 6 items always fill exactly two rows — no orphan hairline cells. */
 .use-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
 .use-grid li { background: var(--paper); padding: clamp(1.5rem, 3vw, 2.25rem); }
-.use-grid h3 { font-size: var(--fs-h3); letter-spacing: -0.015em; margin-bottom: 0.55rem; }
+/* reserve two heading lines so a wrapping title ("Personalization & recommendations")
+   doesn't push its body below the one-line cards beside it — bodies align across a row */
+.use-grid h3 { font-size: var(--fs-h3); letter-spacing: -0.015em; margin-bottom: 0.55rem; line-height: 1.25; }
+@media (min-width: 561px) { .use-grid h3 { min-height: 2.5em; } }
 .use-grid p { font-size: 0.94rem; line-height: 1.55; color: var(--ink-2); max-width: 34ch; }
 @media (max-width: 860px) { .use-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .use-grid { grid-template-columns: 1fr; } }
