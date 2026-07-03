@@ -9,7 +9,17 @@
 <meta property="og:title" content="Offloader — warehouse offload for production analytics APIs">
 <meta property="og:description" content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load.">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Offloader">
 <meta property="og:image" content="og.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta property="og:image:alt" content="Offloader — warehouse offload for production analytics APIs.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Offloader — warehouse offload for production analytics APIs">
+<meta name="twitter:description" content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load.">
+<meta name="twitter:image" content="og.png">
+<meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0E11" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="fonts/SpaceGrotesk-700.woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
@@ -87,6 +97,46 @@ RUNS    <span class="tok js-count" data-to="1000000">1,000,000</span>   identica
           The warehouse only ever touches the snapshot — never your live product traffic.
         </p>
       </div>
+
+      <figure class="flow" aria-labelledby="flow-cap">
+        <div class="flow-track">
+          <div class="node node-batch">
+            <span class="node-k">Batch · your schedule</span>
+            <strong>Your warehouse</strong>
+            <span class="node-sub">Snowflake · Databricks · BigQuery</span>
+          </div>
+          <div class="hop hop-batch">
+            <span class="hop-l">snapshot</span>
+            <span class="arw" aria-hidden="true"></span>
+          </div>
+          <div class="node">
+            <span class="node-k">Object store</span>
+            <strong>Parquet + manifest</strong>
+            <span class="node-sub">S3 · GCS</span>
+          </div>
+          <div class="hop">
+            <span class="hop-l">materialize</span>
+            <span class="arw" aria-hidden="true"></span>
+          </div>
+          <div class="node node-hero">
+            <span class="node-k">Your infrastructure</span>
+            <strong>Offloader · DuckDB</strong>
+            <span class="node-sub">validated · zero-downtime swap</span>
+          </div>
+          <div class="hop">
+            <span class="hop-l">REST · cached</span>
+            <span class="arw" aria-hidden="true"></span>
+          </div>
+          <div class="node">
+            <span class="node-k">Every request</span>
+            <strong>Your app</strong>
+            <span class="node-sub">dashboards · stats · front-end</span>
+          </div>
+        </div>
+        <figcaption id="flow-cap" class="flow-cap">
+          <span class="flow-mark" aria-hidden="true">→</span> Live reads are served entirely from the snapshot — <b>your warehouse never sees product traffic.</b>
+        </figcaption>
+      </figure>
 
       <ol class="steps" aria-label="The serving path">
         <li>
