@@ -6,19 +6,19 @@
 <title>Offloader — stop paying your warehouse to answer the same question twice</title>
 <meta name="description" content="Serve your product's repeated analytics reads from cheap, pre-computed snapshots on your own servers — fast, governed, honest about freshness.">
 <meta name="color-scheme" content="light dark">
-<meta property="og:title" content="Offloader — warehouse offload for production analytics APIs">
+<meta property="og:title" content="Offloader — the serving layer for customer-facing analytics">
 <meta property="og:description" content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:image" content="og.png">
 <meta property="og:image:width" content="2400">
 <meta property="og:image:height" content="1260">
-<meta property="og:image:alt" content="Offloader — warehouse offload for production analytics APIs.">
+<meta property="og:image:alt" content="Offloader — the serving layer for customer-facing analytics.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Offloader — warehouse offload for production analytics APIs">
+<meta name="twitter:title" content="Offloader — the serving layer for customer-facing analytics">
 <meta name="twitter:description" content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load.">
 <meta name="twitter:image" content="og.png">
-<meta name="twitter:image:alt" content="Offloader — warehouse offload for production analytics APIs.">
+<meta name="twitter:image:alt" content="Offloader — the serving layer for customer-facing analytics.">
 <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E0E11" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -32,7 +32,7 @@
   "name": "Offloader",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Docker, Linux",
-  "description": "Warehouse offload for production analytics APIs: serve a product's repeated analytics reads from cheap pre-computed snapshots on your own servers, instead of querying the data warehouse on every request.",
+  "description": "The serving layer for customer-facing analytics: serve a product's repeated analytics reads from cheap pre-computed snapshots on your own servers, instead of querying the data warehouse on every request.",
   "url": "https://github.com/AndrewDryga/offloader",
   "sameAs": "https://github.com/AndrewDryga/offloader"
 }
@@ -62,7 +62,7 @@
 
   <!-- HERO ───────────────────────────────────────────────────────── -->
   <section class="hero wrap" id="top">
-    <p class="eyebrow">Warehouse offload for customer-facing analytics</p>
+    <p class="eyebrow">The serving layer for customer-facing analytics</p>
     <h1 class="display">Stop paying your&nbsp;warehouse to answer the same&nbsp;question <em>a&nbsp;million&nbsp;times.</em></h1>
 
     <div class="hero-body">
@@ -84,12 +84,13 @@
       </div>
 
       <figure class="ledger" aria-labelledby="ledger-cap">
-        <div class="ledger-tape" role="img" aria-label="An illustrative bill: one query at 1.2 cents per warehouse read, run about a million identical times a month, totalling roughly twelve thousand dollars.">
+        <div class="ledger-tape" role="img" aria-label="An illustrative bill at Databricks' Serverless SQL list price of 70 cents per DBU — about 1.2 cents' worth of DBUs per read — run a million identical times a month: roughly twelve thousand dollars to your warehouse.">
 <pre>QUERY   revenue_by_day(account, from, to)
-UNIT    <span class="tok">$0.012</span>      per warehouse read
-RUNS    <span class="tok js-count" data-to="1000000">910,000</span>   identical, this month
+PRICE   <span class="tok">$0.70/DBU</span>   Databricks Serverless SQL
+COST    <span class="tok">$0.012</span>      ≈ DBUs one read burns
+RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical, this month
         <span class="rule">──────────────────────────</span>
-<span class="bill-line">BILL    <span class="tok-cost js-cost" data-to="12000">$10,920</span>     to your warehouse</span></pre>
+<span class="bill-line">BILL    <span class="tok-cost js-cost" data-to="12000">$1,200</span>     to your warehouse</span></pre>
         </div>
         <figcaption id="ledger-cap" class="ledger-cap">
           <span>Same answer, billed on repeat.</span>
@@ -445,7 +446,7 @@ $ curl "localhost:4000/v1/endpoints/champion?champion_id=1"
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-      <p class="foot-tag">Warehouse offload for production analytics APIs. Self-hosted; your private data never leaves your environment.</p>
+      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
       <div>

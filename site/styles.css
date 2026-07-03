@@ -159,6 +159,7 @@ strong { font-weight: 600; }
 .ledger-tape { padding: 1.65rem 1.75rem 0.75rem; overflow-x: auto; }
 .ledger pre { margin: 0; font-family: var(--mono); font-size: clamp(0.8rem, 0.72rem + 0.3vw, 0.95rem); line-height: 1.9; font-variant-numeric: tabular-nums; color: var(--muted); white-space: pre; }
 .ledger .js-count { display: inline-block; min-width: 9ch; }  /* reserve final width — no reflow mid-count */
+.ledger .js-cost { display: inline-block; min-width: 7ch; }   /* $1,200 → $12,000 without shifting the line */
 .ledger .tok { color: var(--ink); }
 .ledger .rule { color: var(--line); }
 .bill-line { color: var(--ink); font-weight: 500; }
