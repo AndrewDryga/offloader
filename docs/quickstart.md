@@ -9,7 +9,9 @@ first (5 minutes) — it defines the words used below.
 
 ## 0. Prerequisites
 
-Docker, and this repo (for the example config in `examples/customer-analytics/`).
+Docker, and this repo — it ships a complete example project in `examples/customer-analytics/`
+(you can't serve without an `offloader.yml`; the [config guide](developer-experience.md) walks
+through every file and the [config reference](config-reference.md) lists every field).
 Pull the published image — the rolling `edge` build of `main`, or a pinned release tag:
 
 ```sh

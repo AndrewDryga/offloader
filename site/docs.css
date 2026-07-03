@@ -19,6 +19,9 @@
   align-self: start;
   max-height: calc(100vh - 6.5rem);
   overflow-y: auto;
+  /* left padding matches the -0.7rem link bleed below, so the active item's rounded
+     highlight isn't clipped by the scroll container's overflow. */
+  padding-left: 0.7rem;
   padding-right: 0.5rem;
 }
 .docs-nav > summary { display: none; }   /* desktop: always-open sidebar, no disclosure */
@@ -144,15 +147,7 @@
 .doc-index b { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; color: var(--ink); font-size: 1.05rem; }
 .doc-index span { font-size: 0.9rem; line-height: 1.45; color: var(--muted); }
 
-/* ── slim footer ────────────────────────────────────────────────────────── */
-.doc-foot { border-top: 1px solid var(--line); padding-block: 2.25rem; }
-.doc-foot-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem 1.75rem; }
-.doc-foot .foot-word { font-family: var(--display); font-weight: 600; font-size: 1.15rem; letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 0.5rem; }
-.doc-foot .foot-word .brand-mark { color: var(--accent); }
-.doc-foot-links { display: flex; flex-wrap: wrap; gap: 1.25rem; }
-.doc-foot-links a { font-size: 0.92rem; color: var(--ink-2); transition: color 0.15s var(--ease); }
-.doc-foot-links a:hover { color: var(--accent); }
-.doc-foot-legal { flex-basis: 100%; font-size: 0.82rem; color: var(--muted); }
+/* The footer is the shared .site-foot (styles.css), same as the marketing site. */
 
 /* ── responsive: collapse to a single column with a disclosure nav ────────── */
 @media (max-width: 980px) {

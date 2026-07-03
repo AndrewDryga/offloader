@@ -18,11 +18,12 @@ This is the stable contract; the config that produces it is in…">
   <nav class="wrap nav" aria-label="Primary">
     <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="index.html" aria-current="true">Docs</a></li>
       <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#proof">Proof</a></li>
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
-      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
+      <li><a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
     </ul>
   </nav>
 </header>
@@ -30,7 +31,7 @@ This is the stable contract; the config that produces it is in…">
   <details id="docsnav" class="docs-nav" open>
     <summary>Browse the docs</summary>
     <nav aria-label="Documentation">
-    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <a class="docs-home" href="index.html">Docs home</a>
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
@@ -243,16 +244,41 @@ response headers (<code>ETag</code>, <code>Cache-Control</code>) for cheap reval
     </nav>
   </main>
 </div>
-<footer class="doc-foot">
-  <div class="wrap doc-foot-inner">
-    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-    <nav class="doc-foot-links" aria-label="Footer">
-      <a href="index.html">Docs home</a>
-      <a href="quickstart.html">Quickstart</a>
-      <a href="../index.html">Marketing site</a>
-      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <div>
+        <h3>Product</h3>
+        <a href="../index.html#how">How it works</a>
+        <a href="../index.html#pricing">Pricing</a>
+        <a href="../index.html#faq">FAQ</a>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <a href="concepts.html">Concepts</a>
+        <a href="quickstart.html">Quickstart</a>
+        <a href="security-model.html">Security</a>
+      </div>
+      <div>
+        <h3>Evaluate</h3>
+        <a href="roi.html">ROI diagnostic</a>
+        <a href="benchmarks.html">Benchmarks</a>
+        <a href="cutover-runbook.html">Cutover</a>
+      </div>
+      <div>
+        <h3>Talk to us</h3>
+        <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+      </div>
     </nav>
-    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+  <div class="wrap foot-legal">
+    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
+    <span>© 2026 Offloader</span>
   </div>
 </footer>
 <script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>

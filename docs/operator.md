@@ -21,9 +21,10 @@ diagnostics fields. It links to the deep docs rather than repeating them.
 
 ## Upgrade check and rollback
 
-- **Before rollout:** `make deploy-check` builds the production image and boots it
-  locally, verifying both ports, health, diagnostics/metrics, and a manifest→HTTP smoke.
-  A broken image or config fails here, not in front of a customer.
+- **Before rollout:** deploy the **published, signed image** (pull it — don't build it) and
+  verify the instance with `dev/scripts/deploy-check.sh` (both ports, health, diagnostics/metrics,
+  a manifest→HTTP smoke). Contributors can build-and-verify locally in one step with
+  `make deploy-check`. A broken image or config fails here, not in front of a customer.
 - **Upgrade:** deploy the new pinned image tag (never `:latest`). There is no schema
   migration; the cache rematerializes from the manifest on boot.
 - **Roll back the image:** redeploy the previous tag (`kubectl rollout undo` /

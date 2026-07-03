@@ -31,15 +31,10 @@ restart — see the [config guide](developer-experience.md#config-from-object-st
 
 ## Rollout verification and rollback
 
-Before rolling out an image, run the same gate the project uses:
-
-```sh
-make deploy-check   # builds the prod image, boots it, verifies ports, health,
-                    # diagnostics/metrics, and a manifest -> HTTP smoke, then exits 0
-```
-
-`dev/scripts/deploy-check.sh` is the reusable shape — a customer's deployment
-system can wrap the same checks against a freshly-deployed instance:
+Deploy the **published, signed image** (`ghcr.io/andrewdryga/offloader:<version>` — pull it,
+don't build it), then verify the running instance. `dev/scripts/deploy-check.sh` is the reusable
+shape a customer's deployment system can wrap around a freshly-deployed instance (contributors
+can build-and-verify locally in one step with `make deploy-check`):
 
 1. Wait for the admin `/ready` to return 200 (it stays 503 until a snapshot is
    materialized, so traffic is held until the instance can actually serve).
