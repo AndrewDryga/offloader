@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml)
 
-Warehouse offload for production analytics APIs.
+The serving layer for customer-facing analytics.
 
 **In plain terms:** your product's dashboards and stats pages run queries against an
 expensive data warehouse (Snowflake, Databricks, BigQuery) on every page load.
