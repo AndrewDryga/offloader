@@ -4,6 +4,10 @@ Every field of an Offloader project, with the exact allowed values. New to the p
 (dataset, endpoint, snapshot, project)? Read [Concepts](concepts.md) first. For a complete
 working project to copy, see `examples/customer-analytics/`.
 
+> **Don't hand-write it.** `offloader init` scaffolds a valid, fully-commented starter
+> project, and `offloader scaffold-dataset --from <manifest.json|data.csv>` drafts a
+> dataset's schema for you. See [Start a new project](developer-experience.md#start-a-new-project-scaffold).
+
 A project is four kinds of file:
 
 ```text

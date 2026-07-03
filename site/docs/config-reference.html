@@ -79,6 +79,11 @@
 <p>Every field of an Offloader project, with the exact allowed values. New to the pieces
 (dataset, endpoint, snapshot, project)? Read <a href="concepts.html">Concepts</a> first. For a complete
 working project to copy, see <code>examples/customer-analytics/</code>.</p>
+<blockquote>
+<p><strong>Don&#39;t hand-write it.</strong> <code>offloader init</code> scaffolds a valid, fully-commented starter
+project, and <code>offloader scaffold-dataset --from &lt;manifest.json|data.csv&gt;</code> drafts a
+dataset&#39;s schema for you. See <a href="developer-experience.html#start-a-new-project-scaffold">Start a new project</a>.</p>
+</blockquote>
 <p>A project is four kinds of file:</p>
 <pre tabindex="0"><code class="language-text">offloader.yml       project file — which dirs to load, auth mode, keys path
 datasets/*.yml      one per dataset — the table + the columns you expect

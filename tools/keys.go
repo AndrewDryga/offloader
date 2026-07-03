@@ -17,6 +17,19 @@ func init() {
 	})
 }
 
+// mintToken generates a bearer token and the one-way hash stored in keys.yml. The token
+// format (`offl_` + 24 random bytes as hex) and the hash (lowercase-hex SHA-256 of the
+// full token) are exactly what the gateway's Offloader.Auth verifies.
+func mintToken() (token, hash string, err error) {
+	buf := make([]byte, 24)
+	if _, err := rand.Read(buf); err != nil {
+		return "", "", err
+	}
+	token = "offl_" + hex.EncodeToString(buf)
+	sum := sha256.Sum256([]byte(token))
+	return token, hex.EncodeToString(sum[:]), nil
+}
+
 func runKeys(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 1 || args[0] != "create" {
 		fmt.Fprintln(stderr, "usage: offloader keys create [--id ID] [--tenant T] [--endpoints a,b]")
@@ -31,14 +44,11 @@ func runKeys(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	buf := make([]byte, 24)
-	if _, err := rand.Read(buf); err != nil {
+	token, hash, err := mintToken()
+	if err != nil {
 		fmt.Fprintln(stderr, "keys create: "+err.Error())
 		return 1
 	}
-	token := "offl_" + hex.EncodeToString(buf)
-	sum := sha256.Sum256([]byte(token))
-	hash := hex.EncodeToString(sum[:])
 
 	eps := "[]"
 	if *endpoints != "" {

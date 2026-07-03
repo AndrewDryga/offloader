@@ -24,6 +24,26 @@ To see a complete, working project, run the **[Quickstart](quickstart.md)** agai
 `examples/customer-analytics/` — it boots a container and serves a real endpoint in about
 15 minutes. Copy that example and edit it.
 
+## Start a new project (scaffold)
+
+Authoring the YAML by hand is the slow part, so the CLI scaffolds it for you.
+
+```sh
+# A complete, VALID, fully-commented starter project (offloader.yml + one dataset,
+# endpoint, and a working demo key). --public for a no-auth project.
+offloader init --out my-project          # then edit it; every field is commented
+offloader init --out my-project --public
+
+# Draft a dataset's schema from something you already have, instead of hand-listing
+# columns: reuse a snapshot manifest's schema, or infer types from a CSV.
+offloader scaffold-dataset --from data/events/manifest.json --tenant-column tenant_id
+offloader scaffold-dataset --from sample.csv --id events --out my-project/datasets/events.yml
+```
+
+`init`'s output passes `offloader validate` as-is; you then point each dataset's
+`manifest:` at your snapshot and adjust the endpoint. The full field reference is
+[config-reference.md](config-reference.md).
+
 ## The `offloader` CLI (optional)
 
 The `offloader …` commands in this guide are an **optional Go helper**, not part of the
@@ -142,6 +162,8 @@ the first try.
 
 ## Useful helper commands
 
+- `offloader init` — scaffold a new, valid project
+- `offloader scaffold-dataset` — draft a dataset schema from a manifest or CSV
 - `offloader validate`
 - `offloader manifest validate`
 - `offloader import-schema`
