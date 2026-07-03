@@ -220,7 +220,12 @@ strong { font-weight: 600; }
   flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.32rem;
   padding: 1.05rem 1.1rem; border: 1px solid var(--line); border-radius: 11px; background: var(--paper);
 }
-.flow .node-k { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); }
+.flow .node-k { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); line-height: 1.4; }
+/* In the horizontal track, reserve a two-line kicker slot (bottom-aligned) so every
+   node's TITLE sits on the same line whether its kicker wraps or not. */
+@media (min-width: 821px) {
+  .flow .node-k { display: flex; align-items: flex-end; min-height: calc(2 * 1.4em); }
+}
 .flow .node strong { font-family: var(--display); font-weight: 600; font-size: 1.04rem; letter-spacing: -0.015em; color: var(--ink); }
 .flow .node-sub { font-size: 0.83rem; color: var(--muted); line-height: 1.4; }
 .flow .node-batch { background: transparent; border-style: dashed; }        /* the occasional feed, not the live path */
