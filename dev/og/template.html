@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Fonts resolved relative to this file → ../../site/fonts (the ones the site ships). */
+  @font-face { font-family:'Space Grotesk'; font-weight:700; src:url('../../site/fonts/SpaceGrotesk-700.woff2') format('woff2'); }
+  @font-face { font-family:'Space Grotesk'; font-weight:500; src:url('../../site/fonts/SpaceGrotesk-500.woff2') format('woff2'); }
+  @font-face { font-family:'JetBrains Mono'; font-weight:400; src:url('../../site/fonts/JetBrainsMono-400.woff2') format('woff2'); }
+  @font-face { font-family:'JetBrains Mono'; font-weight:500; src:url('../../site/fonts/JetBrainsMono-500.woff2') format('woff2'); }
+
+  :root {
+    --paper:#FBFAF7; --ink:#17171B; --muted:#5E5E58;
+    --accent:#B24A28; --accent-2:#973E1F; --line:rgba(23,23,27,.14); --ok:#3F7D4E;
+  }
+  * { margin:0; box-sizing:border-box; }
+
+  .og {
+    width:1200px; height:630px; background:var(--paper); color:var(--ink);
+    font-family:'Space Grotesk',system-ui,sans-serif;
+    padding:66px 74px; display:flex; flex-direction:column; justify-content:space-between;
+    overflow:hidden;
+  }
+
+  .top { display:flex; justify-content:space-between; align-items:center; }
+  .brand { display:flex; align-items:center; gap:15px; font-weight:700; font-size:31px; letter-spacing:-.01em; }
+  .brand svg { width:27px; height:27px; }
+  .url { font-family:'JetBrains Mono'; font-weight:500; font-size:19px; color:var(--muted); letter-spacing:.02em; }
+
+  .eyebrow {
+    font-family:'JetBrains Mono'; font-weight:500; font-size:19px; letter-spacing:.15em;
+    text-transform:uppercase; color:var(--accent-2); margin-bottom:28px;
+  }
+  h1 { font-weight:700; font-size:73px; line-height:1.02; letter-spacing:-.022em; max-width:18ch; }
+  h1 em { font-style:normal; color:var(--accent); }
+
+  .receipt {
+    align-self:flex-start; display:inline-flex; align-items:center; gap:22px;
+    font-family:'JetBrains Mono'; font-weight:500; font-size:22px;
+    border:1px solid var(--line); border-radius:15px; padding:17px 24px; background:rgba(23,23,27,.025);
+  }
+  .receipt .a { color:var(--muted); text-decoration:line-through; text-decoration-color:rgba(23,23,27,.3); }
+  .receipt .arrow { color:var(--accent); font-weight:400; }
+  .receipt .b { color:var(--ink); }
+  .receipt .b b { color:var(--ok); font-weight:500; }
+</style>
+</head>
+<body>
+  <div class="og">
+    <div class="top">
+      <div class="brand">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><rect width="4.4" height="4.4" rx=".6" fill="#17171B"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx=".6" fill="#17171B"/></svg>
+        Offloader
+      </div>
+      <div class="url">offloader.dryga.com</div>
+    </div>
+
+    <div>
+      <p class="eyebrow">The serving layer for customer-facing analytics</p>
+      <h1>Stop paying your warehouse to answer the same question <em>a million times.</em></h1>
+    </div>
+
+    <div class="receipt">
+      <span class="a">warehouse serving&nbsp;&nbsp;$3,000/mo</span>
+      <span class="arrow">&rarr;</span>
+      <span class="b">Offloader on your own VMs&nbsp;&nbsp;<b>$440/mo</b></span>
+    </div>
+  </div>
+</body>
+</html>
