@@ -954,11 +954,26 @@ defmodule Offloader.Runtime do
       {:ok, result} ->
         {:ok, result}
 
+      {:error, %Engine.Error{reason: :pool_busy} = e} ->
+        # Transient backpressure: all read connections are busy. Shed it as a retryable
+        # 503 (docs/public-serving.md, docs/operator.md) — not a 500 that reads as a bug
+        # and tells the caller to file a support bundle.
+        Logger.warning("engine busy: #{e.message}")
+        {:error, engine_fault(e)}
+
       {:error, engine_error} ->
         Logger.error("engine error: #{inspect(engine_error)}")
-        {:error, ApiError.new(:internal, "internal error")}
+        {:error, engine_fault(engine_error)}
     end
   end
+
+  @doc false
+  # Map an engine fault to an API error family. Pool saturation is transient backpressure
+  # → retryable `not_ready` (503); every other fault is a genuine internal error → 500.
+  def engine_fault(%Engine.Error{reason: :pool_busy}),
+    do: ApiError.new(:not_ready, "service is busy, retry shortly")
+
+  def engine_fault(%Engine.Error{}), do: ApiError.new(:internal, "internal error")
 
   defp do_serve(ctx, name, tenant, params, request_id) do
     with {:ok, endpoint} <- fetch_endpoint(ctx, name),
