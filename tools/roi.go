@@ -234,13 +234,23 @@ func renderROI(r roiReport) string {
 		reductionFactors.Conservative*100, reductionFactors.Expected*100, reductionFactors.Aggressive*100)
 	fmt.Fprintf(&b, "- Offloader infra: %s/mo. One-time migration labor: %s.\n\n", usd(r.Opts.GatewayCostMonthly), usd(r.Opts.MigrationLabor))
 
-	fmt.Fprintln(&b, "## Net monthly savings (after Offloader cost)")
-	fmt.Fprintln(&b, "| Scenario | Net savings/mo | Annualized |")
+	if r.Opts.CommittedCapacity {
+		// Committed/flat-rate capacity: query-volume reduction does NOT lower the bill until
+		// the tier/cluster is actually resized. Presenting these as realized "net savings"
+		// (with a payback) is the exact bill-reduction promise docs/roi.md forbids — so they
+		// are labeled as unrealized potential and the payback line is withheld.
+		fmt.Fprintln(&b, "## Potential monthly savings — NOT yet realized (committed capacity)")
+		fmt.Fprintln(&b, "> Committed/flat-rate capacity: these become real only after you reduce the committed tier or cluster size (Level 3). They are not a bill reduction today; there is no payback until capacity is cut.")
+		fmt.Fprintln(&b, "| Scenario | Potential/mo | Annualized |")
+	} else {
+		fmt.Fprintln(&b, "## Net monthly savings (after Offloader cost)")
+		fmt.Fprintln(&b, "| Scenario | Net savings/mo | Annualized |")
+	}
 	fmt.Fprintln(&b, "| --- | ---: | ---: |")
 	fmt.Fprintf(&b, "| Conservative | %s | %s |\n", usd(r.Conservative), usd(r.Conservative*12))
 	fmt.Fprintf(&b, "| Expected | %s | %s |\n", usd(r.Expected), usd(r.Expected*12))
 	fmt.Fprintf(&b, "| Aggressive | %s | %s |\n\n", usd(r.Aggressive), usd(r.Aggressive*12))
-	if r.PaybackMonths > 0 {
+	if r.PaybackMonths > 0 && !r.Opts.CommittedCapacity {
 		fmt.Fprintf(&b, "Payback on migration labor (expected): **%.1f months**.\n\n", r.PaybackMonths)
 	}
 

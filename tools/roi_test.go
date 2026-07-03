@@ -72,6 +72,24 @@ func TestRenderIncludesRequiredSections(t *testing.T) {
 	}
 }
 
+func TestCommittedCapacityDoesNotPresentRealizedSavings(t *testing.T) {
+	// docs/roi.md forbids promising bill reduction under committed capacity. The savings
+	// must render as unrealized potential, and the payback line (which implies realized
+	// savings) must be withheld.
+	md := renderROI(computeROI(sampleRows(), roiOpts{CommittedCapacity: true, MigrationLabor: 20000}))
+	if strings.Contains(md, "Net monthly savings") {
+		t.Error("committed capacity must not present realized net savings")
+	}
+	for _, s := range []string{"Potential", "NOT yet realized"} {
+		if !strings.Contains(md, s) {
+			t.Errorf("committed-capacity report missing %q", s)
+		}
+	}
+	if strings.Contains(md, "Payback") {
+		t.Error("committed capacity must not show a payback (nothing is realized yet)")
+	}
+}
+
 func TestROICommandReadsSampleCSV(t *testing.T) {
 	sample := "../examples/roi/sample-query-history.csv"
 	out := filepath.Join(t.TempDir(), "roi.md")

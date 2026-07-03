@@ -38,7 +38,7 @@ func runSupportBundle(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "support-bundle: "+err.Error())
 		return 1
 	}
-	fmt.Fprintf(stdout, "wrote %s (%d artifacts, all redacted)\n", *out, len(arts))
+	fmt.Fprintf(stdout, "wrote %s (%d artifacts, secrets masked — review before sharing)\n", *out, len(arts))
 	for _, a := range arts {
 		fmt.Fprintf(stdout, "  %s\n", a.Path)
 	}
@@ -107,7 +107,7 @@ func buildBundle(configPath, outPath, url, token, at string) ([]artifact, error)
 
 	manifest, _ := json.MarshalIndent(map[string]any{
 		"generated_at": at,
-		"note":         "All artifacts are redacted: secrets, tokens, and credentialed URIs are masked.",
+		"note":         "Known secret patterns (secret/token/key fields, credentialed URIs, signed-URL signatures, bearer tokens) are masked. Best-effort, not exhaustive — review before sharing widely.",
 		"artifacts":    arts,
 	}, "", "  ")
 	if err := add("manifest.json", manifest, "tool"); err != nil {
