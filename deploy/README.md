@@ -18,14 +18,15 @@ provider-neutral and show the container's shape, not your production network.
 | --- | --- |
 | **API port** (4000) | Product traffic, API-key auth. Front it with your ingress/TLS. |
 | **Admin port** (4001) | Health/metrics/diagnostics/docs. **Keep it private** — bind to loopback or an internal network; it is not an identity product. |
-| **Config** | A mounted directory with `offloader.yml` + `datasets/`, `endpoints/`, `keys/`, at `OFFLOADER_CONFIG`. |
+| **Config** | `OFFLOADER_CONFIG` — a mounted directory (`offloader.yml` + `datasets/`, `endpoints/`, `keys/`) **or** a `gs://…` bucket prefix, fetched at boot (fully stateless, nothing mounted). |
 | **Cache** | A persistent volume at `/var/lib/offloader/cache` (warm restarts). |
 | **Secrets** | `OFFLOADER_SECRET_KEY_BASE` (required), `OFFLOADER_ADMIN_TOKEN` (gates diagnostics) — from env vars or your secret store, never baked into the image. |
-| **Image** | Pin a version (`ghcr.io/andrewdryga/offloader:1.0.0`); never `:latest`. Upgrade = new tag; rollback = old tag. |
+| **Image** | **Pull from GHCR** and pin a released tag (`ghcr.io/andrewdryga/offloader:1.0.0`); never `:latest`. The rolling `:edge` tag tracks `main`. Upgrade = new tag; rollback = old tag. |
 
-Before rolling out, run `make deploy-check` (builds + boots + verifies the image).
-See [`../docs/deployment.md`](../docs/deployment.md) for rollout verification and
-rollback.
+Deploy the **published, signed image** (pull it — don't build it), then verify the running
+instance with `dev/scripts/deploy-check.sh`. See
+[`../docs/deployment.md`](../docs/deployment.md) for rollout verification and rollback.
+(`make deploy-check` is the contributor build-and-verify shortcut.)
 
 ## Non-goals
 

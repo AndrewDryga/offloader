@@ -60,6 +60,9 @@ spec:
           env:
             - { name: OFFLOADER_CONFIG, value: /etc/offloader/offloader.yml }
             - { name: OFFLOADER_LOG_LEVEL, value: info }
+            # Bound DuckDB to the container's allocation (leave headroom under limits.memory
+            # for the BEAM + OS). Raise both together as your snapshot working set grows.
+            - { name: OFFLOADER_DUCKDB_MEMORY_LIMIT, value: "1536MB" }
           ports:
             - { name: api, containerPort: 4000 }
             - { name: admin, containerPort: 4001 }
@@ -74,6 +77,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+          # Starting point — size to your snapshot working set (all datasets sit in RAM).
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
           volumeMounts:
             - { name: config, mountPath: /etc/offloader, readOnly: true }
             - { name: cache, mountPath: /var/lib/offloader/cache }
