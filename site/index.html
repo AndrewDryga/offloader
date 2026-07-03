@@ -286,18 +286,18 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
 
       <div class="pricing-body">
         <figure class="ledger savings" aria-labelledby="savings-cap">
-          <div class="ledger-tape" role="img" aria-label="Illustrative savings from a 12,000 dollar monthly warehouse serving bill, minus about 600 dollars to run Offloader on your own infrastructure: about 11,400 dollars saved, minus our 20 percent fee of 2,280 dollars, leaves you keeping about 9,120 dollars a month.">
-<pre>Warehouse serving, today      <span class="tok">$12,000</span> /mo
-Offloader on your own infra  <span class="tok neg">−$600</span> /mo
+          <div class="ledger-tape" role="img" aria-label="A real, anonymized cutover: a 3,000 dollar a month warehouse serving bill became about 440 dollars a month on two small VMs. Of the 2,560 dollars saved each month, our 20 percent fee is 512 dollars, leaving the customer keeping about 2,048 dollars a month.">
+<pre>Warehouse serving, before     <span class="tok">$3,000</span> /mo
+Offloader on two small VMs   <span class="tok neg">−$440</span> /mo
       <span class="rule">──────────────────────────</span>
-Saved, net of that infra      <span class="tok save">$11,400</span>
-Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
+Saved on serving each month   <span class="tok save">$2,560</span> /mo
+Our fee, 20% of that saving  <span class="tok neg">−$512</span>
       <span class="rule">──────────────────────────</span>
-<span class="bill-line">You keep, 80% of the saving   <span class="tok-cost keep">$9,120</span> /mo</span></pre>
+<span class="bill-line">You keep, 80% of the saving   <span class="tok-cost keep">$2,048</span> /mo</span></pre>
           </div>
           <figcaption id="savings-cap" class="ledger-cap">
             <span>If you don’t save, we don’t earn.</span>
-            <span class="illus">Illustrative — your number is measured</span>
+            <span class="illus">A real cutover — anonymized</span>
           </figcaption>
         </figure>
 
@@ -305,8 +305,8 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
           <div class="pnote">
             <span class="pnote-n">01</span>
             <div>
-              <h3>Priced off a measured baseline</h3>
-              <p>A paid diagnostic clusters your repeated reads and the reducible spend into a baseline you agree before committing — net of what Offloader costs to run on your own infra. You’re billed from that saving, not from a meter on your traffic, and it’s your container to run: no lock-in. <a href="docs/roi.html">See the ROI diagnostic →</a></p>
+              <h3>How the ongoing bill works</h3>
+              <p>A paid diagnostic sets the baseline once — a rate per million requests, agreed before you commit — so we never re-audit your warehouse bill; your own request count does the math. From there it’s 20% of the measured saving, reconciled quarterly, net of what Offloader costs to run. No saving, no fee. For a reserved-capacity warehouse the fee starts only when you actually downsize the tier — moving query volume off it doesn’t lower a committed bill by itself, and we won’t pretend it does. <a href="docs/roi.html">See the ROI diagnostic →</a></p>
             </div>
           </div>
           <div class="pnote">
