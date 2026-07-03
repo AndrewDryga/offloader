@@ -1,0 +1,13 @@
+{
+  "name": "offloader-docs-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Renders the customer-facing docs/*.md into the browsable, on-brand site/docs/*.html pages.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "marked": "^15.0.0"
+  }
+}

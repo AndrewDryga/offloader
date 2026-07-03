@@ -1,8 +1,8 @@
 # Offloader marketing site
 
-A single, self-contained marketing page. No framework, no build step, no CDN, no
-tracking — just `index.html` + `styles.css` + a tiny `app.js`, with fonts and the OG
-image served from this folder.
+A self-contained marketing page plus a browsable docs site. No framework, no CDN, no
+tracking — `index.html` + `styles.css` + a tiny `app.js`, the rendered docs under
+`docs/`, with fonts, favicon, and the OG image all served from this folder.
 
 ## Preview
 
@@ -13,8 +13,19 @@ open index.html
 python3 -m http.server -d . 8080   # then http://localhost:8080
 ```
 
-The doc links (`../docs/*.md`) resolve when `site/` and `docs/` are siblings, as they are
-in this repo.
+## Docs
+
+The site's doc links point at `docs/*.html` — a browsable, on-brand rendering of the
+repo's `docs/*.md` (the committed source of truth). The generated pages are committed so
+the site deploys with no build step. Regenerate after editing any doc:
+
+```sh
+cd ../dev/docs-site && npm install && npm run build   # → site/docs/*.html
+```
+
+The generator (`dev/docs-site/build.mjs`) reuses this site's `styles.css` tokens plus
+`docs.css`, so the docs inherit the same type, color, and light/dark behavior. It renders
+the customer-facing docs only; internal planning docs stay out of the public site.
 
 ## Design
 

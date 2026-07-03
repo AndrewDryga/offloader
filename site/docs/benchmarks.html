@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarking — Offloader docs</title>
+cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency 1…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html" aria-current="page">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Evaluate</p>
+    <article class="prose">
+<h1 id="benchmarking">Benchmarking</h1>
+cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency 1, 10, and 50.</p>
+<h2 id="run-it">Run it</h2>
+<pre><code class="language-sh">./dev/scripts/benchmark.sh [out_dir]
+# short CI run (default 300 req/scenario); deeper manual run:
+BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
+</code></pre>
+<p>It boots the gateway in <code>MIX_ENV=prod</code> against <code>examples/customer-analytics</code> with a
+temp cache, times the cold boot to <code>/ready</code>, runs the load, restarts to time a warm
+boot, and writes <code>summary.json</code> + <code>summary.md</code>. Mode comparison (local_table vs
+remote_scan) is in <code>dev/scripts/bench-modes.exs</code>.</p>
+<h2 id="what-each-number-means">What each number means</h2>
+<ul>
+<li><strong>cold_load_ms / warm_load_ms</strong> — process start until <code>/ready</code> returns 200 (the
+snapshot is materialized and the instance can serve). Warm reuses the on-disk
+cache and the DuckDB extension cache.</li>
+<li><strong>rss_mb / cache_disk_bytes</strong> — resident memory and materialized-cache footprint.</li>
+<li><strong>scenarios</strong> — <code>local_table</code> varies a param per request so every read is a fresh
+materialized-table query (cache miss); <code>cache_hit</code> repeats identical params to
+exercise the response cache. Each is measured at concurrency 1/10/50 with
+p50/p95/p99/max latency (ms) and requests/sec.</li>
+</ul>
+<h2 id="how-to-read-it">How to read it</h2>
+<ul>
+<li>Watch <strong>p95/p99 at concurrency 50</strong>, not the average — tail latency is what a
+product API is judged on.</li>
+<li>A large <code>local_table</code> vs <code>cache_hit</code> gap means the response cache is earning its
+keep for repeated params.</li>
+<li>Reads run through the DuckDB connection pool (<code>OFFLOADER_POOL_SIZE</code>) in the caller
+process, so throughput scales with the pool rather than a single connection.</li>
+</ul>
+<h2 id="prod-scale-run-real-data-2026-07-02">Prod-scale run (real data, 2026-07-02)</h2>
+<p>A full production serving schema converted with <code>offloader import-schema</code>
+(<strong>66 datasets / 67 endpoints</strong>), booted in <code>MIX_ENV=prod</code> against the <strong>real GCS
+bucket</strong> (OAuth bearer), <code>OFFLOADER_POOL_SIZE=32</code>, <code>OFFLOADER_DUCKDB_MEMORY_LIMIT=6GB</code>,
+<code>OFFLOADER_DUCKDB_THREADS=6</code> on an Apple-silicon laptop.</p>
+<ul>
+<li><strong>Cold start:</strong> ~9–10 min to all 66 datasets <code>ready</code> — a sequential
+materialize-from-GCS of every table (the slowest have 30+ parquet parts). One
+slow/failing dataset no longer blocks or crashes boot (see below); it records a
+failed attempt and the rest serve. Warm restart is instant (on-disk snapshots +
+sidecar).</li>
+<li><strong>Steady-state RSS:</strong> ~4.0 GiB resident with all 66 tables materialized (bounded by
+<code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>; peaks higher mid-materialize, then DuckDB releases).</li>
+<li><strong>Serving (cached, ~50 KB nested-JSON payloads), c=100, 40k requests:</strong> <strong>5.2k
+req/s, 0 failures</strong>, p50 14 ms / p95 26 ms / p99 35 ms, ~290 MB/s transferred.</li>
+<li><strong>Correctness:</strong> every endpoint served its current snapshot (the resolver follows
+the latest Databricks commit); zero refresh errors across 66 datasets.</li>
+<li><strong>Boot resilience:</strong> a materialize that exceeds its budget, or a down engine, returns an
+error at the engine boundary instead of crashing — so one slow or broken dataset can neither
+crash startup nor wedge a refresh worker; it records a failed attempt and the rest serve.</li>
+</ul>
+<p><code>/metrics</code> exposes <code>offloader_pool_connections</code> / <code>offloader_pool_busy</code> and, per
+endpoint, <code>offloader_requests_total{status}</code> plus an <code>offloader_request_duration_ms</code>
+histogram.</p>
+<h2 id="honesty">Honesty</h2>
+<p>These numbers come from a <strong>tiny fixture on one machine</strong> and are <strong>relative only</strong>.
+require a real pilot benchmark on the customer&#39;s data and hardware.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="roi.html"><span>Previous</span><b>ROI diagnostic</b></a>
+      <span></span>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROI diagnostic — Offloader docs</title>
+history, cluster the repeated bounded reads, and estimate the reducible…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html" aria-current="page">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Evaluate</p>
+    <article class="prose">
+<h1 id="roi-diagnostic">ROI diagnostic</h1>
+history, cluster the repeated bounded reads, and estimate the <strong>reducible</strong> warehouse
+spend — honestly, with confidence levels, never an inflated bill-reduction promise.</p>
+<pre><code class="language-sh">offloader roi report --input examples/roi/sample-query-history.csv \
+  --gateway-cost 800 --migration-labor 20000 [--committed-capacity] [--shared-warehouse] \
+  --out roi.md
+</code></pre>
+<h2 id="input-format-provider-neutral">Input format (provider-neutral)</h2>
+<p>A CSV with one row per query fingerprint (export from Databricks/Snowflake/BigQuery
+query history into these columns — provider-specific importers come later):</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fingerprint</code></td>
+<td>a stable id for the repeated query shape</td>
+</tr>
+<tr>
+<td><code>executions_per_month</code></td>
+<td>how often it runs</td>
+</tr>
+<tr>
+<td><code>avg_cost_usd</code></td>
+<td>average warehouse cost per execution</td>
+</tr>
+<tr>
+<td><code>warehouse</code></td>
+<td>the warehouse/cluster it runs on</td>
+</tr>
+<tr>
+<td><code>bounded</code></td>
+<td><code>true</code> if it&#39;s a bounded, repeated shape (offloadable)</td>
+</tr>
+<tr>
+<td><code>candidate_endpoint</code></td>
+<td>the Offloader endpoint that would serve it (blank = not a candidate)</td>
+</tr>
+</tbody></table>
+<h2 id="what-the-report-contains">What the report contains</h2>
+<ul>
+the tool will not claim more. Level 3 (reduce warehouse capacity) and Level 4
+(finance verifies the bill dropped) require a live before/after after offload.</li>
+<li><strong>Reducible spend</strong> = bounded, endpoint-mapped queries. Everything else is excluded.</li>
+<li><strong>Assumptions</strong> (reduction factors, Offloader infra cost, one-time migration labor).</li>
+<li><strong>Net monthly savings</strong> — conservative / expected / aggressive, minus Offloader cost,
+annualized, with a payback-on-migration-labor figure.</li>
+<li><strong>Per-endpoint mapping</strong> — which serving endpoint absorbs which spend.</li>
+<li><strong>Caveats</strong> — see below.</li>
+</ul>
+<h2 id="honesty-the-point-of-this-tool">Honesty (the point of this tool)</h2>
+<ul>
+<li><strong>Committed / flat-rate capacity</strong> (<code>--committed-capacity</code>): removing query volume
+does <strong>not</strong> lower the bill until the committed tier or cluster size is actually
+reduced. The tool drops confidence to Level 1–2 and says so — do not promise bill
+reduction.</li>
+<li><strong>Shared warehouse</strong> (<code>--shared-warehouse</code>): the workload isn&#39;t the only cost driver,
+so attribution is an estimate — validate against per-query cost allocation.</li>
+<li>All math is explainable and exportable; the report is the artifact, not sales prose.</li>
+</ul>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="cutover-runbook.html"><span>Previous</span><b>Cutover runbook</b></a>
+      <a class="pg next" href="benchmarks.html"><span>Next</span><b>Benchmarks</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

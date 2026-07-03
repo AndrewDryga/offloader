@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation — Offloader</title>
+<meta name="description" content="Run Offloader from first boot to production: concepts, quickstart, config and API reference, security, deployment, and ROI.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html" aria-current="page"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <header class="docs-hero">
+      <p class="doc-kicker">Documentation</p>
+      <h1>Run Offloader, from first boot to production.</h1>
+      <p class="lede">Serve your product's repeated analytics reads from a snapshot on your own
+      servers — governed, fast, honest about freshness. New here? Start with
+      <a href="concepts.html">what Offloader is</a>, then run the
+      <a href="quickstart.html">15-minute quickstart</a>.</p>
+    </header>
+    <section class="doc-group">
+      <h2>Start</h2>
+      <ul class="doc-index">
+      <li><a href="concepts.html"><b>What Offloader is</b><span>The plain-language explanation, and the vocabulary the rest of the docs use.</span></a></li>
+      <li><a href="quickstart.html"><b>Quickstart</b><span>Boot the bundled example and serve a real endpoint in about 15 minutes.</span></a></li>
+      </ul>
+    </section>
+    <section class="doc-group">
+      <h2>Configure</h2>
+      <ul class="doc-index">
+      <li><a href="developer-experience.html"><b>Config guide</b><span>Define your datasets, endpoints, and keys; load the config from a bucket.</span></a></li>
+      <li><a href="config-reference.html"><b>Config reference</b><span>Every field of every config file, with the exact value vocabularies.</span></a></li>
+      <li><a href="api.html"><b>API reference</b><span>The consumer request/response contract and the error-to-status-code table.</span></a></li>
+      </ul>
+    </section>
+    <section class="doc-group">
+      <h2>Serve</h2>
+      <ul class="doc-index">
+      <li><a href="public-serving.html"><b>Public data & CDN</b><span>Serve public product data at the edge: cache headers, ETags, CORS.</span></a></li>
+      <li><a href="security-model.html"><b>Security model</b><span>What Offloader enforces for you, and what stays your responsibility.</span></a></li>
+      </ul>
+    </section>
+    <section class="doc-group">
+      <h2>Operate</h2>
+      <ul class="doc-index">
+      <li><a href="deployment.html"><b>Deploy</b><span>Docker, Compose, and Kubernetes shapes, with rollout verification.</span></a></li>
+      <li><a href="operator.html"><b>Operator guide</b><span>Run it in production: size it, upgrade, roll back, diagnose.</span></a></li>
+      <li><a href="runbooks.html"><b>Runbooks</b><span>Step-by-step responses to the alerts that can fire.</span></a></li>
+      <li><a href="ownership.html"><b>Ownership & support</b><span>The responsibility matrix for a deployment you run yourself.</span></a></li>
+      <li><a href="cutover-runbook.html"><b>Cutover runbook</b><span>Replace an existing serving API gradually and reversibly.</span></a></li>
+      </ul>
+    </section>
+    <section class="doc-group">
+      <h2>Evaluate</h2>
+      <ul class="doc-index">
+      <li><a href="roi.html"><b>ROI diagnostic</b><span>Estimate the warehouse savings before you commit.</span></a></li>
+      <li><a href="benchmarks.html"><b>Benchmarks</b><span>Measure latency, throughput, and footprint on your own data.</span></a></li>
+      </ul>
+    </section>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

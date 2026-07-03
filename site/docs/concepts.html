@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What Offloader is (in plain language) — Offloader docs</title>
+<meta name="description" content="New here? Read this first. It explains what Offloader does, why you&amp;#39;d want it, and
+the handful of words the rest of the docs use — no prior…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html" aria-current="page">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Start</p>
+    <article class="prose">
+<h1 id="what-offloader-is-in-plain-language">What Offloader is (in plain language)</h1>
+<p>New here? Read this first. It explains what Offloader does, why you&#39;d want it, and
+the handful of words the rest of the docs use — no prior data-engineering knowledge
+assumed.</p>
+<h2 id="the-problem-it-solves">The problem it solves</h2>
+<p>Your product has screens that show analytics: usage dashboards, leaderboards, &quot;top
+accounts,&quot; stats pages. Every time a user opens one, your app runs a query against
+your <strong>data warehouse</strong> (Snowflake, Databricks, BigQuery, …). Warehouses are great
+for crunching huge data, but they are <strong>expensive per query</strong> and <strong>not fast enough</strong>
+to sit directly behind a busy product screen. So you end up paying a lot, and users
+wait.</p>
+<p>Here&#39;s the thing: those product screens ask the <strong>same shapes of questions over and
+over</strong> (&quot;usage for account X over the last 30 days&quot;), against data that only needs to
+be <strong>a few minutes or hours fresh</strong> — not up-to-the-second.</p>
+<h2 id="what-offloader-does">What Offloader does</h2>
+<p>Offloader serves those repeated questions from <strong>cheap, pre-computed copies of the
+data</strong> instead of hitting the warehouse every time.</p>
+<pre><code class="language-text">BEFORE:  every request  -&gt;  data warehouse   ($$$ per query, too slow for a live screen)
+
+AFTER:   every request  -&gt;  Offloader        (cheap, fast) -&gt; reads a pre-computed
+                                              snapshot you publish to object storage
+                                              (S3 / GCS), running on YOUR servers
+</code></pre>
+<p>You publish periodic <strong>snapshots</strong> of the data to object storage. Offloader loads a
+snapshot into a fast local engine and answers your product&#39;s REST calls from it. When
+a newer snapshot appears, it swaps over — with no downtime. The warehouse is only
+touched by the pipeline that builds snapshots (on a schedule you control), not by live
+traffic.</p>
+<p>It runs as a <strong>single container on your own infrastructure</strong>. Nothing leaves your
+environment; there&#39;s no Offloader cloud.</p>
+<h2 id="is-it-a-fit">Is it a fit?</h2>
+<table>
+<thead>
+<tr>
+<th>Good fit if…</th>
+<th>Not a fit if…</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>The same query shapes repeat a lot</td>
+<td>Every query is different / ad-hoc SQL</td>
+</tr>
+<tr>
+<td>&quot;A few minutes/hours old&quot; is fine</td>
+<td>You need up-to-the-second data</td>
+</tr>
+<tr>
+<td>You can export snapshots to S3/GCS</td>
+<td>You can&#39;t produce snapshots</td>
+</tr>
+<tr>
+<td>You want to cut warehouse serving cost</td>
+<td>Native warehouse acceleration already solves it</td>
+</tr>
+</tbody></table>
+<h2 id="the-words-we-use">The words we use</h2>
+<p>You only need these dozen terms to read the rest of the docs.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>In one sentence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Object storage</strong></td>
+<td>Cloud file storage — Amazon <strong>S3</strong> or Google <strong>GCS</strong>, where your snapshot files live.</td>
+</tr>
+<tr>
+<td><strong>Snapshot</strong></td>
+<td>One frozen copy of a dataset at a point in time (Parquet files), e.g. &quot;usage as of 3 PM today.&quot;</td>
+</tr>
+<tr>
+<td><strong>Parquet</strong></td>
+<td>A compact columnar file format snapshots are stored in; you don&#39;t edit these by hand.</td>
+</tr>
+<tr>
+<td><strong>Manifest</strong></td>
+<td>A small JSON file that says &quot;this snapshot = these files, this schema, this version&quot; — the pointer Offloader follows.</td>
+</tr>
+<tr>
+<td><strong>Dataset</strong></td>
+<td>A named table Offloader serves (e.g. <code>customer_usage</code>), plus the columns it expects.</td>
+</tr>
+<tr>
+<td><strong>Endpoint</strong></td>
+<td>A named REST URL your app calls (e.g. <code>/v1/endpoints/customer_usage_summary</code>), defined by a small config file.</td>
+</tr>
+<tr>
+<td><strong>Project</strong></td>
+<td>Your whole configuration: one <code>offloader.yml</code> plus <code>datasets/</code>, <code>endpoints/</code>, and <code>keys/</code> files. This is what Offloader loads at startup.</td>
+</tr>
+<tr>
+<td><strong>Materialize</strong></td>
+<td>Loading a snapshot&#39;s Parquet into Offloader&#39;s local engine (DuckDB) so reads are fast. Happens automatically.</td>
+</tr>
+<tr>
+<td><strong>Refresh</strong></td>
+<td>Checking for a newer snapshot and swapping to it. Automatic, on a schedule.</td>
+</tr>
+<tr>
+<td><strong>Freshness / watermark</strong></td>
+<td>How old the data is; the <code>watermark</code> is the snapshot&#39;s timestamp. Every response tells you.</td>
+</tr>
+<tr>
+<td><strong>Tenant</strong></td>
+<td>One customer/account in a multi-customer table; Offloader makes sure a caller only sees their own tenant&#39;s rows.</td>
+</tr>
+<tr>
+<td><strong>API key</strong></td>
+<td>A secret token a caller sends to use an endpoint; you can scope it to specific endpoints and one tenant.</td>
+</tr>
+</tbody></table>
+<p>Two more you&#39;ll see in operations:</p>
+<ul>
+<li><strong>DuckDB</strong> — the small, fast engine embedded inside the container that runs the queries. You don&#39;t install or manage it; it&#39;s just there.</li>
+<li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the fast default) or straight from the snapshot files (<code>remote_scan</code>, for big/cold data). Most endpoints use the default.</li>
+</ul>
+<h2 id="how-the-pieces-fit">How the pieces fit</h2>
+<pre><code class="language-text">  Your pipeline            Object storage (S3/GCS)       Offloader container        Your app
+  (on your schedule)                                     (on your servers)
+  ----------------         -----------------------       ------------------         --------
+  warehouse --export--&gt;  snapshot Parquet + manifest  --&gt;  loads the latest    --&gt;  GET /v1/endpoints/...
+                                    ^                       snapshot into DuckDB,    (fast, cheap)
+                                    |                       serves REST
+                         (a newer snapshot appears)  ----&gt;  auto-refresh, zero-downtime swap
+</code></pre>
+<h2 id="the-two-ports">The two ports</h2>
+<p>Offloader listens on two ports, on purpose:</p>
+<ul>
+<li><strong>API port (4000)</strong> — where your product traffic goes. Protected by API keys (unless you run it fully public). This is the only port your app or the internet should reach.</li>
+<li><strong>Admin port (4001)</strong> — health checks, metrics, generated docs, diagnostics. For your operators only. <strong>Keep it private</strong> (internal network / firewall) — Offloader doesn&#39;t do logins; you control who reaches this port.</li>
+</ul>
+<h2 id="where-to-go-next">Where to go next</h2>
+<ul>
+<li><strong><a href="quickstart.html">Quickstart</a></strong> — run it against a bundled example in ~15 minutes, no cloud needed.</li>
+<li><strong><a href="developer-experience.html">Define your own endpoints</a></strong> — what the config files look like.</li>
+<li><strong><a href="operator.html">Run it in production</a></strong> — deploy, size, upgrade, roll back.</li>
+<li><strong><a href="security-model.html">Security</a></strong> — what&#39;s protected, and what you&#39;re responsible for.</li>
+<li><strong><a href="cutover-runbook.html">Replace an existing serving API</a></strong> — the safe, gradual switch-over.</li>
+</ul>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <span></span>
+      <a class="pg next" href="quickstart.html"><span>Next</span><b>Quickstart</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

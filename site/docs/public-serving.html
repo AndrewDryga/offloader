@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serving public data (front-end + CDN) — Offloader docs</title>
+<meta name="description" content="The common case Offloader is built for: public, product-facing data your team builds in the
+warehouse and ships to a front-end — leaderboards, public…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html" aria-current="page">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Serve</p>
+    <article class="prose">
+<h1 id="serving-public-data-front-end-cdn">Serving public data (front-end + CDN)</h1>
+<p>The common case Offloader is built for: <strong>public, product-facing data</strong> your team builds in the
+warehouse and ships to a front-end — leaderboards, public stats pages, embedded charts. High
+request volume, no per-user data, a few minutes&#39; staleness is fine. This page shows how to serve
+it cheaply and cache it at the edge.</p>
+<h2 id="1-run-it-public">1. Run it public</h2>
+<p>Set <code>auth: none</code> in <code>offloader.yml</code>. The API then needs no bearer token — accepted only when <strong>no
+endpoint is tenant-scoped</strong> (enforced at config load), so it can never expose per-tenant data
+unauthenticated.</p>
+<pre><code class="language-yaml">version: 1
+auth: none
+datasets_dir: datasets
+endpoints_dir: endpoints
+</code></pre>
+<p>A call is just:</p>
+<pre><code class="language-sh">curl &quot;https://api.example.com/v1/endpoints/champion_stats?patch=16.13&quot;
+</code></pre>
+<h2 id="2-it39s-cacheable-by-construction">2. It&#39;s cacheable by construction</h2>
+<p>An Offloader response is <strong>immutable for its <code>snapshot_id</code></strong> — the same params against the same
+snapshot always return the same bytes, and a new snapshot changes them. So public responses carry:</p>
+<ul>
+<li><strong><code>ETag</code></strong> — a fingerprint of <code>(endpoint, params, snapshot_id)</code>. A client or CDN revalidates with
+<code>If-None-Match</code>; if nothing changed, Offloader returns a bodyless <strong><code>304 Not Modified</code></strong> — near-free.</li>
+<li><strong><code>Cache-Control: public, max-age=&lt;n&gt;, stale-while-revalidate=60</code></strong> — <code>max-age</code> is derived from the
+endpoint&#39;s <code>freshness.max_staleness_minutes</code> (capped at 1 hour), so a cache holds the response
+exactly as long as it&#39;s considered fresh, then revalidates by ETag.</li>
+</ul>
+<p>Authed (non-public) responses instead get <strong><code>Cache-Control: private, no-store</code></strong> — per-tenant data
+never lands in a shared cache.</p>
+<h2 id="3-put-a-cdn-in-front">3. Put a CDN in front</h2>
+<p>Point your CDN (CloudFront, Fastly, Cloudflare, …) at the Offloader API origin. Because the origin
+sets proper <code>Cache-Control</code>/<code>ETag</code>, the CDN caches each response for its freshness window and
+serves the vast majority of traffic from the edge — the origin sees mostly cheap <code>304</code>
+revalidations. That&#39;s where &quot;serving cost approaches zero, latency goes global&quot; comes from: your
+container materializes once per snapshot; the edge does the fan-out.</p>
+<blockquote>
+<p><strong>Managed edge (optional).</strong> For public data, Offloader can also run this edge for you as a paid
+add-on — quoted per case, on the same share-of-savings basis. Because the data is already public,
+nothing private leaves your environment. Everything on this page works with <strong>your own</strong> CDN too;
+the managed option is just convenience.</p>
+</blockquote>
+<h2 id="4-calling-from-a-browser-cors">4. Calling from a browser (CORS)</h2>
+<p>A same-origin front-end (served behind the same CDN/domain) needs nothing. For a <strong>cross-origin</strong>
+browser call, set the allowed origins:</p>
+<ul>
+<li><code>OFFLOADER_CORS_ORIGINS=*</code> — for a fully public API. Sends <code>Access-Control-Allow-Origin: *</code>.</li>
+<li><code>OFFLOADER_CORS_ORIGINS=https://app.example.com,https://www.example.com</code> — echoes a listed origin
+and allows credentials (for an authed API). An off-list origin gets no CORS headers.</li>
+</ul>
+<p>Preflight <code>OPTIONS</code> requests are answered directly (before auth), so a browser <code>fetch</code> just works.</p>
+<h2 id="5-protect-it">5. Protect it</h2>
+<p><code>auth: none</code> has no per-client quota — an abusive client just saturates the DuckDB pool, which sheds
+excess as <code>503</code> (safe, but not fair). For a public endpoint, put <strong>rate limiting / WAF at your CDN
+or ingress</strong> — the same layer already doing the edge caching. Keep the Offloader admin port private
+regardless (it&#39;s not part of the public surface).</p>
+<h2 id="what-approaches-zero-assumes">What &quot;approaches zero&quot; assumes</h2>
+<p>The cost win is real but conditional: it assumes a <strong>high cache-hit ratio</strong> (many repeated reads of
+a bounded set of params) and a freshness window long enough for the edge to hold responses. If every
+request has unique params, or you need per-second freshness, the edge can&#39;t help — see
+<a href="concepts.html#is-it-a-fit">Fit</a>. Measure your real hit ratio before quoting a number.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="api.html"><span>Previous</span><b>API reference</b></a>
+      <a class="pg next" href="security-model.html"><span>Next</span><b>Security model</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

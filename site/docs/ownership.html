@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer-run ownership matrix and support exclusions — Offloader docs</title>
+<meta name="description" content="Offloader runs in the customer&amp;#39;s environment, so incidents split three ways. This
+matrix is the first thing to consult in an incident — it keeps a…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html" aria-current="page">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Operate</p>
+    <article class="prose">
+<h1 id="customer-run-ownership-matrix-and-support-exclusions">Customer-run ownership matrix and support exclusions</h1>
+<p>Offloader runs in the customer&#39;s environment, so incidents split three ways. This
+matrix is the first thing to consult in an incident — it keeps a customer-environment
+or upstream-data problem from being mis-filed as an Offloader bug (and vice-versa).</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Offloader owns</th>
+<th>Customer owns</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>The serving container</td>
+<td>Bugs in auth, tenant enforcement, compiler, refresh, materialization, diagnostics.</td>
+<td>Running it, its resources (CPU/memory/disk), and restarts.</td>
+</tr>
+<tr>
+<td>Config</td>
+<td>The config <em>contract</em> + validation.</td>
+<td>The config <em>content</em> (datasets, endpoints, keys) and keeping it correct.</td>
+</tr>
+<tr>
+<td>Snapshots/manifests</td>
+<td>Validating them and never serving partial/breaking data.</td>
+<td>Producing correct, fresh, approved manifests upstream.</td>
+</tr>
+<tr>
+<td>Object store / source</td>
+<td>Reading it read-only when reachable.</td>
+<td>Its availability, IAM, credentials, and network path.</td>
+</tr>
+<tr>
+<td>Ports &amp; exposure</td>
+<td>Two separate ports + redaction.</td>
+<td>Network, proxy, TLS, IAM, and keeping the admin port private.</td>
+</tr>
+<tr>
+<td>Identity</td>
+<td>API keys, endpoint scopes, tenant binding.</td>
+<td>Admin-port access control (their own network/IAM), and key distribution.</td>
+</tr>
+</tbody></table>
+<h2 id="support-exclusions-v1">Support exclusions (V1)</h2>
+<p>These are the customer&#39;s, not covered by an Offloader support response target
+<ul>
+<li>Upstream pipeline failures; bad or incomplete manifests.</li>
+<li>Customer IAM/network changes; object-store outages.</li>
+<li>Insufficient disk, memory, or CPU.</li>
+<li>Unsupported config changes.</li>
+<li>Data modeling work; custom connector work outside a signed SOW.</li>
+</ul>
+<h2 id="classify-in-under-five-minutes">Classify in under five minutes</h2>
+<ol>
+<li><code>curl $ADMIN/ready</code> — is the instance serving at all?</li>
+<li><code>DIAG</code> — per dataset: <code>last_attempted.status</code>, <code>refresh_error</code>, <code>source_reachable</code>,
+<code>stale</code>, <code>duckdb_status</code>, <code>disk</code>.</li>
+<li>Map the failing signal to the matrix above → owner → the matching runbook.</li>
+</ol>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="runbooks.html"><span>Previous</span><b>Runbooks</b></a>
+      <a class="pg next" href="cutover-runbook.html"><span>Next</span><b>Cutover runbook</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

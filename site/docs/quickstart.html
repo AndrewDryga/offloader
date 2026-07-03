@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quickstart — the first hour — Offloader docs</title>
+<meta name="description" content="Run Offloader as a container against the bundled example, call an endpoint, read the
+generated docs, and see a failure fail safely — in about fifteen…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html" aria-current="page">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Start</p>
+    <article class="prose">
+<h1 id="quickstart-the-first-hour">Quickstart — the first hour</h1>
+<p>Run Offloader as a container against the bundled example, call an endpoint, read the
+generated docs, and see a failure fail safely — in about fifteen minutes, no cloud
+required. Every command here is exercised by <code>make e2e</code> and <code>make deploy-check</code>.</p>
+<p>New to the idea of Offloader? Read <a href="concepts.html">What Offloader is, in plain language</a>
+first (5 minutes) — it defines the words used below.</p>
+<h2 id="0-prerequisites">0. Prerequisites</h2>
+<p>Docker, and this repo (for the example config in <code>examples/customer-analytics/</code>).
+A published image will be <code>ghcr.io/OWNER/offloader:&lt;version&gt;</code>; until then, build it:</p>
+<pre><code class="language-sh">docker build -t offloader:dev -f gateway/Dockerfile gateway
+</code></pre>
+<h2 id="1-run-the-container">1. Run the container</h2>
+<p>The config directory (<code>offloader.yml</code> + <code>datasets/</code>, <code>endpoints/</code>, <code>keys/</code>, data) is
+mounted; secrets come from env vars; the admin port is bound to loopback.</p>
+<pre><code class="language-sh">docker run --rm \
+  -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
+  -e OFFLOADER_SECRET_KEY_BASE=&quot;$(openssl rand -base64 48)&quot; \
+  -e OFFLOADER_ADMIN_TOKEN=&quot;$(openssl rand -base64 24)&quot; \
+  -p 4000:4000 \
+  -p 127.0.0.1:4001:4001 \
+  -v &quot;$PWD/examples/customer-analytics:/etc/offloader:ro&quot; \
+  -v offloader-cache:/var/lib/offloader/cache \
+  offloader:dev
+</code></pre>
+<p>Wait until the admin <strong>readiness</strong> probe returns 200 (it stays 503 until the snapshot
+is materialized):</p>
+<pre><code class="language-sh">curl -fsS http://127.0.0.1:4001/ready
+# {&quot;status&quot;:&quot;ok&quot;,&quot;ready&quot;:true}
+</code></pre>
+<h2 id="2-call-your-first-endpoint">2. Call your first endpoint</h2>
+<p>The example ships a demo key <code>offl_demo_acme_key</code> bound to <code>tenant_acme</code>:</p>
+<pre><code class="language-sh">curl -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
+  &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&quot;
+</code></pre>
+<pre><code class="language-json">{
+  &quot;data&quot;: [ { &quot;account_id&quot;: &quot;acct_zephyr&quot;, &quot;active_users_total&quot;: 244, &quot;api_calls_total&quot;: 56839, &quot;storage_gb_avg&quot;: 34.3 }, &quot;…&quot; ],
+  &quot;meta&quot;: {
+    &quot;request_id&quot;: &quot;…&quot;, &quot;endpoint&quot;: &quot;customer_usage_summary&quot;,
+    &quot;snapshot_id&quot;: &quot;2026-06-01T00:00:00Z_r0007&quot;, &quot;row_count&quot;: 2,
+    &quot;serving_mode&quot;: &quot;local_table&quot;, &quot;cache&quot;: &quot;miss&quot;,
+    &quot;freshness&quot;: { &quot;watermark&quot;: &quot;2026-06-01T00:00:00Z&quot;, &quot;age_seconds&quot;: 2658070, &quot;stale&quot;: true }
+  }
+}
+</code></pre>
+<p>Every response carries <code>snapshot_id</code> and freshness — you always know exactly which
+snapshot you&#39;re reading. (<code>stale:true</code> here just means the demo data is older than its
+120-minute tolerance.)</p>
+<h2 id="3-read-the-generated-docs">3. Read the generated docs</h2>
+<p>The endpoint catalog and OpenAPI spec are generated from the enforced contracts and
+served on the <strong>admin</strong> port (never the API port):</p>
+<pre><code class="language-sh">curl -s http://127.0.0.1:4001/docs | jq &#39;.endpoints[].name&#39;
+curl -s http://127.0.0.1:4001/openapi.json | jq &#39;.paths | keys&#39;
+</code></pre>
+<p>A product engineer integrates from these — params, defaults, limits, response shape,
+error families, and curl/TypeScript/Python snippets are all there.</p>
+<h2 id="4-validate-config-optional-helper">4. Validate config (optional helper)</h2>
+<p><code>offloader</code> is an <strong>optional Go helper</strong> (not part of the container). Build it once, then it
+checks config the same way the container does:</p>
+<pre><code class="language-sh">cd tools &amp;&amp; go build -o offloader .   # produces ./offloader; or run inline with `go run . …`
+</code></pre>
+<pre><code class="language-sh">offloader validate --config examples/customer-analytics/offloader.yml   # &quot;config OK&quot;
+offloader manifest validate examples/customer-analytics/data/customer_usage/manifest.json
+</code></pre>
+<h2 id="5-see-a-failure-fail-safely">5. See a failure fail safely</h2>
+<p>Bad input is rejected with a named error family — never a leak, never a 500:</p>
+<pre><code class="language-sh"># an unknown/undeclared param (e.g. smuggling a tenant) -&gt; 422 invalid_param
+curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
+  &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&amp;tenant_id=tenant_globex&quot;
+# 422
+</code></pre>
+<p>The <a href="https://github.com/AndrewDryga/offloader/blob/main/examples/customer-analytics/failure-lab/README.md">failure lab</a> has the full
+set (bad manifest, stale dataset, forbidden tenant, …) and what each must produce.</p>
+<h2 id="6-next">6. Next</h2>
+<ul>
+<li><a href="developer-experience.html">Config guide</a> — how to publish your own dataset + endpoint, and
+how to load config from a <code>gs://</code> bucket (fully stateless, with zero-downtime hot-reload).</li>
+<li>The generated endpoint docs (step 3) — hand these to a product engineer to integrate.</li>
+<li><a href="operator.html">Operator guide</a> · <a href="deployment.html">Deployment</a> — run it in production: deploy,
+size, upgrade, roll back.</li>
+<li><a href="https://github.com/AndrewDryga/offloader/blob/main/dev/scripts/e2e.sh"><code>make e2e</code></a> — the manifest→HTTP smoke this quickstart mirrors.</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause / fix</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Container exits immediately</td>
+<td>Missing <code>OFFLOADER_SECRET_KEY_BASE</code>, or <code>OFFLOADER_CONFIG</code> not mounted.</td>
+</tr>
+<tr>
+<td><code>/ready</code> stays 503</td>
+<td>The snapshot hasn&#39;t materialized — check <code>docker logs</code> and admin <code>/diagnostics</code>.</td>
+</tr>
+<tr>
+<td>Endpoint returns 401</td>
+<td>Missing/invalid/revoked key. Mint one with <code>offloader keys create</code>.</td>
+</tr>
+<tr>
+<td>Endpoint returns 404</td>
+<td>Unknown endpoint, or the key isn&#39;t granted it (indistinguishable, on purpose).</td>
+</tr>
+<tr>
+<td>Endpoint returns 422</td>
+<td>A param is missing/mistyped/out of range, or an undeclared param was sent.</td>
+</tr>
+</tbody></table>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="concepts.html"><span>Previous</span><b>What Offloader is</b></a>
+      <a class="pg next" href="developer-experience.html"><span>Next</span><b>Config guide</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

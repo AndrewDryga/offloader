@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security Model — Offloader docs</title>
+<meta name="description" content="Offloader runs in your environment and serves read-only data. This page explains,
+in plain terms, what it protects for you and what you remain responsible…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html" aria-current="page">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Serve</p>
+    <article class="prose">
+<h1 id="security-model">Security Model</h1>
+<p>Offloader runs <strong>in your environment</strong> and serves <strong>read-only</strong> data. This page explains,
+in plain terms, what it protects for you and what you remain responsible for. (Newer to the
+concepts? See <a href="concepts.html">What Offloader is</a>.)</p>
+<h2 id="the-short-version">The short version</h2>
+<ul>
+<li>Your data, config, logs, and metrics <strong>stay in your environment</strong>. Offloader makes no
+outbound telemetry calls.</li>
+<li>Consumers reach data only through <strong>named endpoints</strong> on the API port, using an <strong>API key</strong>
+you issue. There is no arbitrary SQL.</li>
+<li>Each key is scoped to <strong>specific endpoints</strong> and bound to <strong>one tenant</strong> (customer/account).
+Offloader inserts the tenant filter itself — a caller <strong>cannot</strong> widen it or read another
+tenant&#39;s rows.</li>
+<li>Operator surfaces (docs, metrics, diagnostics) are on a <strong>separate admin port</strong> that <strong>you</strong>
+keep private. Offloader is not a login/identity product.</li>
+</ul>
+<h2 id="who-can-reach-what">Who can reach what</h2>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Who</th>
+<th>What they get</th>
+<th>Guarded by</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>API (4000)</strong></td>
+<td>your product / consumers</td>
+<td>only the endpoints their key is granted, only their tenant&#39;s rows, only allowed columns</td>
+<td>the API key + rules Offloader enforces (below)</td>
+</tr>
+<tr>
+<td><strong>Admin (4001)</strong></td>
+<td>your operators</td>
+<td>health, metrics, generated docs, diagnostics</td>
+<td><strong>you</strong> — network / firewall / proxy / IAM. Keep it off the public internet.</td>
+</tr>
+</tbody></table>
+<p>An API key is a bearer token you mint with <code>offloader keys create</code>. Only its <strong>SHA-256 hash</strong>
+is stored in config — never the token itself. Revoke a key by changing its status; it&#39;s denied
+immediately.</p>
+<h2 id="what-offloader-enforces-you-get-these-for-free">What Offloader enforces (you get these for free)</h2>
+<ul>
+<li><strong>No arbitrary SQL</strong> reaches consumers — only your declared endpoints.</li>
+<li><strong>Endpoint allowlist</strong> per key: a key can call only the endpoints granted to it.</li>
+<li><strong>Tenant isolation:</strong> the tenant filter is inserted server-side from the key and cannot be
+overridden by a request parameter.</li>
+<li><strong>Column allowlist:</strong> an endpoint can return only its declared columns — checked before the
+query runs.</li>
+<li><strong>Safe errors:</strong> a forbidden endpoint and a non-existent one return the <strong>same</strong> response, so
+probing can&#39;t discover what exists.</li>
+<li><strong>Secrets stay out of the open:</strong> logs, metrics, diagnostics, and support bundles never
+include API keys, tokens, credentialed URLs, or raw params by default; support bundles are
+redacted and list what&#39;s inside.</li>
+<li><strong>Read-only object-store credentials</strong> are the intended posture — Offloader only reads snapshots.</li>
+</ul>
+<h2 id="what-you39re-responsible-for">What you&#39;re responsible for</h2>
+<ul>
+<li><strong>Exposing the admin port safely.</strong> Offloader ships the separation (two ports) and redaction;
+you decide how the admin port is reached — loopback, an internal network, a proxy, or your IAM.</li>
+<li><strong>TLS and ingress</strong> in front of the API port.</li>
+<li><strong>The snapshot pipeline</strong> that publishes data to object storage, and the object-store
+permissions themselves.</li>
+</ul>
+<p>Offloader does <strong>not</strong> provide RBAC, SSO, org/team management, or a hosted control plane. If you
+need enterprise access controls, run the admin port behind the ones you already use.</p>
+<h2 id="co-hosting-config-in-the-bucket">Co-hosting config in the bucket</h2>
+<p>If you load config from a bucket (<code>OFFLOADER_CONFIG=gs://…</code>), the config tree includes the keys
+file — but keys are stored as <strong>hashes, never tokens</strong>, so bucket-read exposure leaks hashes plus
+the endpoint/tenant access map, not usable credentials. A <strong>public</strong> deployment (<code>auth: none</code>)
+has no keys file at all. For an authed deployment, put the config under a <strong>tighter-ACL
+bucket/prefix</strong> than the bulk data if you want to limit who can read the hashes.</p>
+<h2 id="how-we-prove-it">How we prove it</h2>
+<p>An adversarial test suite (<code>gateway/test/offloader/security_suite_test.exs</code>) exercises the
+invariants above on every build: API-key bypass attempts, tenant-override attempts, column
+selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
+port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="public-serving.html"><span>Previous</span><b>Public data & CDN</b></a>
+      <a class="pg next" href="deployment.html"><span>Next</span><b>Deploy</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

@@ -10,6 +10,7 @@
 <meta property="og:description" content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="fonts/SpaceGrotesk-700.woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -27,6 +28,7 @@
       <li><a href="#proof">Proof</a></li>
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#fit">Fit</a></li>
+      <li><a href="docs/index.html">Docs</a></li>
       <li><a href="#start" class="nav-cta">Run it</a></li>
     </ul>
   </nav>
@@ -49,7 +51,7 @@
           fresh the data is.
         </p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="../docs/quickstart.md">Run it in 15 minutes</a>
+          <a class="btn btn-primary" href="docs/quickstart.html">Run it in 15 minutes</a>
           <a class="btn btn-ghost" href="#how">How it works <span aria-hidden="true">↓</span></a>
         </div>
         <p class="hero-proof">
@@ -128,7 +130,7 @@ RUNS    <span class="tok js-count" data-to="1000000">1,000,000</span>   identica
     <div class="wrap">
       <div class="section-head">
         <p class="kicker">Proof</p>
-        <h2 id="proof-h" class="h2">Proven against real production data.</h2>
+        <h2 id="proof-h" class="h2">Measured against real production data.</h2>
       </div>
 
       <div class="proof-grid">
@@ -196,14 +198,14 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
             <span class="pnote-n">01</span>
             <div>
               <h3>Priced off a measured baseline</h3>
-              <p>A paid diagnostic clusters your repeated reads and the reducible spend into a baseline you agree before committing — net of what Offloader costs to run on your own infra. You’re billed from that saving, not from a meter on your traffic, and it’s your container to run: no lock-in. <a href="../docs/roi.md">See the ROI diagnostic →</a></p>
+              <p>A paid diagnostic clusters your repeated reads and the reducible spend into a baseline you agree before committing — net of what Offloader costs to run on your own infra. You’re billed from that saving, not from a meter on your traffic, and it’s your container to run: no lock-in. <a href="docs/roi.html">See the ROI diagnostic →</a></p>
             </div>
           </div>
           <div class="pnote">
             <span class="pnote-n">02</span>
             <div>
-              <h3>Public data? Push it to the edge.</h3>
-              <p>Serving product-facing public data at high volume — the tables your team builds in the warehouse and ships to your front-end — you can deliver from your CDN edge: serving cost approaches zero, latency goes global. Same share-of-savings model, quoted per case.</p>
+              <h3>Public data? Serve it from our edge.</h3>
+              <p>For product-facing public data at high volume — the tables your team builds in the warehouse and ships to your front-end — we can also run it on <strong>our global CDN edge</strong>: serving cost approaches zero, latency goes worldwide. It’s already public, so it stays public — an optional managed add-on, same share-of-savings model, quoted per case.</p>
             </div>
           </div>
         </div>
@@ -259,13 +261,13 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
           own data, the config is a handful of YAML files.
         </p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="../docs/quickstart.md">The 15-minute quickstart</a>
-          <a class="btn btn-ghost" href="../docs/concepts.md">Start from the concepts</a>
+          <a class="btn btn-primary" href="docs/quickstart.html">The 15-minute quickstart</a>
+          <a class="btn btn-ghost" href="docs/concepts.html">Start from the concepts</a>
         </div>
         <p class="start-note">
           Weighing a real migration? A paid diagnostic clusters your repeated reads and
           estimates what’s actually reducible — before you commit. See the
-          <a href="../docs/roi.md">ROI diagnostic</a>.
+          <a href="docs/roi.html">ROI diagnostic</a>.
         </p>
       </div>
       <aside class="start-run" aria-label="Run it">
@@ -273,10 +275,10 @@ Our fee, 20% of that saving  <span class="tok neg">−$2,280</span>
 <pre class="run-code">$ docker run \
     -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
     -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -base64 48) \
-    -v ./project:/etc/offloader:ro \
+    -v ./examples/public-metrics:/etc/offloader:ro \
     -p 4000:4000 offloader
 
-$ curl localhost:4000/v1/endpoints/customer_usage_summary
+$ curl "localhost:4000/v1/endpoints/champion?champion_id=1"
 <span class="run-ok">→ 200</span>  served from a snapshot, not your warehouse</pre>
       </aside>
     </div>
@@ -299,15 +301,15 @@ $ curl localhost:4000/v1/endpoints/customer_usage_summary
       </div>
       <div>
         <h3>Docs</h3>
-        <a href="../docs/concepts.md">Concepts</a>
-        <a href="../docs/quickstart.md">Quickstart</a>
-        <a href="../docs/security-model.md">Security</a>
+        <a href="docs/concepts.html">Concepts</a>
+        <a href="docs/quickstart.html">Quickstart</a>
+        <a href="docs/security-model.html">Security</a>
       </div>
       <div>
         <h3>Evaluate</h3>
-        <a href="../docs/roi.md">ROI diagnostic</a>
-        <a href="../docs/benchmarks.md">Benchmarks</a>
-        <a href="../docs/cutover-runbook.md">Cutover</a>
+        <a href="docs/roi.html">ROI diagnostic</a>
+        <a href="docs/benchmarks.html">Benchmarks</a>
+        <a href="docs/cutover-runbook.html">Cutover</a>
       </div>
     </nav>
   </div>

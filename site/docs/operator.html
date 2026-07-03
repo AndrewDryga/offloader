@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operator guide — Offloader docs</title>
+<meta name="description" content="Everything an operator needs to run Offloader in production, with real commands and
+diagnostics fields. It links to the deep docs rather than repeating…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html" aria-current="page">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Operate</p>
+    <article class="prose">
+<h1 id="operator-guide">Operator guide</h1>
+<p>Everything an operator needs to run Offloader in production, with real commands and
+diagnostics fields. It links to the deep docs rather than repeating them.</p>
+<h2 id="deploy">Deploy</h2>
+<ul>
+<li>Examples for <code>docker run</code>, Compose, Kubernetes, and Prometheus:
+<a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/README.md"><code>../deploy/</code></a>.</li>
+<li>The container reads env vars + config; nothing is baked into the image. Required:
+<code>OFFLOADER_CONFIG</code>, <code>OFFLOADER_SECRET_KEY_BASE</code>. Recommended: <code>OFFLOADER_ADMIN_TOKEN</code>
+(gates <code>/diagnostics</code>), <code>OFFLOADER_LOG_LEVEL</code>.</li>
+<li><strong>Config source:</strong> <code>OFFLOADER_CONFIG</code> is either a <strong>mounted directory</strong> (a path to
+<code>offloader.yml</code>) or a <strong><code>gs://…</code> bucket prefix</strong>, fetched at boot so the container is fully
+stateless. Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> and Offloader re-checks the bucket
+on that interval and <strong>hot-reloads changes with no restart</strong> — even a dataset schema change
+cuts over with zero downtime, and a bad revision is ignored (the running config keeps serving).
+Full details: <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</li>
+<li>Two ports: <strong>API</strong> (product traffic, API-key auth) and <strong>ADMIN</strong> (health, metrics,
+diagnostics, docs). Keep the admin port private — see &quot;Port exposure&quot; below.</li>
+</ul>
+<h2 id="upgrade-check-and-rollback">Upgrade check and rollback</h2>
+<ul>
+<li><strong>Before rollout:</strong> <code>make deploy-check</code> builds the production image and boots it
+locally, verifying both ports, health, diagnostics/metrics, and a manifest→HTTP smoke.
+A broken image or config fails here, not in front of a customer.</li>
+<li><strong>Upgrade:</strong> deploy the new pinned image tag (never <code>:latest</code>). There is no schema
+migration; the cache rematerializes from the manifest on boot.</li>
+<li><strong>Roll back the image:</strong> redeploy the previous tag (<code>kubectl rollout undo</code> /
+<code>docker compose up</code> with the old tag). Health returns immediately.</li>
+<li><strong>Roll back a snapshot:</strong> a bad snapshot never swaps in (validation + compatibility
+gate it). To revert a <em>good-but-wrong</em> snapshot, roll the dataset back to its previous
+good one (see <a href="runbooks.html">runbooks</a> → &quot;Rollback to previous snapshot&quot;).</li>
+</ul>
+<h2 id="cache-quarantine-and-rebuild">Cache quarantine and rebuild</h2>
+<p>The materialization cache is a mounted volume. To rebuild: stop the container, remove
+the cache volume (one dataset: its materialized files; all: the whole volume), restart
+— the gateway rematerializes from the current manifest. Details:
+<a href="runbooks.html">runbooks</a> → &quot;Cache quarantine and rebuild&quot;.</p>
+<h2 id="sizing">Sizing</h2>
+<ul>
+<li><strong>Memory:</strong> the gateway materializes snapshots into DuckDB; RSS scales with active
+snapshot size. The example runs at ~160 MB RSS; size for your largest dataset plus
+headroom. Measure with the <a href="benchmarks.html">benchmark harness</a>.</li>
+<li><strong>Disk:</strong> the cache volume holds the DuckDB file(s); size it for your largest
+snapshot plus a retained previous snapshot, plus margin. <code>offloader_cache_disk_free_bytes</code>
+alerts before it fills.</li>
+<li><strong>CPU:</strong> reads are served from a materialized table across a pool of DuckDB read
+connections (<code>OFFLOADER_POOL_SIZE</code>, default 16); requests run concurrently, so throughput
+scales with the pool size, not a single queue. When every connection is busy a request is
+shed as <code>503</code> rather than queueing unboundedly; raise the pool size (and CPU) if you see
+that under load. Watch p95 (95th-percentile latency) with the <a href="benchmarks.html">benchmark harness</a>.</li>
+</ul>
+<h2 id="security-model">Security model</h2>
+<ul>
+<li>Full model: <a href="security-model.html"><code>security-model.md</code></a>. API keys are hashed at rest,
+revocable, scoped to endpoints, and tenant-bound; the compiler inserts the tenant
+filter and it cannot be overridden. Mint keys with <code>offloader keys create</code> (the token
+is shown once; only its hash is stored).</li>
+<li>The adversarial proof of these invariants is the security suite
+(<code>gateway/test/offloader/security_suite_test.exs</code>).</li>
+</ul>
+<h2 id="port-exposure">Port exposure</h2>
+<p>Offloader ships two ports and redaction; <strong>you</strong> own how the admin port is exposed.
+Keep it private (loopback, an internal network, a proxy, or your IAM) — it serves
+diagnostics/metrics/docs and is not an identity product. The API port is where product
+traffic goes, fronted by your ingress + TLS. Tests prove the admin surface is not
+reachable on the API port.</p>
+<h2 id="support-bundle-handling">Support bundle handling</h2>
+<p>When you need help, produce a <strong>redacted</strong> bundle:</p>
+<pre><code class="language-sh">offloader support-bundle --config /etc/offloader/offloader.yml \
+  --admin-url http://127.0.0.1:4001 --admin-token &quot;$OFFLOADER_ADMIN_TOKEN&quot; \
+  --out offloader-support.tar.gz
+</code></pre>
+<p>Every artifact (config + diagnostics) is redacted before it&#39;s written — secrets,
+tokens, and credentialed URIs are masked; safe one-way key hashes are kept — and a
+<code>manifest.json</code> lists what&#39;s inside with checksums. Review it, then share it only if
+you choose to. Offloader makes no outbound telemetry calls.</p>
+<h2 id="diagnostics">Diagnostics</h2>
+<p><code>curl -H &quot;Authorization: Bearer $OFFLOADER_ADMIN_TOKEN&quot; http://127.0.0.1:4001/diagnostics</code>
+returns, per dataset: active/last-good/last-attempted snapshot, refresh error, source
+reachability, manifest validity, staleness, plus DuckDB status, disk free, config-sync
+status, and build/config versions. <code>offloader snapshot status --admin-url … --admin-token …</code>
+prints a concise per-dataset summary. Metrics for alerting are on <code>/metrics</code>.</p>
+<p>Alerts worth setting (all on <code>/metrics</code>):</p>
+<ul>
+<li><code>offloader_config_sync_ok == 0</code> — auto-sync (if enabled) stopped applying the bucket config.</li>
+<li><code>offloader_snapshot_age_seconds</code> too high, or <code>offloader_refresh_ok == 0</code> — a dataset fell behind its source.</li>
+<li><code>offloader_pool_busy</code> sustained near <code>offloader_pool_connections</code> — you&#39;re shedding load; raise <code>OFFLOADER_POOL_SIZE</code>.</li>
+<li><code>offloader_cache_disk_free_bytes</code> low — the cache volume is filling.</li>
+</ul>
+<h2 id="support-tiers-and-exclusions">Support tiers and exclusions</h2>
+<p>V1 sells <strong>response targets</strong>, not an uptime SLA (until HA reference deployments are
+proven). The customer-run ownership matrix and the support exclusions (upstream
+pipelines, customer IAM/network, disk/CPU, unsupported config changes, data modeling)
+are in <a href="ownership.html"><code>operations/ownership.md</code></a>.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p>Symptom → signals → owner → action for every V1 incident class:
+<a href="runbooks.html"><code>operations/runbooks.md</code></a>. The first step is always
+classification (Offloader vs customer environment vs upstream data) from <code>/diagnostics</code>.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="deployment.html"><span>Previous</span><b>Deploy</b></a>
+      <a class="pg next" href="runbooks.html"><span>Next</span><b>Runbooks</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

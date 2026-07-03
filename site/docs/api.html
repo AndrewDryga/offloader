@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consumer API — Offloader docs</title>
+<meta name="description" content="What a client — your product code or front-end — sees when it calls an Offloader endpoint.
+This is the stable contract; the config that produces it is in…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html" aria-current="page">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Configure</p>
+    <article class="prose">
+<h1 id="consumer-api">Consumer API</h1>
+<p>What a client — your product code or front-end — sees when it calls an Offloader endpoint.
+This is the stable contract; the config that produces it is in the <a href="config-reference.html">config reference</a>.</p>
+<h2 id="the-request">The request</h2>
+<pre><code>GET /v1/endpoints/&lt;name&gt;?&lt;params&gt;
+Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) API
+</code></pre>
+<ul>
+<li><code>&lt;name&gt;</code> is the endpoint&#39;s <code>name</code>. <code>/v1/</code> is the API version (not the endpoint&#39;s <code>version</code>).</li>
+<li><strong>Params</strong> are whatever the endpoint declares, plus three every endpoint gets for free:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>limit</code></td>
+<td>Max rows. Bounded by the endpoint&#39;s <code>pagination.max_limit</code>.</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>Rows to skip (simple paging).</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td>Comma-separated subset of the endpoint&#39;s allowlist, e.g. <code>?columns=account_id,api_calls_total</code>.</td>
+</tr>
+</tbody></table>
+<p>A value with a literal <code>+</code> is sent URL-encoded (<code>%2B</code>); a space decodes to <code>+</code> on the way in.</p>
+<h2 id="the-response">The response</h2>
+<p>Always the same envelope: <code>data</code> (the rows) + <code>meta</code> (what you&#39;re reading).</p>
+<pre><code class="language-json">{
+  &quot;data&quot;: [
+    { &quot;account_id&quot;: &quot;acct_zephyr&quot;, &quot;api_calls_total&quot;: 56839, &quot;storage_gb_avg&quot;: 34.3 }
+  ],
+  &quot;meta&quot;: {
+    &quot;request_id&quot;:   &quot;GL6f4CKamol9&quot;,
+    &quot;endpoint&quot;:     &quot;customer_usage_summary&quot;,
+    &quot;snapshot_id&quot;:  &quot;2026-06-01T00:00:00Z_r0007&quot;,
+    &quot;row_count&quot;:    1,
+    &quot;serving_mode&quot;: &quot;local_table&quot;,
+    &quot;cache&quot;:        &quot;hit&quot;,
+    &quot;freshness&quot;: {
+      &quot;watermark&quot;:            &quot;2026-06-01T00:00:00Z&quot;,
+      &quot;age_seconds&quot;:          2658070,
+      &quot;max_staleness_minutes&quot;: 120,
+      &quot;stale&quot;:                 true
+    }
+  }
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th><code>meta</code> field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>request_id</code></td>
+<td>Correlates with server logs; echo it when reporting an issue.</td>
+</tr>
+<tr>
+<td><code>snapshot_id</code></td>
+<td>Exactly which snapshot answered — stable until a newer one swaps in. Good cache key.</td>
+</tr>
+<tr>
+<td><code>serving_mode</code></td>
+<td><code>local_table</code> or <code>remote_scan</code>.</td>
+</tr>
+<tr>
+<td><code>cache</code></td>
+<td><code>hit</code> / <code>miss</code> (response cache) or <code>off</code> (endpoint not cached).</td>
+</tr>
+<tr>
+<td><code>freshness.watermark</code></td>
+<td>The snapshot&#39;s timestamp.</td>
+</tr>
+<tr>
+<td><code>freshness.age_seconds</code></td>
+<td>How old the data is right now.</td>
+</tr>
+<tr>
+<td><code>freshness.stale</code></td>
+<td><code>true</code> when older than the endpoint&#39;s <code>max_staleness_minutes</code>.</td>
+</tr>
+</tbody></table>
+<p><strong>Reacting to <code>stale: true</code>:</strong> the response is still valid data — it&#39;s a <em>hint</em>, not an error. Show
+it, optionally with an &quot;updated N minutes ago&quot; note. It clears when the next snapshot lands.</p>
+<p>Nested columns declared <code>JSON</code> come back as real nested objects, not strings.</p>
+<h2 id="errors">Errors</h2>
+<p>Errors return a stable shape and a terse message — a forbidden endpoint and a non-existent one
+look identical on purpose, so probing can&#39;t map what exists.</p>
+<pre><code class="language-json">{ &quot;errors&quot;: { &quot;detail&quot;: &quot;Not Found&quot; } }
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>When</th>
+<th>What the client should do</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>200</code></td>
+<td>OK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>401</code></td>
+<td>Missing / invalid / revoked key</td>
+<td>Fix the <code>Authorization</code> header.</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>Unknown endpoint, or the key isn&#39;t granted it (indistinguishable)</td>
+<td>Check the name and the key&#39;s grants.</td>
+</tr>
+<tr>
+<td><code>422</code></td>
+<td>A param is missing / mistyped / out of range, or an undeclared param was sent</td>
+<td>Fix the params.</td>
+</tr>
+<tr>
+<td><code>503</code></td>
+<td>The snapshot isn&#39;t materialized yet (<code>not_ready</code>)</td>
+<td>Retry with backoff; it clears once ready.</td>
+</tr>
+<tr>
+<td><code>500</code></td>
+<td>Internal error</td>
+<td>Retry; if it persists, capture <code>request_id</code> and a support bundle.</td>
+</tr>
+</tbody></table>
+<h2 id="discovering-endpoints">Discovering endpoints</h2>
+<p>The generated endpoint catalog and OpenAPI live on the <strong>admin</strong> port (<code>/docs</code>, <code>/openapi.json</code>,
+<code>/schema</code>), which operators keep private. Ask your operator for the OpenAPI spec to generate a
+typed client, or the <code>/schema</code> output for the params and response shape of each endpoint.</p>
+<h2 id="caching-at-the-edge">Caching at the edge</h2>
+<p>Public (<code>auth: none</code>) endpoints are safe to cache: the response is immutable for a given
+<code>snapshot_id</code>, and a new snapshot changes it. Front a public deployment with your CDN, and use the
+response headers (<code>ETag</code>, <code>Cache-Control</code>) for cheap revalidation. See
+<a href="public-serving.html">Serving public data</a>.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="config-reference.html"><span>Previous</span><b>Config reference</b></a>
+      <a class="pg next" href="public-serving.html"><span>Next</span><b>Public data & CDN</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

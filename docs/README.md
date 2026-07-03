@@ -4,6 +4,9 @@ Start with **[What Offloader is, in plain language](concepts.md)**, then pick by
 you want to do. Docs are versioned with the code, so a claim and the behavior that
 backs it move together.
 
+> These customer docs are also rendered into a browsable, on-brand site under `site/docs/`
+> (built by `dev/docs-site` — see its README). The Markdown here stays the source of truth.
+
 ## For customers
 
 | Doc | What it covers |
@@ -11,9 +14,12 @@ backs it move together.
 | **[concepts.md](concepts.md)** | What Offloader is, why you'd want it, and the words the other docs use. **Start here.** |
 | [quickstart.md](quickstart.md) | Run it against the bundled example in ~15 minutes, no cloud needed. |
 | [developer-experience.md](developer-experience.md) | Config guide: define your datasets, endpoints, and keys; load config from a bucket. |
+| [config-reference.md](config-reference.md) | Field-by-field reference for every config file, with the exact allowed values. |
+| [api.md](api.md) | The consumer API contract: request, the `data`/`meta` envelope, and the error-to-status table. |
 | [operator.md](operator.md) | Run it in production: deploy, size, upgrade, roll back, diagnose. |
 | [deployment.md](deployment.md) | Deployment shapes (docker / Compose / Kubernetes) and rollout verification. |
 | [security-model.md](security-model.md) | What Offloader protects for you, and what you're responsible for. |
+| [public-serving.md](public-serving.md) | Serve public data to a front-end and cache it at the edge (auth, ETags, CORS). |
 | [cutover-runbook.md](cutover-runbook.md) | Replace an existing serving API — gradual and reversible. |
 | [roi.md](roi.md) | Estimate the warehouse savings before committing. |
 | [benchmarks.md](benchmarks.md) | Measure latency, throughput, and footprint on your own data. |

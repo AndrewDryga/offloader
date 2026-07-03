@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deployment — Offloader docs</title>
+<meta name="description" content="Offloader V1 is a customer-run container. The product ships an image, documented
+env vars, mounted config conventions, health checks, metrics, and smoke…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html" aria-current="page">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Operate</p>
+    <article class="prose">
+<h1 id="deployment">Deployment</h1>
+<p>Offloader V1 is a customer-run container. The product ships an image, documented
+env vars, mounted config conventions, health checks, metrics, and smoke tests.
+Customers decide how to run it on their servers, Kubernetes clusters, Nomad
+clusters, ECS tasks, VMs, or other internal platforms.</p>
+<h2 id="runtime-shape">Runtime shape</h2>
+<pre><code class="language-text">product traffic -&gt; API port      -&gt; endpoint API keys and tenant enforcement
+operators       -&gt; admin port    -&gt; health, readiness, metrics, diagnostics, docs
+</code></pre>
+<p>The admin port is not an identity product. Customers expose it only through their
+own network, proxy, firewall, IAM, SSO, or RBAC controls.</p>
+<p><strong>Config</strong> comes from <code>OFFLOADER_CONFIG</code>: either a mounted directory (a ConfigMap/volume with
+<code>offloader.yml</code> + <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code>) or a <code>gs://…</code> bucket prefix fetched at boot
+(fully stateless). With <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set, bucket changes hot-reload with no
+restart — see the <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</p>
+<h2 id="required-examples">Required examples</h2>
+<ul>
+<li>Single-node <code>docker run</code>.</li>
+<li>Docker Compose with a mounted cache volume.</li>
+<li>Kubernetes Deployment, Service, ConfigMap, Secret, and PersistentVolumeClaim.</li>
+<li>Prometheus scrape config for the admin port.</li>
+<li>Rollback to previous image.</li>
+<li>Cache quarantine and rebuild.</li>
+</ul>
+<h2 id="rollout-verification-and-rollback">Rollout verification and rollback</h2>
+<p>Before rolling out an image, run the same gate the project uses:</p>
+<pre><code class="language-sh">make deploy-check   # builds the prod image, boots it, verifies ports, health,
+                    # diagnostics/metrics, and a manifest -&gt; HTTP smoke, then exits 0
+</code></pre>
+<p><code>dev/scripts/deploy-check.sh</code> is the reusable shape — a customer&#39;s deployment
+system can wrap the same checks against a freshly-deployed instance:</p>
+<ol>
+<li>Wait for the admin <code>/ready</code> to return 200 (it stays 503 until a snapshot is
+materialized, so traffic is held until the instance can actually serve).</li>
+<li>Confirm <code>/live</code>, <code>/status</code>, <code>/metrics</code>, and authenticated <code>/diagnostics</code>.</li>
+<li>Call one real endpoint with a known key and assert <code>snapshot_id</code> + freshness.</li>
+<li>Confirm the admin surface is NOT reachable on the API port.</li>
+</ol>
+<p>If a check fails, roll back:</p>
+<ul>
+<li><strong>Bad image or config</strong> — redeploy the previous image tag (pin versions; never
+<code>:latest</code>). Health returns immediately; there is no schema migration to undo.</li>
+<li><strong>Bad snapshot</strong> — the gateway never swaps in a snapshot that fails validation or
+compatibility, so serving is already protected. To revert a <em>good-but-wrong</em>
+snapshot, roll the dataset back to its previous good snapshot (see
+<a href="runbooks.html">runbooks</a> → &quot;Rollback to previous snapshot&quot;).</li>
+</ul>
+<h2 id="non-goals">Non-goals</h2>
+<ul>
+<li>No hosted Offloader cloud.</li>
+<li>No Terraform module for a specific provider in V1.</li>
+<li>No RBAC, SSO, organization management, or team management.</li>
+<li>No fleet management portal.</li>
+</ul>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="security-model.html"><span>Previous</span><b>Security model</b></a>
+      <a class="pg next" href="operator.html"><span>Next</span><b>Operator guide</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runbooks — Offloader docs</title>
+<meta name="description" content="One short runbook per V1 incident class. The first job is classification — is
+this an Offloader bug, the customer environment, or upstream data? The…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html" aria-current="page">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Operate</p>
+    <article class="prose">
+<h1 id="runbooks">Runbooks</h1>
+<p>One short runbook per V1 incident class. The first job is <strong>classification</strong> — is
+this an Offloader bug, the customer environment, or upstream data? The admin
+minutes. Each runbook: symptom → signals → likely owner → action → escalation.</p>
+<blockquote>
+<p>Commands assume the admin port is reachable privately and <code>OFFLOADER_ADMIN_TOKEN</code>
+is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer $TOKEN&quot; $ADMIN/diagnostics</code>.</p>
+</blockquote>
+<h2 id="gateway-does-not-start">Gateway does not start</h2>
+<ul>
+<li><strong>Signals:</strong> container exits on boot; <code>docker logs</code> shows a config/secret error.</li>
+<li><strong>Owner:</strong> customer environment (config/secret) or Offloader (crash).</li>
+<li><strong>Action:</strong> a missing <code>OFFLOADER_SECRET_KEY_BASE</code> or unreadable <code>OFFLOADER_CONFIG</code>
+is the usual cause — check both. Validate config: <code>offloader validate --config …</code>.</li>
+<li><strong>Escalate:</strong> if config validates and the secret is set but it still crashes.</li>
+</ul>
+<h2 id="source-credentials-fail-bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</h2>
+<ul>
+<li><strong>Signals:</strong> <code>offloader_source_reachable == 0</code>; <code>DIAG</code> <code>source_reachable:false</code>.</li>
+<li><strong>Owner:</strong> customer environment (IAM/network/object store).</li>
+<li><strong>Action:</strong> check the container&#39;s network + read-only credentials to the source.
+Offloader keeps serving the last good snapshot meanwhile.</li>
+</ul>
+<h2 id="bad-manifest-dataset-refresh-fails">Bad manifest / dataset refresh fails</h2>
+<ul>
+<li><strong>Signals:</strong> <code>offloader_refresh_ok == 0</code>; <code>DIAG</code> <code>last_attempted.status</code> = rejected
+or failed with a <code>refresh_error</code>.</li>
+<li><strong>Owner:</strong> upstream data (rejected = the producer shipped a bad/breaking manifest)
+or Offloader (failed = materialization error).</li>
+<li><strong>Action:</strong> read <code>refresh_error</code>. <code>rejected</code> → fix the upstream manifest (it never
+swapped in, so serving is safe). <code>failed</code> → check disk/DuckDB below.</li>
+</ul>
+<h2 id="dataset-stale">Dataset stale</h2>
+<ul>
+<li><strong>Signals:</strong> <code>offloader_snapshot_stale == 1</code>; response <code>meta.freshness.stale:true</code>.</li>
+<li><strong>Owner:</strong> upstream data (the producer stopped publishing fresh manifests).</li>
+<li><strong>Action:</strong> check the upstream pipeline. Offloader honestly reports staleness and
+keeps serving the last good snapshot.</li>
+</ul>
+<h2 id="duckdb-cache-corrupted-duckdb-failure">DuckDB cache corrupted / DuckDB failure</h2>
+<ul>
+<li><strong>Signals:</strong> <code>offloader_duckdb_up == 0</code>; queries error.</li>
+<li><strong>Owner:</strong> Offloader / environment (disk).</li>
+<li><strong>Action:</strong> quarantine + rebuild the cache (delete the cache volume, restart — it
+rematerializes from the manifest). Check disk first.</li>
+</ul>
+<h2 id="disk-full">Disk full</h2>
+<ul>
+<li><strong>Signals:</strong> <code>offloader_cache_disk_free_bytes</code> low; materialization fails.</li>
+<li><strong>Owner:</strong> customer environment.</li>
+<li><strong>Action:</strong> grow the cache volume or clear old snapshots, then restart.</li>
+</ul>
+<h2 id="pool-busy-endpoint-latency-regression">Pool busy / endpoint latency regression</h2>
+<ul>
+<li><strong>Signals:</strong> rising p95/p99 (benchmark harness / your APM); <code>DIAG</code> <code>pool</code>.</li>
+<li><strong>Owner:</strong> Offloader (serving) or customer (load).</li>
+<li><strong>Action:</strong> compare against a benchmark baseline (<code>../benchmarks.md</code>). For a hot,
+high-QPS endpoint on <code>remote_scan</code>, move it to <code>local_table</code>. Consider the response
+cache for repeated params.</li>
+</ul>
+<h2 id="tenantauth-misconfiguration-key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</h2>
+<ul>
+<li><strong>Signals:</strong> consumers get 401 (bad/revoked key) or 404 (endpoint not granted).</li>
+<li><strong>Owner:</strong> customer (key config).</li>
+<li><strong>Action:</strong> confirm the key&#39;s <code>status: active</code>, its <code>endpoints</code> allowlist, and its
+bound <code>tenant</code> in <code>keys.yml</code>. 404 is intentional for out-of-scope endpoints (no
+existence disclosure). Mint keys with <code>offloader keys create</code>.</li>
+</ul>
+<h2 id="rollback-to-previous-image">Rollback to previous image</h2>
+<ul>
+<li><strong>Owner:</strong> customer.</li>
+<li><strong>Action:</strong> redeploy the previous pinned image tag. Health returns immediately;
+there is no migration to undo.</li>
+</ul>
+<h2 id="rollback-to-previous-snapshot">Rollback to previous snapshot</h2>
+<ul>
+<li><strong>Owner:</strong> customer/Offloader.</li>
+<li><strong>Action:</strong> a bad snapshot never swaps in (validation + compatibility gate it). To
+revert a good-but-wrong snapshot, roll the dataset back to its previous good one.</li>
+</ul>
+<h2 id="cache-quarantine-and-rebuild-clear-cache">Cache quarantine and rebuild / clear cache</h2>
+<ul>
+<li><strong>Owner:</strong> customer.</li>
+<li><strong>Action:</strong> stop the container, remove the cache volume (one dataset: remove its
+materialized files; all: the whole volume), restart. The gateway rematerializes
+from the current manifest on boot.</li>
+</ul>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="operator.html"><span>Previous</span><b>Operator guide</b></a>
+      <a class="pg next" href="ownership.html"><span>Next</span><b>Ownership & support</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

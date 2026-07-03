@@ -16,3 +16,7 @@ erl_crash.dump
 
 # Release artifacts (dev/scripts/release.sh)
 dist/
+
+# Docs-site build tooling deps (the generator + generated site/docs/*.html are committed)
+node_modules/
+dev/docs-site/node_modules/

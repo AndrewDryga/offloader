@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Config reference — Offloader docs</title>
+<meta name="description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces
+(dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html" aria-current="page">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Configure</p>
+    <article class="prose">
+<h1 id="config-reference">Config reference</h1>
+<p>Every field of an Offloader project, with the exact allowed values. New to the pieces
+(dataset, endpoint, snapshot, project)? Read <a href="concepts.html">Concepts</a> first. For a complete
+working project to copy, see <code>examples/customer-analytics/</code>.</p>
+<p>A project is four kinds of file:</p>
+<pre><code class="language-text">offloader.yml       project file — which dirs to load, auth mode, keys path
+datasets/*.yml      one per dataset — the table + the columns you expect
+endpoints/*.yml     one per endpoint — the REST contract over a dataset
+keys/keys.yml       API keys (hashes only) — omit for a public (auth: none) API
+</code></pre>
+<p>Run <code>offloader validate --config &lt;path&gt;/offloader.yml</code> to check the whole tree; it reports
+every problem at once.</p>
+<hr>
+<h2 id="offloaderyml"><code>offloader.yml</code></h2>
+<p>The top-level project file <code>OFFLOADER_CONFIG</code> points at.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>version</code></td>
+<td>integer</td>
+<td>yes</td>
+<td>Config schema version. Currently <code>1</code>.</td>
+</tr>
+<tr>
+<td><code>datasets_dir</code></td>
+<td>string</td>
+<td>no</td>
+<td>Directory of dataset files, relative to this file. Default <code>datasets</code>.</td>
+</tr>
+<tr>
+<td><code>endpoints_dir</code></td>
+<td>string</td>
+<td>no</td>
+<td>Directory of endpoint files. Default <code>endpoints</code>.</td>
+</tr>
+<tr>
+<td><code>keys</code></td>
+<td>string</td>
+<td>no</td>
+<td>Path to the keys file, relative to this file. Omit for a public API.</td>
+</tr>
+<tr>
+<td><code>auth</code></td>
+<td><code>required</code> | <code>none</code></td>
+<td>no</td>
+<td>Default <code>required</code> (every request needs an API key). <code>none</code> serves publicly — <strong>accepted only when no endpoint is tenant-scoped</strong>.</td>
+</tr>
+<tr>
+<td><code>object_store_mode</code></td>
+<td>string</td>
+<td>no</td>
+<td>Informational tag for the snapshot source (<code>local</code>, <code>gcs</code>, …). Credentials come from env vars, never this file.</td>
+</tr>
+</tbody></table>
+<pre><code class="language-yaml">version: 1
+datasets_dir: datasets
+endpoints_dir: endpoints
+keys: keys/keys.yml
+</code></pre>
+<hr>
+<h2 id="datasetsyml"><code>datasets/*.yml</code></h2>
+<p>A dataset is a named table Offloader serves, plus the schema it expects. One file per dataset.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Lowercase identifier (<code>[a-z][a-z0-9_]*</code>). Used in endpoints and URLs.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>no</td>
+<td>Free text.</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>list of <code>{name, type}</code></td>
+<td>yes</td>
+<td>The columns the gateway expects. See types below.</td>
+</tr>
+<tr>
+<td><code>tenant_column</code></td>
+<td>string</td>
+<td>no</td>
+<td>The column that identifies a tenant. If set, every endpoint on this dataset is tenant-scoped and the value is bound from the caller&#39;s key — never a request param.</td>
+</tr>
+<tr>
+<td><code>manifest</code></td>
+<td>string</td>
+<td>one of <code>manifest</code>/<code>source</code></td>
+<td>Path (relative to the project) to a snapshot manifest — for local/static snapshots.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>object</td>
+<td>one of <code>manifest</code>/<code>source</code></td>
+<td>A remote source that discovers the latest snapshot itself (see below).</td>
+</tr>
+</tbody></table>
+<p><strong>Column types</strong> (<code>schema[].type</code>): <code>DATE</code>, <code>TIMESTAMP</code>, <code>VARCHAR</code>, <code>INTEGER</code>, <code>BIGINT</code>,
+<code>DOUBLE</code>, <code>BOOLEAN</code>, <code>JSON</code>. Use <strong><code>JSON</code></strong> for a nested column (<code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> in the
+snapshot); the endpoint serves it as a nested JSON object.</p>
+<p><strong><code>source:</code> (a self-updating remote snapshot):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>type</code></td>
+<td><code>databricks</code></td>
+<td>The commit-protocol resolver: finds the latest <code>_committed_&lt;tid&gt;</code> in the bucket.</td>
+</tr>
+<tr>
+<td><code>bucket</code></td>
+<td>string</td>
+<td>Object-storage bucket.</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>string</td>
+<td>Path prefix within the bucket (ends with <code>/</code>).</td>
+</tr>
+<tr>
+<td><code>interval_seconds</code></td>
+<td>integer</td>
+<td>How often to re-check for a newer snapshot.</td>
+</tr>
+</tbody></table>
+<pre><code class="language-yaml">id: customer_usage
+description: Daily product-usage rollup, one row per (usage_date, tenant_id, account_id).
+tenant_column: tenant_id
+manifest: data/customer_usage/manifest.json      # or use `source:` for a remote bucket
+schema:
+  - { name: usage_date,  type: DATE }
+  - { name: tenant_id,   type: VARCHAR }
+  - { name: account_id,  type: VARCHAR }
+  - { name: api_calls,   type: BIGINT }
+  - { name: storage_gb,  type: DOUBLE }
+  - { name: stats,       type: JSON }            # nested column → served as a JSON object
+</code></pre>
+<hr>
+<h2 id="endpointsyml"><code>endpoints/*.yml</code></h2>
+<p>An endpoint is the REST contract over a dataset — its URL, params, query, and limits. There is
+no SQL here; the compiler turns this into a safe, parameterized query. One file per endpoint.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The URL name: <code>GET /v1/endpoints/&lt;name&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>integer</td>
+<td>yes</td>
+<td>Contract version. Bump it when you change the response shape (invalidates the response cache).</td>
+</tr>
+<tr>
+<td><code>dataset</code></td>
+<td>string</td>
+<td>yes</td>
+<td>The <code>id</code> of the dataset it reads.</td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>no</td>
+<td>Team/contact.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>no</td>
+<td>Free text; shows in the generated docs.</td>
+</tr>
+<tr>
+<td><code>serving_mode</code></td>
+<td><code>local_table</code> | <code>remote_scan</code></td>
+<td>no</td>
+<td>Default <code>local_table</code> (materialized, fast). <code>remote_scan</code> reads the snapshot files per request — for cold/huge/low-QPS endpoints.</td>
+</tr>
+<tr>
+<td><code>tenant</code></td>
+<td><code>{column}</code></td>
+<td>no</td>
+<td>Binds the tenant filter to this column (must match the dataset&#39;s <code>tenant_column</code>). Inserted server-side; a caller cannot override it.</td>
+</tr>
+<tr>
+<td><code>freshness</code></td>
+<td><code>{max_staleness_minutes}</code></td>
+<td>no</td>
+<td>Marks a response <code>stale: true</code> past this age. Informational — the response still serves.</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td>list</td>
+<td>no</td>
+<td>The query params a caller may send (below).</td>
+</tr>
+<tr>
+<td><code>combinations</code></td>
+<td>list of lists</td>
+<td>no</td>
+<td>Exact allowed sets of client-sent params (below).</td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td>object</td>
+<td>yes</td>
+<td><code>select</code> / <code>filters</code> / <code>group_by</code> / <code>order_by</code> (below).</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td>list of strings</td>
+<td>yes</td>
+<td>Allowlist of columns a response may contain. Nothing outside this can be returned.</td>
+</tr>
+<tr>
+<td><code>pagination</code></td>
+<td><code>{default_limit, max_limit}</code></td>
+<td>no</td>
+<td>Caps <code>?limit=</code>.</td>
+</tr>
+<tr>
+<td><code>cache</code></td>
+<td><code>{policy}</code></td>
+<td>no</td>
+<td><code>none</code> (default) or <code>snapshot</code> (cache responses; a new snapshot invalidates them).</td>
+</tr>
+</tbody></table>
+<h3 id="params"><code>params[]</code></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>The query-param name.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td><code>string</code> | <code>integer</code> | <code>date</code> | <code>enum</code></td>
+<td>Param types.</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>boolean</td>
+<td>Default <code>false</code>.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>value</td>
+<td>Applied when the caller omits it. Must satisfy <code>type</code>.</td>
+</tr>
+<tr>
+<td><code>enum</code></td>
+<td>list</td>
+<td>For <code>type: enum</code> — the allowed values.</td>
+</tr>
+<tr>
+<td><code>max</code></td>
+<td>integer</td>
+<td>For <code>type: integer</code> — the upper bound.</td>
+</tr>
+<tr>
+<td><code>aliases</code></td>
+<td>map <code>value → value</code></td>
+<td>Rewrites a client value to a stored one before filtering (e.g. <code>&quot;25&quot;: &quot;1-25&quot;</code>).</td>
+</tr>
+</tbody></table>
+<h3 id="query"><code>query</code></h3>
+<ul>
+<li><code>select</code>: list of <code>{as, column}</code> or <code>{as, column, agg}</code>. <strong><code>agg</code></strong> ∈ <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>.</li>
+<li><code>filters</code>: list of <code>{column, op, param}</code>. <strong><code>op</code></strong> ∈ <code>eq</code>, <code>gte</code>, <code>lte</code>. The filter is applied only when the caller sends (or defaults) that param.</li>
+<li><code>group_by</code>: list of column names (required when any <code>select</code> uses an <code>agg</code>).</li>
+<li><code>order_by</code>: list of <code>{column, dir}</code>. <strong><code>dir</code></strong> ∈ <code>asc</code>, <code>desc</code>.</li>
+</ul>
+<h3 id="combinations"><code>combinations</code></h3>
+<p>Optional. Each entry is an exact set of the <strong>client-sent</strong> param names allowed together
+(checked before defaults are applied). Omit <code>combinations</code> to allow any subset. Reserved params
+(<code>limit</code>, <code>offset</code>, <code>columns</code>) never count toward a combination.</p>
+<pre><code class="language-yaml">name: customer_usage_summary
+version: 1
+dataset: customer_usage
+serving_mode: local_table
+freshness: { max_staleness_minutes: 120 }
+tenant: { column: tenant_id }
+params:
+  - { name: account_id, type: string, required: false }
+  - { name: from, type: date, required: true }
+  - { name: to,   type: date, required: true }
+combinations:
+  - [from, to]
+  - [account_id, from, to]
+query:
+  group_by: [account_id]
+  select:
+    - { as: account_id,     column: account_id }
+    - { as: api_calls_total, column: api_calls, agg: sum }
+    - { as: storage_gb_avg,  column: storage_gb, agg: avg }
+  filters:
+    - { column: account_id, op: eq,  param: account_id }
+    - { column: usage_date, op: gte, param: from }
+    - { column: usage_date, op: lte, param: to }
+  order_by:
+    - { column: api_calls_total, dir: desc }
+columns: [account_id, api_calls_total, storage_gb_avg]
+pagination: { default_limit: 50, max_limit: 100 }
+cache: { policy: snapshot }
+</code></pre>
+<p>Every caller also gets, for free: <code>?limit=</code> / <code>?offset=</code> (bounded by <code>pagination</code>) and a
+<code>?columns=a,b</code> subset of the allowlist. See the <a href="api.html">Consumer API</a> for the request/response
+contract.</p>
+<hr>
+<h2 id="keyskeysyml"><code>keys/keys.yml</code></h2>
+<p>API keys, as a top-level <code>keys:</code> list. Tokens are never stored — only the SHA-256 hash. Mint one
+with <code>offloader keys create</code> (it prints the token once and its hash). Omit this file for a public
+(<code>auth: none</code>) API.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>Label for the key (appears in diagnostics, never the token).</td>
+</tr>
+<tr>
+<td><code>hash</code></td>
+<td>string</td>
+<td>64-char lowercase SHA-256 hex of the bearer token.</td>
+</tr>
+<tr>
+<td><code>tenant</code></td>
+<td>string</td>
+<td>The single tenant this key is bound to (<code>null</code> for a non-tenant key).</td>
+</tr>
+<tr>
+<td><code>endpoints</code></td>
+<td>list of strings</td>
+<td>The endpoint names this key may call.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>active</code> | <code>revoked</code></td>
+<td><code>revoked</code> is always denied.</td>
+</tr>
+</tbody></table>
+<pre><code class="language-yaml">keys:
+  - id: acme_prod
+    hash: &quot;745ce437a64ab1f020c303be50aa3785e742b72e61533d692f7aa024ff16b121&quot;
+    tenant: tenant_acme
+    endpoints: [customer_usage_summary, customer_usage_daily]
+    status: active
+</code></pre>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="developer-experience.html"><span>Previous</span><b>Config guide</b></a>
+      <a class="pg next" href="api.html"><span>Next</span><b>API reference</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>

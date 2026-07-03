@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Config guide — publish your datasets and endpoints — Offloader docs</title>
+<meta name="description" content="The reference for the config files Offloader loads. New to the ideas here (dataset,
+endpoint, snapshot, manifest, project)? Read
+What Offloader is, in…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html" aria-current="page">Docs</a></li>
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../index.html#start" class="nav-cta">Run it</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html" aria-current="page">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Configure</p>
+    <article class="prose">
+<h1 id="config-guide-publish-your-datasets-and-endpoints">Config guide — publish your datasets and endpoints</h1>
+<p>The reference for the config files Offloader loads. New to the ideas here (dataset,
+endpoint, snapshot, manifest, project)? Read
+<a href="concepts.html">What Offloader is, in plain language</a> first.</p>
+<h2 id="a-project-is-just-files">A project is just files</h2>
+<p>Your configuration — your <strong>project</strong> — is a small tree of YAML:</p>
+<pre><code class="language-text">offloader.yml       # top level: which dirs to load, the auth mode, the keys file
+datasets/*.yml      # one per dataset: the table + the columns you expect
+endpoints/*.yml     # one per endpoint: the REST URL, its params, query, and limits
+keys/keys.yml       # API keys (stored as hashes) — omit entirely for a public API
+</code></pre>
+<p>Offloader loads this at startup from <code>OFFLOADER_CONFIG</code> — either a <strong>mounted directory</strong>
+(point it at <code>.../offloader.yml</code>) or, fully stateless, a <strong><code>gs://…</code> bucket prefix</strong>
+(fetched at boot — see <a href="#config-from-object-storage-optional">Config from object storage</a>).
+Nothing is baked into the image.</p>
+<p>To see a complete, working project, run the <strong><a href="quickstart.html">Quickstart</a></strong> against
+<code>examples/customer-analytics/</code> — it boots a container and serves a real endpoint in about
+15 minutes. Copy that example and edit it.</p>
+<h2 id="the-offloader-cli-optional">The <code>offloader</code> CLI (optional)</h2>
+<p>The <code>offloader …</code> commands in this guide are an <strong>optional Go helper</strong>, not part of the
+container. The container needs only the files above plus env vars. Build the helper once:</p>
+<pre><code class="language-sh">cd tools &amp;&amp; go build -o offloader .     # then ./offloader &lt;command&gt;   (or: go run . &lt;command&gt;)
+</code></pre>
+<h2 id="container-env-vars">Container env vars</h2>
+<p>You only have to set <strong>two</strong>:</p>
+<ul>
+<li><code>OFFLOADER_CONFIG</code> — path to <code>offloader.yml</code>, or a <code>gs://…</code> bucket prefix.</li>
+<li><code>OFFLOADER_SECRET_KEY_BASE</code> — any random string (<code>openssl rand -base64 48</code>).</li>
+</ul>
+<p>Everything else has a sensible default:</p>
+<ul>
+<li><code>OFFLOADER_CACHE_DIR</code> (default <code>/var/lib/offloader/cache</code>), <code>OFFLOADER_API_PORT</code> (4000),
+<code>OFFLOADER_ADMIN_PORT</code> (4001), <code>OFFLOADER_LOG_LEVEL</code> (info).</li>
+<li><code>OFFLOADER_ADMIN_TOKEN</code> — recommended: gates the <code>/diagnostics</code> route (unset ⇒ it fails closed).</li>
+<li><code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> — seconds between bucket config re-checks (unset ⇒ off).</li>
+<li><code>OFFLOADER_CORS_ORIGINS</code> — allow a browser front-end to call the API cross-origin: <code>*</code> or a
+comma-separated origin list (unset ⇒ no CORS). See <a href="public-serving.html">serving public data</a>.</li>
+<li>Tuning: <code>OFFLOADER_POOL_SIZE</code> (DuckDB read connections, default 16),
+<code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code> (bound DuckDB to the container&#39;s
+memory allocation).</li>
+</ul>
+<p>Object-store credentials are needed only when your config reads from a remote source (below);
+the local example needs no cloud vars and makes no outbound calls.</p>
+<p>Source-specific object-store credentials are configured only when the mounted
+config references that source. Offloader should not require cloud-provider env
+vars or outbound telemetry for the local golden path.</p>
+<h3 id="remote-snapshot-credentials-optional">Remote snapshot credentials (optional)</h3>
+<p>A manifest whose <code>files[].path</code> is an <code>s3://</code>, <code>gs://</code>, or <code>https://</code> URL is read
+directly by DuckDB (httpfs). Two credential modes:</p>
+<ul>
+<li><strong>S3-compatible / GCS HMAC</strong> — <code>OFFLOADER_S3_TYPE=s3|gcs</code> plus
+<code>OFFLOADER_S3_KEY_ID</code>, <code>OFFLOADER_S3_SECRET</code> (and for S3: <code>OFFLOADER_S3_REGION</code>,
+<code>OFFLOADER_S3_ENDPOINT</code>, <code>OFFLOADER_S3_URL_STYLE</code>, <code>OFFLOADER_S3_SESSION_TOKEN</code>,
+<code>OFFLOADER_S3_USE_SSL</code>). Covers <code>s3://</code> and <code>gs://</code> paths.</li>
+<li><strong>GCS OAuth bearer</strong> — <code>OFFLOADER_GCS_AUTH=bearer</code>. Tokens come from, in order:
+<code>OFFLOADER_GCS_TOKEN</code> (explicit), the GCE metadata server (the GKE/GCE production
+path), or the <code>gcloud</code> CLI (developer laptops). The token is registered as a
+DuckDB HTTP secret covering <code>https://storage.googleapis.com/...</code> reads and is
+rotated automatically before expiry. The Databricks GCS source
+(<code>Offloader.Source.Databricks</code>) uses the same tokens for listings and commit reads.</li>
+</ul>
+<p>Explicit HMAC credentials win when both are set. Credentials never appear in logs,
+error bodies, or support bundles (values are scrubbed; bundles are redacted).</p>
+<h2 id="config-from-object-storage-optional">Config from object storage (optional)</h2>
+<p><code>OFFLOADER_CONFIG</code> may be a <strong><code>gs://bucket/prefix/</code> URL</strong> instead of a mounted path. At boot
+Offloader fetches the whole project tree (<code>offloader.yml</code>, <code>datasets/</code>, <code>endpoints/</code>, the keys
+file) from GCS into <code>&lt;cache_dir&gt;/config/</code> and loads it from there — so the container is fully
+stateless: env vars in, config and data both in the bucket, nothing mounted.</p>
+<ul>
+<li>Uses the <strong>GCS bearer token chain</strong> (the same one the Databricks source lists with):
+<code>OFFLOADER_GCS_TOKEN</code>, the GCE metadata server, or <code>gcloud</code> — set <code>OFFLOADER_GCS_AUTH=bearer</code>.
+Remote config is GCS-only for now (<code>s3://</code>/<code>https://</code> config is not yet supported).</li>
+<li>Only <code>.yml</code>/<code>.yaml</code> objects under the prefix are fetched (bounded to 500 files / 32 MiB). A
+transient GCS error at boot is retried a few times; an invalid config fails boot loudly, exactly
+as a bad mounted config does.</li>
+<li>Datasets served from a remote config should use a remote <code>source:</code> (Databricks/GCS) or an
+absolute/remote <code>manifest:</code> — a <em>relative local</em> <code>manifest:</code> has no mounted data to resolve
+against.</li>
+<li><strong>Security — co-hosting config with data:</strong> the keys file stores <strong>SHA-256 hashes of bearer
+tokens, never the tokens</strong> (see <code>security-model.md</code>), so bucket-read exposure leaks hashes plus
+the endpoint/tenant access map, not usable credentials. A <strong>public</strong> deployment (<code>auth: none</code>)
+has no keys file at all — the cleanest stateless setup. For an authed deployment, put the config
+under a <strong>separate, tighter-ACL bucket/prefix</strong> from the bulk data if you want to limit who can
+read the hashes.</li>
+</ul>
+<h3 id="hot-config-auto-sync">Hot config auto-sync</h3>
+<p>Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> (unset/0 = off) and Offloader re-checks the config
+on that interval and hot-reloads changes <strong>with no restart</strong>:</p>
+<ul>
+<li>Change detection is cheap — a single object LIST (no downloads) when nothing changed.</li>
+<li>Endpoint, key, and data-source changes apply at once (the response cache is flushed).</li>
+<li>A dataset <strong>schema</strong> change is applied <strong>blue-green with zero downtime</strong>: the old snapshot and its
+endpoints keep serving while the new-schema table is materialized off to the side, then that
+dataset&#39;s table and endpoints flip together atomically. A staged build that fails compatibility
+(e.g. the producer hasn&#39;t published matching data yet) keeps the old version serving and is
+retried — nothing it serves ever breaks.</li>
+<li>A bad sync (network, invalid YAML, validation error) is logged and the <strong>running config is kept</strong> —
+a broken bucket revision never takes the service down.</li>
+<li><code>/metrics</code> exposes <code>offloader_config_sync_enabled</code> and <code>offloader_config_sync_ok</code> (alert on the
+latter == 0); admin <code>/diagnostics</code> shows the last sync result + timestamps.</li>
+</ul>
+<p>Push a new revision the boring way: update the objects under the config prefix and the next tick picks
+them up. Sequence a schema change as <strong>data first, then config</strong>, so the new-schema build succeeds on
+the first try.</p>
+<h2 id="useful-helper-commands">Useful helper commands</h2>
+<ul>
+<li><code>offloader validate</code></li>
+<li><code>offloader manifest validate</code></li>
+<li><code>offloader import-schema</code></li>
+<li><code>offloader shadow-diff</code></li>
+<li><code>offloader endpoint test</code></li>
+<li><code>offloader snapshot status</code></li>
+<li><code>offloader keys create</code></li>
+<li><code>offloader diff</code></li>
+<li><code>offloader doctor</code></li>
+<li><code>offloader support-bundle</code></li>
+</ul>
+<h3 id="importing-an-existing-serving-schema">Importing an existing serving schema</h3>
+<p>If you already run a warehouse-backed serving API described by a <code>serving_schema.json</code>,
+<code>offloader import-schema</code> generates a whole Offloader project from it: one dataset per
+source table, one endpoint per query, with the source&#39;s <code>defaults</code>/<code>combinations</code>/
+<code>param_aliases</code> preserved, plus a <code>mapping.json</code> the cutover diff harness uses. (In that
+schema format each query is grouped by its <code>game</code> and <code>table</code> fields — hence the
+<code>game__table</code> keys below; those are the schema&#39;s own field names, whatever your domain.)</p>
+<p>Column types aren&#39;t in the schema file (its queries are <code>SELECT *</code>), so supply a hints
+file — one DESCRIBE per table, mapping nested <code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> columns to <code>JSON</code>:</p>
+<pre><code class="language-bash"># one row per source table: {&quot;game__table&quot;: [{&quot;name&quot;:&quot;c&quot;,&quot;type&quot;:&quot;VARCHAR&quot;}, ...]}
+offloader import-schema \
+  --from serving_schema.json --hints schema_hints.json \
+  --out ./project --bucket your-snapshot-bucket
+</code></pre>
+<p>Queries whose params aren&#39;t columns of their table (or whose table has no hints) fail
+the run so nothing is silently mis-served; <code>--skip-broken</code> converts the rest and reports
+each skip. The output passes <code>offloader validate</code> and serves live once GCS credentials
+are set (see below).</p>
+<h2 id="config-layout">Config layout</h2>
+<p>The project directory <code>OFFLOADER_CONFIG</code> points at:</p>
+<pre><code class="language-text">offloader.yml       # top-level project file (version, dirs, auth mode, keys path)
+datasets/           # one *.yml per dataset (the table contract)
+endpoints/          # one *.yml per endpoint (the REST contract)
+keys/keys.yml       # API keys, as hashes — omit for a public (auth: none) API
+</code></pre>
+<p><code>offloader validate</code> checks the whole tree the same way the container does — run it in CI
+before you ship a change. See <code>examples/customer-analytics/</code> for a complete, working project.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="quickstart.html"><span>Previous</span><b>Quickstart</b></a>
+      <a class="pg next" href="config-reference.html"><span>Next</span><b>Config reference</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="doc-foot">
+  <div class="wrap doc-foot-inner">
+    <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+    <nav class="doc-foot-links" aria-label="Footer">
+      <a href="index.html">Docs home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="../index.html">Marketing site</a>
+      <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+    </nav>
+    <p class="doc-foot-legal">Docs track shipped behavior. Freshness is minutes to hours, not real-time. © 2026 Offloader.</p>
+  </div>
+</footer>
+<script>if(matchMedia('(max-width: 980px)').matches){var n=document.getElementById('docsnav');if(n)n.open=false;}</script>
+</body>
+</html>
