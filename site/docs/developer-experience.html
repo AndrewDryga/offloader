@@ -170,6 +170,30 @@ static-manifest path above.</li>
 </ul>
 <p>Either way the swap is validated and zero-downtime: a snapshot that fails its dataset
 contract is rejected and the last good one keeps serving.</p>
+<h2 id="the-cache-directory-warm-vs-cold-restarts">The cache directory (warm vs. cold restarts)</h2>
+<p><code>OFFLOADER_CACHE_DIR</code> (default <code>/var/lib/offloader/cache</code>) is where a <code>local_table</code> dataset&#39;s
+snapshot is <strong>materialized</strong> — the on-disk DuckDB copy that requests actually read from. It is a
+<strong>cache, not the source of truth</strong>: the bucket is. You can delete it at any time and lose nothing
+but warm state — the container rebuilds it from the manifest on the next boot or refresh.</p>
+<p>That rebuild is the whole reason to persist it. Mount a volume at the cache dir (as the
+<a href="https://github.com/AndrewDryga/offloader/blob/main/README.md#runtime-configuration">README run command</a> does) and a restart is a <strong>warm start</strong>:
+the materialized snapshot is already on disk, so the container serves within seconds. Leave it
+ephemeral and every restart is a <strong>cold start</strong> — the container re-fetches every snapshot from
+object storage and re-materializes it before it can serve, which on a large project is minutes,
+not seconds. So in production, <strong>persist it</strong>:</p>
+<ul>
+<li><strong>Size the volume for your total materialized snapshot bytes, with headroom.</strong> A refresh writes
+the new copy of a dataset before dropping the old one, so budget for the largest dataset being
+present twice during its swap.</li>
+<li><strong>It is disposable.</strong> Losing the volume (a new host, a wiped disk) only forces one cold start;
+it never risks data, because the bucket is authoritative.</li>
+</ul>
+<p><strong>If a dataset is too large to materialize on the box, don&#39;t size the disk to it — serve it
+remotely.</strong> Set that endpoint&#39;s <a href="config-reference.html#endpointsyml"><code>serving_mode: remote_scan</code></a> and
+DuckDB scans the snapshot&#39;s Parquet <strong>directly from object storage per request</strong> — nothing is
+copied into the cache dir. You trade a little per-request latency for not needing local disk (or a
+cold-start rematerialization) proportional to the dataset. It&#39;s the right mode for huge, cold, or
+low-QPS endpoints; keep <code>local_table</code> (the default) for the hot ones.</p>
 <h2 id="config-from-object-storage-optional">Config from object storage (optional)</h2>
 <p><code>OFFLOADER_CONFIG</code> may be a <strong><code>gs://bucket/prefix/</code> URL</strong> instead of a mounted path. At boot
 Offloader fetches the whole project tree (<code>offloader.yml</code>, <code>datasets/</code>, <code>endpoints/</code>, the keys

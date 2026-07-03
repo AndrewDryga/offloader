@@ -116,6 +116,33 @@ A dataset gets its data one of two ways, chosen per dataset:
 Either way the swap is validated and zero-downtime: a snapshot that fails its dataset
 contract is rejected and the last good one keeps serving.
 
+## The cache directory (warm vs. cold restarts)
+
+`OFFLOADER_CACHE_DIR` (default `/var/lib/offloader/cache`) is where a `local_table` dataset's
+snapshot is **materialized** — the on-disk DuckDB copy that requests actually read from. It is a
+**cache, not the source of truth**: the bucket is. You can delete it at any time and lose nothing
+but warm state — the container rebuilds it from the manifest on the next boot or refresh.
+
+That rebuild is the whole reason to persist it. Mount a volume at the cache dir (as the
+[README run command](../README.md#runtime-configuration) does) and a restart is a **warm start**:
+the materialized snapshot is already on disk, so the container serves within seconds. Leave it
+ephemeral and every restart is a **cold start** — the container re-fetches every snapshot from
+object storage and re-materializes it before it can serve, which on a large project is minutes,
+not seconds. So in production, **persist it**:
+
+- **Size the volume for your total materialized snapshot bytes, with headroom.** A refresh writes
+  the new copy of a dataset before dropping the old one, so budget for the largest dataset being
+  present twice during its swap.
+- **It is disposable.** Losing the volume (a new host, a wiped disk) only forces one cold start;
+  it never risks data, because the bucket is authoritative.
+
+**If a dataset is too large to materialize on the box, don't size the disk to it — serve it
+remotely.** Set that endpoint's [`serving_mode: remote_scan`](config-reference.md#endpointsyml) and
+DuckDB scans the snapshot's Parquet **directly from object storage per request** — nothing is
+copied into the cache dir. You trade a little per-request latency for not needing local disk (or a
+cold-start rematerialization) proportional to the dataset. It's the right mode for huge, cold, or
+low-QPS endpoints; keep `local_table` (the default) for the hot ones.
+
 ## Config from object storage (optional)
 
 `OFFLOADER_CONFIG` may be a **`gs://bucket/prefix/` URL** instead of a mounted path. At boot
