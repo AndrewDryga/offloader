@@ -38,6 +38,9 @@ defmodule OffloaderWeb.ResilienceHTTPTest do
 
   defp champion, do: get(build_conn(), "/v1/endpoints/champion?champion_id=1")
 
+  defp restore(key, nil), do: Application.delete_env(:offloader, key)
+  defp restore(key, val), do: Application.put_env(:offloader, key, val)
+
   # A second snapshot for the champion_stats dataset: same parquet, new snapshot_id.
   defp write_manifest_v2!(project_yml) do
     dir = project_yml |> Path.dirname() |> Path.join("data/champion_stats")
@@ -125,6 +128,21 @@ defmodule OffloaderWeb.ResilienceHTTPTest do
       |> get("/v1/endpoints/champion?champion_id=1")
 
     assert cached.status == 304
+  end
+
+  test "the response cache is bounded — open-cardinality params can't grow it without limit" do
+    prev = Application.get_env(:offloader, :cache_max_entries)
+    Application.put_env(:offloader, :cache_max_entries, 40)
+    on_exit(fn -> restore(:cache_max_entries, prev) end)
+
+    boot(copy_public_project!(), [])
+
+    # champion is a cacheable public endpoint; mint far more distinct keys than the cap.
+    for id <- 1..300, do: get(build_conn(), "/v1/endpoints/champion?champion_id=#{id}")
+
+    ctx = Offloader.Runtime.__test_context__()
+    # bounded to roughly the cap (never unbounded growth); +1 for the internal seq counter.
+    assert :ets.info(ctx.cache_table, :size) <= 41
   end
 
   test "the interval poll loop picks up a new snapshot with no restart and no manual refresh" do

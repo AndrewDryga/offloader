@@ -17,6 +17,19 @@ pool_size =
       end
   end
 
+# Response-cache entry ceiling — unset => Config default (10_000); must be a positive int.
+cache_max_entries =
+  case System.get_env("OFFLOADER_CACHE_MAX_ENTRIES") do
+    nil ->
+      nil
+
+    raw ->
+      case Integer.parse(raw) do
+        {n, ""} when n > 0 -> n
+        _ -> nil
+      end
+  end
+
 # Remote object store — unset => local filesystem. Set OFFLOADER_S3_TYPE=s3|gcs to
 # read snapshot files from s3:// / gs:// URLs (GCS uses HMAC KEY_ID/SECRET), or
 # OFFLOADER_GCS_AUTH=bearer to read GCS over HTTPS with OAuth bearer tokens (from
@@ -66,6 +79,7 @@ config :offloader,
          end
      end),
   pool_size: pool_size,
+  cache_max_entries: cache_max_entries,
   object_store: object_store,
   gcs_token: System.get_env("OFFLOADER_GCS_TOKEN"),
   duckdb_threads:

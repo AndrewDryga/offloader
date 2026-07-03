@@ -59,6 +59,24 @@ defmodule Offloader.EngineTest do
     assert is_integer(calls)
   end
 
+  test "TIMESTAMP and TIME columns serialize to JSON-safe ISO strings, not raw tuples", %{
+    eng: eng
+  } do
+    # duckdbex hands these back as nested calendar tuples that Jason cannot encode;
+    # without normalization every response selecting one would 500. (TIMESTAMP and
+    # TIME are documented, allowlisted column types.)
+    sql =
+      "SELECT TIMESTAMP '2026-06-01 12:34:56' AS ts, " <>
+        "CAST('2026-06-01 12:34:56+00' AS TIMESTAMPTZ) AS tsz, TIME '01:02:03' AS tm"
+
+    assert {:ok, %{rows: [[ts, tsz, tm]]}} = Engine.execute(eng, sql)
+    assert ts =~ ~r/^2026-06-01T12:34:56/
+    assert tsz =~ ~r/^2026-06-01T12:34:56/
+    assert tm =~ ~r/^01:02:03/
+    # The whole point: the row must round-trip through JSON without raising.
+    assert {:ok, _} = Jason.encode(%{ts: ts, tsz: tsz, tm: tm})
+  end
+
   test "a tenant-scoped query returns only that tenant's rows", %{eng: eng} do
     {:ok, %{rows: [[acme]]}} =
       Engine.execute(eng, "SELECT count(*)::BIGINT FROM snap WHERE tenant_id = $1", [

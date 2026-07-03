@@ -499,17 +499,40 @@ defmodule Offloader.Engine do
 
   defp quote_ident(name), do: Offloader.Sql.quote_ident(name)
 
-  # Normalize duckdbex value encodings to JSON-friendly terms.
-  # DATE -> {y,m,d} -> "YYYY-MM-DD"; HUGEINT -> {hi,lo} -> integer; else passthrough.
+  # Normalize duckdbex value encodings to JSON-friendly terms. duckdbex hands back
+  # calendar tuples for the temporal types and a {hi,lo} pair for HUGEINT — none of
+  # which Jason can encode, so an un-normalized value would crash the response.
+  #   DATE                 -> {y,m,d}                 -> "YYYY-MM-DD"
+  #   TIMESTAMP/TIMESTAMPTZ -> {{y,mo,d},{h,mi,s,us}} -> ISO-8601 datetime
+  #   TIME                 -> {h,mi,s,us}             -> ISO-8601 time
+  #   HUGEINT              -> {hi,lo}                 -> integer
   # Nested STRUCT/MAP/LIST columns are handled up-front via `to_json` (decode_json/1),
   # so they never reach this scalar path.
+  defp normalize({{y, mo, d}, {h, mi, s, us}})
+       when is_integer(y) and is_integer(h) and is_integer(us) do
+    case NaiveDateTime.new(y, mo, d, h, mi, s, {us, 6}) do
+      {:ok, dt} -> NaiveDateTime.to_iso8601(dt)
+      _ -> "#{y}-#{p2(mo)}-#{p2(d)}T#{p2(h)}:#{p2(mi)}:#{p2(s)}"
+    end
+  end
+
+  defp normalize({h, mi, s, us})
+       when is_integer(h) and is_integer(mi) and is_integer(s) and is_integer(us) do
+    case Time.new(h, mi, s, {us, 6}) do
+      {:ok, t} -> Time.to_iso8601(t)
+      _ -> "#{p2(h)}:#{p2(mi)}:#{p2(s)}"
+    end
+  end
+
   defp normalize({y, m, d}) when is_integer(y) and is_integer(m) and is_integer(d) do
     case Date.new(y, m, d) do
       {:ok, date} -> Date.to_iso8601(date)
-      _ -> {y, m, d}
+      _ -> "#{y}-#{p2(m)}-#{p2(d)}"
     end
   end
 
   defp normalize({hi, lo}) when is_integer(hi) and is_integer(lo), do: hi * @hugeint_base + lo
   defp normalize(value), do: value
+
+  defp p2(n), do: String.pad_leading(Integer.to_string(n), 2, "0")
 end

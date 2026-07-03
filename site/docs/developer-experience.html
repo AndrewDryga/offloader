@@ -115,7 +115,8 @@ container. The container needs only the files above plus env vars. Build the hel
 comma-separated origin list (unset ⇒ no CORS). See <a href="public-serving.html">serving public data</a>.</li>
 <li>Tuning: <code>OFFLOADER_POOL_SIZE</code> (DuckDB read connections, default 16),
 <code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code> (bound DuckDB to the container&#39;s
-memory allocation).</li>
+memory allocation), <code>OFFLOADER_CACHE_MAX_ENTRIES</code> (response-cache entry ceiling, default
+10,000 — raise it for more distinct query shapes, lower it to cap cache memory).</li>
 </ul>
 <p>Object-store credentials are needed only when your config reads from a remote source (below);
 the local example needs no cloud vars and makes no outbound calls.</p>

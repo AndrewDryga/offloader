@@ -52,6 +52,13 @@ defmodule Offloader.Runtime do
 
   @snapshots_ets [:public, :set, read_concurrency: true]
   @cache_ets [:public, :set, read_concurrency: true, write_concurrency: true]
+  # Bound the response cache so an endpoint with open-cardinality params (a wide date
+  # filter, a `string` param) can't grow it without limit → OOM/DoS. Each entry carries a
+  # monotonic tag; on overflow we drop the oldest quarter in one pass, so eviction is
+  # amortized O(1). Correctness never depends on eviction — snapshot_id is in the key.
+  # The ceiling is `Config.cache_max_entries/0` (OFFLOADER_CACHE_MAX_ENTRIES), read into
+  # the context once per (re)load.
+  @cache_seq_key :__cache_seq__
   @sidecar "snapshots.json"
   # How long to wait before re-staging a schema cutover whose build wasn't ready yet
   # (the producer may not have published matching data at the moment config changed).
@@ -177,6 +184,11 @@ defmodule Offloader.Runtime do
       ctx -> ctx.catalog.auth_mode == "none"
     end
   end
+
+  @doc false
+  # Test seam: the live read context (catalog + tables), so a test can inspect the
+  # response cache's bound. Not part of the public API.
+  def __test_context__(server \\ __MODULE__), do: context(server)
 
   # ── GenServer (owns the ETS tables + all snapshot-state writes) ─────────────────
 
@@ -677,8 +689,11 @@ defmodule Offloader.Runtime do
         last_attempted: attempt
       })
 
-    # Snapshot-based invalidation: a new snapshot drops the response cache.
-    :ets.delete_all_objects(state.cache_table)
+    # Drop only THIS dataset's cached responses. A new snapshot_id already makes them
+    # unreachable, but scoping the flush (vs. nuking the whole table on every dataset's
+    # swap) keeps other datasets warm, and covers a forced re-materialization of the same
+    # snapshot_id (a manual `refresh`) where the key is unchanged.
+    state = flush_dataset_cache(state, dataset_id)
     write_sidecar(state)
     state
   end
@@ -701,7 +716,9 @@ defmodule Offloader.Runtime do
         state =
           put_snapshot(state, dataset_id, %{entry | active: previous, previous: entry.active})
 
-        :ets.delete_all_objects(state.cache_table)
+        # Drop this dataset's entries: the bad snapshot's are now unreachable, and a
+        # forced re-serve should recompute rather than trust anything the bad build left.
+        state = flush_dataset_cache(state, dataset_id)
         write_sidecar(state)
         {state, {:ok, previous.snapshot_id}}
     end
@@ -893,6 +910,7 @@ defmodule Offloader.Runtime do
       engine: state.engine,
       snapshots_table: state.snapshots_table,
       cache_table: state.cache_table,
+      cache_max: Config.cache_max_entries(),
       cache_dir: state.cache_dir
     }
   end
@@ -993,12 +1011,28 @@ defmodule Offloader.Runtime do
   defp cache_get(ctx, endpoint, key) do
     if cacheable?(endpoint) do
       case :ets.lookup(ctx.cache_table, key) do
-        [{^key, data}] -> {:ok, data}
-        [] -> :miss
+        [{^key, data, _seq}] -> {:ok, data}
+        _ -> :miss
       end
     else
       :miss
     end
+  end
+
+  # Insert with a monotonic tag and keep the table bounded: on overflow, drop every entry
+  # older than the newest three-quarters in one scan (so the scan runs ~once per max/4
+  # inserts, not every insert). Concurrent writers are fine — the counter bump is atomic
+  # and select_delete is idempotent.
+  defp cache_put(%{cache_table: table, cache_max: max}, key, data) do
+    seq = :ets.update_counter(table, @cache_seq_key, {2, 1}, {@cache_seq_key, 0})
+    :ets.insert(table, {key, data, seq})
+
+    if :ets.info(table, :size) > max do
+      threshold = seq - div(max * 3, 4)
+      :ets.select_delete(table, [{{:_, :_, :"$1"}, [{:<, :"$1", threshold}], [true]}])
+    end
+
+    :ok
   end
 
   defp serve_fresh(ctx, endpoint, snapshot, tenant, params, request_id, key) do
@@ -1008,7 +1042,7 @@ defmodule Offloader.Runtime do
          {:ok, result} <- execute(ctx.engine, plan) do
       data = Enum.map(result.rows, fn row -> result.columns |> Enum.zip(row) |> Map.new() end)
 
-      if cacheable?(endpoint), do: :ets.insert(ctx.cache_table, {key, data})
+      if cacheable?(endpoint), do: cache_put(ctx, key, data)
       status = if cacheable?(endpoint), do: "miss", else: "off"
       {:ok, response(endpoint, snapshot, data, request_id, status)}
     end
@@ -1026,8 +1060,15 @@ defmodule Offloader.Runtime do
 
   # Key includes endpoint (which fixes the projection), tenant, the full request
   # params, and the snapshot id — so a new snapshot invalidates by construction.
+  # dataset is the leading key element so a swap can drop exactly one dataset's entries.
   defp cache_key(endpoint, tenant, params, snapshot_id),
-    do: {endpoint.name, endpoint.version, tenant, params, snapshot_id}
+    do: {endpoint.dataset, endpoint.name, endpoint.version, tenant, params, snapshot_id}
+
+  # Drop a single dataset's cached responses (on its swap) — leaves other datasets warm.
+  defp flush_dataset_cache(state, dataset_id) do
+    :ets.match_delete(state.cache_table, {{dataset_id, :_, :_, :_, :_, :_}, :_, :_})
+    state
+  end
 
   defp response(endpoint, snapshot, data, request_id, cache_status) do
     %{

@@ -50,7 +50,8 @@ Everything else has a sensible default:
   comma-separated origin list (unset ⇒ no CORS). See [serving public data](public-serving.md).
 - Tuning: `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
   `OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the container's
-  memory allocation).
+  memory allocation), `OFFLOADER_CACHE_MAX_ENTRIES` (response-cache entry ceiling, default
+  10,000 — raise it for more distinct query shapes, lower it to cap cache memory).
 
 Object-store credentials are needed only when your config reads from a remote source (below);
 the local example needs no cloud vars and makes no outbound calls.

@@ -44,6 +44,14 @@ defmodule Offloader.Config do
   def pool_size, do: Application.get_env(:offloader, :pool_size)
 
   @doc """
+  Max entries in the per-snapshot response cache (`OFFLOADER_CACHE_MAX_ENTRIES`),
+  default `10_000`. Bounds cache memory so open-cardinality params can't grow it
+  without limit; on overflow the oldest entries are evicted.
+  """
+  @spec cache_max_entries() :: pos_integer()
+  def cache_max_entries, do: Application.get_env(:offloader, :cache_max_entries) || 10_000
+
+  @doc """
   Remote object-store credentials parsed from `OFFLOADER_S3_*` / `OFFLOADER_GCS_*`
   env, or nil for local-filesystem mode. Shape documented in `Offloader.ObjectStore`.
   `%{type: "gcs_bearer"}` (from `OFFLOADER_GCS_AUTH=bearer`) reads GCS over HTTPS with
