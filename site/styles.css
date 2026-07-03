@@ -287,12 +287,14 @@ strong { font-weight: 600; }
 
 /* ── pricing ────────────────────────────────────────────────────────── */
 .pricing { background: var(--paper-2); border-top-color: var(--line); }
-.pricing-top { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 5vw, 4.25rem); align-items: start; }
-.pricing-top .section-head { margin-bottom: 0; }
+/* Calc left, notes right, below the header — nudged up (smaller header gap) so the
+   calculator sits closer to the heading. */
+.pricing .section-head { margin-bottom: clamp(1.5rem, 3vw, 2.5rem); }
+.pricing-body { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 5vw, 4.25rem); align-items: start; }
 .savings .save { color: var(--ink); }             /* the win — full ink */
 .savings .neg { color: var(--muted); }            /* the fee — recedes */
 .savings .keep { color: var(--ok); font-size: 1em; }  /* 1em keeps the $ column aligned */
-.pricing-notes { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.8rem, 4vw, 3.5rem); margin-top: clamp(2.75rem, 5vw, 4.5rem); }
+.pricing-notes { display: grid; gap: clamp(1.6rem, 3vw, 2.4rem); }
 .pnote { display: grid; grid-template-columns: auto 1fr; gap: 1.15rem; align-items: baseline; }
 .pnote-n { font-family: var(--mono); font-size: 1rem; font-weight: 500; color: var(--accent-2); }
 .pnote h3 { font-size: var(--fs-h3); letter-spacing: -0.015em; margin-bottom: 0.5rem; }
@@ -300,7 +302,7 @@ strong { font-weight: 600; }
 .pnote a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .pricing-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.85rem 1.4rem; margin-top: clamp(2rem, 4vw, 3rem); padding-top: clamp(1.75rem, 3vw, 2.25rem); border-top: 1px solid var(--line); }
 .pricing-cta-note { font-size: var(--fs-small); color: var(--muted); max-width: 42ch; line-height: 1.5; }
-@media (max-width: 860px) { .pricing-top, .pricing-notes { grid-template-columns: 1fr; gap: 2.5rem; } }
+@media (max-width: 860px) { .pricing-body { grid-template-columns: 1fr; gap: 2.5rem; } }
 
 /* ── start / cta ────────────────────────────────────────────────────── */
 .start { background: var(--paper-2); border-top-color: var(--line); }
