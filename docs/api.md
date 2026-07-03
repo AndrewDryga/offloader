@@ -28,7 +28,7 @@ Always the same envelope: `data` (the rows) + `meta` (what you're reading).
 ```json
 {
   "data": [
-    { "account_id": "acct_zephyr", "api_calls_total": 56839, "storage_gb_avg": 34.3 }
+    { "account_id": "acct_zephyr", "active_users_total": 244, "api_calls_total": 56839, "storage_gb_avg": 34.3 }
   ],
   "meta": {
     "request_id":   "GL6f4CKamol9",

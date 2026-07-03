@@ -1,5 +1,6 @@
 # ROI diagnostic
 
+The first paid offer is a diagnostic: ingest a customer's query
 history, cluster the repeated bounded reads, and estimate the **reducible** warehouse
 spend — honestly, with confidence levels, never an inflated bill-reduction promise.
 
@@ -25,8 +26,11 @@ query history into these columns — provider-specific importers come later):
 
 ## What the report contains
 
-  the tool will not claim more. Level 3 (reduce warehouse capacity) and Level 4
-  (finance verifies the bill dropped) require a live before/after after offload.
+- **Confidence level**, 1–4: **1** the repeated workload is identified (a technical
+  candidate, no dollar claim); **2** query logs and cost allocation estimate the reducible
+  spend; **3** warehouse size or schedule can actually be reduced; **4** finance verifies
+  the bill dropped after offload. Query logs justify **Level 2** at most — the tool will
+  not claim more; Levels 3–4 require a live before/after, after you offload.
 - **Reducible spend** = bounded, endpoint-mapped queries. Everything else is excluded.
 - **Assumptions** (reduction factors, Offloader infra cost, one-time migration labor).
 - **Net monthly savings** — conservative / expected / aggressive, minus Offloader cost,

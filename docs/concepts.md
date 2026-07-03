@@ -36,8 +36,8 @@ a newer snapshot appears, it swaps over — with no downtime. The warehouse is o
 touched by the pipeline that builds snapshots (on a schedule you control), not by live
 traffic.
 
-It runs as a **single container on your own infrastructure**. Nothing leaves your
-environment; there's no Offloader cloud.
+It runs as a **single container on your own infrastructure**: there's no Offloader
+cloud, and your private data never leaves your environment.
 
 ## Is it a fit?
 

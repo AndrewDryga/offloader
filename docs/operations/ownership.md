@@ -16,6 +16,7 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
 ## Support exclusions (V1)
 
 These are the customer's, not covered by an Offloader support response target
+(a response-time target, not an uptime SLA in V1):
 
 - Upstream pipeline failures; bad or incomplete manifests.
 - Customer IAM/network changes; object-store outages.

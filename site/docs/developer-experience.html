@@ -139,6 +139,21 @@ rotated automatically before expiry. The Databricks GCS source
 </ul>
 <p>Explicit HMAC credentials win when both are set. Credentials never appear in logs,
 error bodies, or support bundles (values are scrubbed; bundles are redacted).</p>
+<h2 id="sources-refresh">Sources &amp; refresh</h2>
+<p>A dataset gets its data one of two ways, chosen per dataset:</p>
+<ul>
+<li><strong>A static <code>manifest:</code></strong> — you publish each snapshot: write the Parquet plus a manifest
+carrying a new <code>snapshot_id</code>, then point the dataset at it. A running container picks up a
+new <code>snapshot_id</code> at <strong>boot</strong>, on a <strong>manual/admin refresh</strong>, or when <strong>config auto-sync</strong>
+reloads the config (below). This is the path for any warehouse that can export Parquet —
+Snowflake, BigQuery, Redshift, a Spark job.</li>
+<li><strong>A remote <code>source:</code></strong> — the container discovers the newest snapshot itself and swaps it in
+on a poll (<code>source.interval_seconds</code>), hands-off. The shipped connector is <strong>Databricks</strong>
+(it resolves the latest committed snapshot in the bucket); other warehouses use the
+static-manifest path above.</li>
+</ul>
+<p>Either way the swap is validated and zero-downtime: a snapshot that fails its dataset
+contract is rejected and the last good one keeps serving.</p>
 <h2 id="config-from-object-storage-optional">Config from object storage (optional)</h2>
 <p><code>OFFLOADER_CONFIG</code> may be a <strong><code>gs://bucket/prefix/</code> URL</strong> instead of a mounted path. At boot
 Offloader fetches the whole project tree (<code>offloader.yml</code>, <code>datasets/</code>, <code>endpoints/</code>, the keys
@@ -189,7 +204,6 @@ the first try.</p>
 <li><code>offloader endpoint test</code></li>
 <li><code>offloader snapshot status</code></li>
 <li><code>offloader keys create</code></li>
-<li><code>offloader diff</code></li>
 <li><code>offloader doctor</code></li>
 <li><code>offloader support-bundle</code></li>
 </ul>

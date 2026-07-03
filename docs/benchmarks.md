@@ -1,6 +1,7 @@
 # Benchmarking
 
-cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency 1, 10, and 50.
+The harness measures the pre-pilot performance gate: cold/warm load, memory, disk,
+and p50/p95/p99 latency at concurrency 1, 10, and 50.
 
 ## Run it
 
@@ -63,5 +64,7 @@ histogram.
 
 ## Honesty
 
-These numbers come from a **tiny fixture on one machine** and are **relative only**.
-require a real pilot benchmark on the customer's data and hardware.
+The **latency and throughput** numbers here come from a fixed nested-JSON payload on a
+single machine — **relative only**, not the prod-scale cold-boot validation above. Don't
+quote them as a production SLA: real latency and savings require a pilot benchmark on the
+customer's own data and hardware.

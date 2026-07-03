@@ -90,7 +90,7 @@ datasets_dir: datasets
 endpoints_dir: endpoints
 </code></pre>
 <p>A call is just:</p>
-<pre tabindex="0"><code class="language-sh">curl &quot;https://api.example.com/v1/endpoints/champion_stats?patch=16.13&quot;
+<pre tabindex="0"><code class="language-sh">curl &quot;https://api.example.com/v1/endpoints/champion?champion_id=1&quot;
 </code></pre>
 <h2 id="2-it39s-cacheable-by-construction">2. It&#39;s cacheable by construction</h2>
 <p>An Offloader response is <strong>immutable for its <code>snapshot_id</code></strong> — the same params against the same

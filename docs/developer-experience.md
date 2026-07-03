@@ -78,6 +78,23 @@ directly by DuckDB (httpfs). Two credential modes:
 Explicit HMAC credentials win when both are set. Credentials never appear in logs,
 error bodies, or support bundles (values are scrubbed; bundles are redacted).
 
+## Sources & refresh
+
+A dataset gets its data one of two ways, chosen per dataset:
+
+- **A static `manifest:`** — you publish each snapshot: write the Parquet plus a manifest
+  carrying a new `snapshot_id`, then point the dataset at it. A running container picks up a
+  new `snapshot_id` at **boot**, on a **manual/admin refresh**, or when **config auto-sync**
+  reloads the config (below). This is the path for any warehouse that can export Parquet —
+  Snowflake, BigQuery, Redshift, a Spark job.
+- **A remote `source:`** — the container discovers the newest snapshot itself and swaps it in
+  on a poll (`source.interval_seconds`), hands-off. The shipped connector is **Databricks**
+  (it resolves the latest committed snapshot in the bucket); other warehouses use the
+  static-manifest path above.
+
+Either way the swap is validated and zero-downtime: a snapshot that fails its dataset
+contract is rejected and the last good one keeps serving.
+
 ## Config from object storage (optional)
 
 `OFFLOADER_CONFIG` may be a **`gs://bucket/prefix/` URL** instead of a mounted path. At boot
@@ -131,7 +148,6 @@ the first try.
 - `offloader endpoint test`
 - `offloader snapshot status`
 - `offloader keys create`
-- `offloader diff`
 - `offloader doctor`
 - `offloader support-bundle`
 

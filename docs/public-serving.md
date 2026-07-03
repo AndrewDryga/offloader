@@ -21,7 +21,7 @@ endpoints_dir: endpoints
 A call is just:
 
 ```sh
-curl "https://api.example.com/v1/endpoints/champion_stats?patch=16.13"
+curl "https://api.example.com/v1/endpoints/champion?champion_id=1"
 ```
 
 ## 2. It's cacheable by construction

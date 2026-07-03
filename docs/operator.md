@@ -100,6 +100,20 @@ Alerts worth setting (all on `/metrics`):
 - `offloader_pool_busy` sustained near `offloader_pool_connections` — you're shedding load; raise `OFFLOADER_POOL_SIZE`.
 - `offloader_cache_disk_free_bytes` low — the cache volume is filling.
 
+## Scaling & availability
+
+Two independent axes:
+
+- **Throughput (one instance)** — reads run on a DuckDB connection pool; size it with
+  `OFFLOADER_POOL_SIZE`, and bound memory with `OFFLOADER_DUCKDB_THREADS` /
+  `OFFLOADER_DUCKDB_MEMORY_LIMIT`. A saturated pool sheds excess as a retryable `503`.
+- **Availability (many instances)** — an instance is **stateless**: it materializes each
+  snapshot into its own local cache from the bucket and serves reads with no shared state or
+  coordination. Run N behind your load balancer; each loads config and snapshots
+  independently, and any instance can serve any request. Keep each instance's admin port
+  private. (The V1 caveat below is the *support commitment* — response targets, not an uptime
+  SLA — not the topology.)
+
 ## Support tiers and exclusions
 
 V1 sells **response targets**, not an uptime SLA (until HA reference deployments are

@@ -164,6 +164,19 @@ prints a concise per-dataset summary. Metrics for alerting are on <code>/metrics
 <li><code>offloader_pool_busy</code> sustained near <code>offloader_pool_connections</code> — you&#39;re shedding load; raise <code>OFFLOADER_POOL_SIZE</code>.</li>
 <li><code>offloader_cache_disk_free_bytes</code> low — the cache volume is filling.</li>
 </ul>
+<h2 id="scaling-availability">Scaling &amp; availability</h2>
+<p>Two independent axes:</p>
+<ul>
+<li><strong>Throughput (one instance)</strong> — reads run on a DuckDB connection pool; size it with
+<code>OFFLOADER_POOL_SIZE</code>, and bound memory with <code>OFFLOADER_DUCKDB_THREADS</code> /
+<code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>. A saturated pool sheds excess as a retryable <code>503</code>.</li>
+<li><strong>Availability (many instances)</strong> — an instance is <strong>stateless</strong>: it materializes each
+snapshot into its own local cache from the bucket and serves reads with no shared state or
+coordination. Run N behind your load balancer; each loads config and snapshots
+independently, and any instance can serve any request. Keep each instance&#39;s admin port
+private. (The V1 caveat below is the <em>support commitment</em> — response targets, not an uptime
+SLA — not the topology.)</li>
+</ul>
 <h2 id="support-tiers-and-exclusions">Support tiers and exclusions</h2>
 <p>V1 sells <strong>response targets</strong>, not an uptime SLA (until HA reference deployments are
 proven). The customer-run ownership matrix and the support exclusions (upstream

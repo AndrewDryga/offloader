@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Benchmarking — Offloader docs</title>
-cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency 1…">
+<meta name="description" content="The harness measures the pre-pilot performance gate: cold/warm load, memory, disk,
+and p50/p95/p99 latency at concurrency 1, 10, and 50.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -75,7 +76,8 @@ cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency 1…">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
 <h1 id="benchmarking">Benchmarking</h1>
-cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency 1, 10, and 50.</p>
+<p>The harness measures the pre-pilot performance gate: cold/warm load, memory, disk,
+and p50/p95/p99 latency at concurrency 1, 10, and 50.</p>
 <h2 id="run-it">Run it</h2>
 <pre tabindex="0"><code class="language-sh">./dev/scripts/benchmark.sh [out_dir]
 # short CI run (default 300 req/scenario); deeper manual run:
@@ -130,8 +132,10 @@ crash startup nor wedge a refresh worker; it records a failed attempt and the re
 endpoint, <code>offloader_requests_total{status}</code> plus an <code>offloader_request_duration_ms</code>
 histogram.</p>
 <h2 id="honesty">Honesty</h2>
-<p>These numbers come from a <strong>tiny fixture on one machine</strong> and are <strong>relative only</strong>.
-require a real pilot benchmark on the customer&#39;s data and hardware.</p>
+<p>The <strong>latency and throughput</strong> numbers here come from a fixed nested-JSON payload on a
+single machine — <strong>relative only</strong>, not the prod-scale cold-boot validation above. Don&#39;t
+quote them as a production SLA: real latency and savings require a pilot benchmark on the
+customer&#39;s own data and hardware.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="roi.html"><span>Previous</span><b>ROI diagnostic</b></a>

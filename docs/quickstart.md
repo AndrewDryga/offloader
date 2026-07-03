@@ -1,4 +1,4 @@
-# Quickstart — the first hour
+# Quickstart — run it in 15 minutes
 
 Run Offloader as a container against the bundled example, call an endpoint, read the
 generated docs, and see a failure fail safely — in about fifteen minutes, no cloud

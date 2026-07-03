@@ -2,7 +2,8 @@
 
 One short runbook per V1 incident class. The first job is **classification** — is
 this an Offloader bug, the customer environment, or upstream data? The admin
-minutes. Each runbook: symptom → signals → likely owner → action → escalation.
+`/diagnostics` and `/metrics` answer that in under five minutes. Each runbook:
+symptom → signals → likely owner → action → escalation.
 
 > Commands assume the admin port is reachable privately and `OFFLOADER_ADMIN_TOKEN`
 > is set. `DIAG` below means `curl -H "Authorization: Bearer $TOKEN" $ADMIN/diagnostics`.
