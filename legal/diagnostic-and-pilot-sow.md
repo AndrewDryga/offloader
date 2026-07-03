@@ -38,12 +38,13 @@ production data (see §6).
 - **Deliverable.** A written diagnostic: the measured/estimated monthly saving, the agreed
   baseline expressed as a **rate per million requests**, a fit assessment (an honest "not a fit"
   is a valid outcome), and a recommended **shadow → canary → cutover** plan.
-- **Timeline.** `[N]` business days from the Client granting access.
-- **Fee.** Fixed **`[$•]`**, invoiced `[on signing / on delivery]`.
+- **Timeline.** `[N — recommended: 10]` business days from the Client granting access.
+- **Fee.** Fixed **`[$• — recommended: $5,000]`**, invoiced `[on signing / on delivery]`.
 - **Credit.** If the Client proceeds to the Pilot within `[30]` days of delivery, the Diagnostic
   fee is **credited** against the first reconciliation. *(Recommended — lowers buyer risk.)*
 - **Optional risk-reversal.** *[If elected:]* if the Diagnostic does not identify at least
-  **`[$•]/mo`** of reducible spend, the Diagnostic fee is refunded.
+  **`[$•/mo — e.g. $1,500]`** of reducible spend, the Diagnostic fee is refunded. *(Safely
+  beatable — the reference cutover found ~$2,560/mo at a single customer.)*
 - **Client responsibilities.** Read access to the relevant warehouse cost/usage data, a
   representative sample of the endpoints and query shapes to offload, and a named point of contact.
 
