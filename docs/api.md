@@ -67,11 +67,16 @@ Nested columns declared `JSON` come back as real nested objects, not strings.
 ## Errors
 
 Errors return a stable shape and a terse message — a forbidden endpoint and a non-existent one
-look identical on purpose, so probing can't map what exists.
+look identical on purpose, so probing can't map what exists. Every error body is:
 
 ```json
-{ "errors": { "detail": "Not Found" } }
+{ "error": { "family": "not_found", "message": "endpoint not found" },
+  "meta":  { "request_id": "GL6f4CKamol9" } }
 ```
+
+`error.family` is the stable machine-readable code (`invalid_param`, `unauthorized`,
+`not_found`, `not_ready`, `internal`); `error.message` is safe to log but never echoes a raw
+param, secret, or SQL.
 
 | HTTP | When | What the client should do |
 | --- | --- | --- |

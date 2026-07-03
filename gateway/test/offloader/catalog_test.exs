@@ -53,6 +53,21 @@ defmodule Offloader.CatalogTest do
       assert :duplicate_endpoint in Enum.map(errors, & &1.code)
     end
 
+    test "auth: none is rejected while any endpoint is tenant-scoped" do
+      # THE public-mode gate: the one validation standing between `auth: none` and
+      # serving multi-tenant data unauthenticated. ApiAuth's docs lean on it by name.
+      project =
+        write_project(%{
+          "offloader.yml" =>
+            "version: 1\nauth: none\ndatasets_dir: datasets\nendpoints_dir: endpoints\n",
+          "datasets/customer_usage.yml" => dataset_yaml(),
+          "endpoints/e.yml" => endpoint_yaml()
+        })
+
+      assert {:error, errors} = Catalog.load(project)
+      assert :public_tenant_endpoint in Enum.map(errors, & &1.code)
+    end
+
     test "reports a key that grants an unknown endpoint" do
       project =
         write_project(%{

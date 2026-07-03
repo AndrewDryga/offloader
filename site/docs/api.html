@@ -179,9 +179,13 @@ it, optionally with an &quot;updated N minutes ago&quot; note. It clears when th
 <p>Nested columns declared <code>JSON</code> come back as real nested objects, not strings.</p>
 <h2 id="errors">Errors</h2>
 <p>Errors return a stable shape and a terse message — a forbidden endpoint and a non-existent one
-look identical on purpose, so probing can&#39;t map what exists.</p>
-<pre tabindex="0"><code class="language-json">{ &quot;errors&quot;: { &quot;detail&quot;: &quot;Not Found&quot; } }
+look identical on purpose, so probing can&#39;t map what exists. Every error body is:</p>
+<pre tabindex="0"><code class="language-json">{ &quot;error&quot;: { &quot;family&quot;: &quot;not_found&quot;, &quot;message&quot;: &quot;endpoint not found&quot; },
+  &quot;meta&quot;:  { &quot;request_id&quot;: &quot;GL6f4CKamol9&quot; } }
 </code></pre>
+<p><code>error.family</code> is the stable machine-readable code (<code>invalid_param</code>, <code>unauthorized</code>,
+<code>not_found</code>, <code>not_ready</code>, <code>internal</code>); <code>error.message</code> is safe to log but never echoes a raw
+param, secret, or SQL.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>

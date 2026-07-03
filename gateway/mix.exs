@@ -7,6 +7,9 @@ defmodule Offloader.MixProject do
       version: "0.1.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
+      # An explicit floor (the tool's default is 90) so `mix test --cover` is a real
+      # gate: red means coverage regressed, not that no threshold was ever chosen.
+      test_coverage: [summary: [threshold: 78]],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
