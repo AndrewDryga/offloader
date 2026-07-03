@@ -138,9 +138,11 @@ strong { font-weight: 600; }
 
 .hero-body {
   display: grid; grid-template-columns: 1fr 1.02fr; gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: end; margin-top: clamp(2.5rem, 5vw, 3.75rem);
+  align-items: start; margin-top: clamp(2.5rem, 5vw, 3.75rem);
 }
-.hero-copy { align-self: end; }
+.hero-copy { align-self: start; }
+/* the cost ledger sits level with the lede, not sunk to the bottom of the hero */
+.hero-body .ledger { align-self: start; }
 .lede { max-width: 48ch; font-size: var(--fs-lede); line-height: 1.5; color: var(--ink-2); }
 .lede strong { color: var(--ink); }
 .hero-proof { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line-2); max-width: 48ch; font-size: var(--fs-small); color: var(--muted); line-height: 1.55; }

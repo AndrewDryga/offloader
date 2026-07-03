@@ -62,31 +62,30 @@
 
   <!-- HERO ───────────────────────────────────────────────────────── -->
   <section class="hero wrap" id="top">
-    <p class="eyebrow">Warehouse offload for production analytics APIs</p>
+    <p class="eyebrow">Warehouse offload for customer-facing analytics</p>
     <h1 class="display">Stop paying your&nbsp;warehouse to answer the same&nbsp;question <em>a&nbsp;million&nbsp;times.</em></h1>
 
     <div class="hero-body">
       <div class="hero-copy">
         <p class="lede">
-          Your dashboards and stats screens ask the same bounded questions all day, against
-          data that only needs to be minutes fresh. Your warehouse bills compute for every
-          one. <strong>Offloader answers them from a cheap, pre-computed snapshot on your own
-          servers instead</strong> — the tenant filter compiled in, fast, and honest about how
-          fresh the data is.
+          Your app shows the same dashboards and charts to users all day. Every view re-runs
+          an expensive query on your data warehouse — so you pay for it again, and users wait.
+          <strong>Offloader serves those reads from a cheap, pre-built copy on your own servers
+          instead</strong> — the same numbers, at a fraction of the cost, and far faster.
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="docs/quickstart.html">Run it in 15 minutes</a>
           <a class="btn btn-ghost" href="#how">How it works <span aria-hidden="true">↓</span></a>
         </div>
         <p class="hero-proof">
-          Self-hostable. Validated at <b>66 datasets / 67 endpoints</b> on real production
-          data. No Offloader cloud; your private data never leaves your environment.
+          Self-hosted. Proven on a <b>real 66-dataset production workload</b>. No Offloader
+          cloud — your private data never leaves your environment.
         </p>
       </div>
 
       <figure class="ledger" aria-labelledby="ledger-cap">
         <div class="ledger-tape" role="img" aria-label="An illustrative bill: one query at 1.2 cents per warehouse read, run about a million identical times a month, totalling roughly twelve thousand dollars.">
-<pre>QUERY   usage_summary(account, from, to)
+<pre>QUERY   revenue_by_day(account, from, to)
 UNIT    <span class="tok">$0.012</span>      per warehouse read
 RUNS    <span class="tok js-count" data-to="1000000">910,000</span>   identical, this month
         <span class="rule">──────────────────────────</span>
