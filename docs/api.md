@@ -33,6 +33,7 @@ Always the same envelope: `data` (the rows) + `meta` (what you're reading).
   "meta": {
     "request_id":   "GL6f4CKamol9",
     "endpoint":     "customer_usage_summary",
+    "version":      1,
     "snapshot_id":  "2026-06-01T00:00:00Z_r0007",
     "row_count":    1,
     "serving_mode": "local_table",
@@ -50,6 +51,7 @@ Always the same envelope: `data` (the rows) + `meta` (what you're reading).
 | `meta` field | Meaning |
 | --- | --- |
 | `request_id` | Correlates with server logs; echo it when reporting an issue. |
+| `version` | The endpoint's contract version (from its config). Changes when the operator revises the endpoint. |
 | `snapshot_id` | Exactly which snapshot answered — stable until a newer one swaps in. Good cache key. |
 | `serving_mode` | `local_table` or `remote_scan`. |
 | `cache` | `hit` / `miss` (response cache) or `off` (endpoint not cached). |

@@ -1035,6 +1035,7 @@ defmodule Offloader.Runtime do
       meta: %{
         request_id: request_id,
         endpoint: endpoint.name,
+        version: endpoint.version,
         snapshot_id: snapshot.snapshot_id,
         row_count: length(data),
         serving_mode: endpoint.serving_mode,

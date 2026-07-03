@@ -36,9 +36,12 @@ defmodule OffloaderWeb.EndpointController do
   # Cache behaviour splits on auth mode. A PUBLIC (auth: none) response is immutable for its
   # `snapshot_id`, so it's safe to cache at a CDN/browser: emit an ETag + Cache-Control and
   # answer `If-None-Match` with a cheap 304. An AUTHED response is per-tenant, so it must never
-  # sit in a shared cache: `private, no-store`.
+  # sit in a shared cache: `private, no-store`. The tenant guard is load-bearing: `public?()`
+  # is a fresh catalog read that can race a hot reload flipping auth required→none, and a
+  # response produced WITH a tenant filter must never be stamped publicly cacheable — so the
+  # decision is tied to the tenant that actually produced these bytes, not just global state.
   defp serve_ok(conn, response, name, request) do
-    if Runtime.public?() do
+    if conn.assigns.tenant == nil and Runtime.public?() do
       etag = etag_for(name, request, response)
 
       conn =
@@ -61,18 +64,23 @@ defmodule OffloaderWeb.EndpointController do
     end
   end
 
-  # Strong ETag over exactly what determines the bytes: endpoint, params, and the snapshot.
+  # Strong ETag over exactly what determines the bytes: endpoint (name AND contract version —
+  # a hot reload can change the projection without a new snapshot), params, and the snapshot.
   defp etag_for(name, request, response) do
     sid = get_in(response, [:meta, :snapshot_id]) || ""
-    digest = :crypto.hash(:sha256, :erlang.term_to_binary({name, request, sid}))
+    version = get_in(response, [:meta, :version]) || 0
+    digest = :crypto.hash(:sha256, :erlang.term_to_binary({name, version, request, sid}))
     "\"" <> (digest |> Base.encode16(case: :lower) |> binary_part(0, 20)) <> "\""
   end
 
+  # Parse the If-None-Match list properly: exact entries only (a weak `W/` prefix still
+  # matches — bytes-equal is stronger than weak equality), never a substring scan.
   defp etag_matches?(conn, etag) do
-    case get_req_header(conn, "if-none-match") do
-      [inm | _] -> inm == "*" or String.contains?(inm, etag)
-      _ -> false
-    end
+    conn
+    |> get_req_header("if-none-match")
+    |> Enum.flat_map(&String.split(&1, ","))
+    |> Enum.map(&String.trim/1)
+    |> Enum.any?(&(&1 == "*" or &1 == etag or &1 == "W/" <> etag))
   end
 
   # A safe max-age from the endpoint's freshness window (capped); ETag revalidation covers the rest.

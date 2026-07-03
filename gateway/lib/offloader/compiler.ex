@@ -34,6 +34,7 @@ defmodule Offloader.Compiler do
 
   alias Offloader.ApiError
   alias Offloader.Catalog.Endpoint
+  alias Offloader.Catalog.Identifier
   alias Offloader.Compiler.Plan
 
   @reserved ~w(limit offset columns)
@@ -67,8 +68,16 @@ defmodule Offloader.Compiler do
 
     case Enum.find(Map.keys(request), &(not MapSet.member?(allowed, &1))) do
       nil -> :ok
-      key -> {:error, ApiError.new(:invalid_param, "unknown param #{inspect(key)}")}
+      key -> {:error, ApiError.new(:invalid_param, unknown_message("param", key))}
     end
+  end
+
+  # Echo the caller's token back only when it's a plain identifier — an ApiError
+  # message must never reflect arbitrary request bytes (its own contract).
+  defp unknown_message(kind, key) do
+    if Identifier.valid_column?(key),
+      do: "unknown #{kind} #{inspect(key)}",
+      else: "unknown #{kind}"
   end
 
   # When the endpoint declares combinations, the SET of declared params the client
@@ -108,7 +117,7 @@ defmodule Offloader.Compiler do
              ApiError.new(:invalid_param, "columns must be a comma-separated list of columns")}
 
           unknown = Enum.find(requested, &(not MapSet.member?(allowed, &1))) ->
-            {:error, ApiError.new(:invalid_param, "unknown column #{inspect(unknown)}")}
+            {:error, ApiError.new(:invalid_param, unknown_message("column", unknown))}
 
           true ->
             keep = MapSet.new(requested)

@@ -118,6 +118,7 @@ Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) AP
   &quot;meta&quot;: {
     &quot;request_id&quot;:   &quot;GL6f4CKamol9&quot;,
     &quot;endpoint&quot;:     &quot;customer_usage_summary&quot;,
+    &quot;version&quot;:      1,
     &quot;snapshot_id&quot;:  &quot;2026-06-01T00:00:00Z_r0007&quot;,
     &quot;row_count&quot;:    1,
     &quot;serving_mode&quot;: &quot;local_table&quot;,
@@ -142,6 +143,10 @@ Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) AP
 <tbody><tr>
 <td><code>request_id</code></td>
 <td>Correlates with server logs; echo it when reporting an issue.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>The endpoint&#39;s contract version (from its config). Changes when the operator revises the endpoint.</td>
 </tr>
 <tr>
 <td><code>snapshot_id</code></td>

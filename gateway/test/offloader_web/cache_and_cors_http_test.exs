@@ -58,6 +58,32 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
       e2 = hd(get_resp_header(champion(2), "etag"))
       refute e1 == e2
     end
+
+    test "If-None-Match is an exact list match — the ETag embedded in junk is NOT a hit" do
+      [etag] = get_resp_header(champion(1), "etag")
+
+      embedded =
+        build_conn()
+        |> put_req_header("if-none-match", "junk#{etag}junk")
+        |> get("/v1/endpoints/champion?champion_id=1")
+
+      assert embedded.status == 200
+
+      listed =
+        build_conn()
+        |> put_req_header("if-none-match", ~s("something-else", ) <> etag)
+        |> get("/v1/endpoints/champion?champion_id=1")
+
+      assert listed.status == 304
+    end
+
+    test "meta carries the endpoint contract version (an ETag input — a reload can change the contract without a new snapshot)" do
+      assert get_in(json_response(champion(1), 200), ["meta", "version"]) == 1
+    end
+
+    test "responses carry X-Content-Type-Options: nosniff" do
+      assert get_resp_header(champion(1), "x-content-type-options") == ["nosniff"]
+    end
   end
 
   describe "authed responses are never shared-cached" do
@@ -118,7 +144,7 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
       assert get_resp_header(conn, "access-control-allow-credentials") == ["true"]
     end
 
-    test "an off-list origin gets no allow-origin" do
+    test "an off-list origin gets no allow-origin — but still Vary: origin" do
       Application.put_env(:offloader, :cors_origins, ["https://app.example.com"])
 
       conn =
@@ -127,6 +153,32 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
         |> get("/v1/endpoints/champion?champion_id=1")
 
       assert get_resp_header(conn, "access-control-allow-origin") == []
+      assert "origin" in get_resp_header(conn, "vary")
+    end
+
+    test "an allow-list emits Vary: origin even without an Origin header (shared caches must key on it)" do
+      Application.put_env(:offloader, :cors_origins, ["https://app.example.com"])
+      conn = champion(1)
+      assert get_resp_header(conn, "access-control-allow-origin") == []
+      assert "origin" in get_resp_header(conn, "vary")
+    end
+
+    test "wildcard emits allow-origin on every response, even without an Origin header" do
+      Application.put_env(:offloader, :cors_origins, ["*"])
+      assert get_resp_header(champion(1), "access-control-allow-origin") == ["*"]
+    end
+
+    test "an off-list preflight is answered 204 with no allow headers" do
+      Application.put_env(:offloader, :cors_origins, ["https://app.example.com"])
+
+      conn =
+        build_conn()
+        |> put_req_header("origin", "https://evil.example.com")
+        |> dispatch(@endpoint, :options, "/v1/endpoints/champion")
+
+      assert conn.status == 204
+      assert get_resp_header(conn, "access-control-allow-origin") == []
+      assert get_resp_header(conn, "access-control-allow-methods") == []
     end
 
     test "an OPTIONS preflight is answered 204 with CORS headers, before auth" do

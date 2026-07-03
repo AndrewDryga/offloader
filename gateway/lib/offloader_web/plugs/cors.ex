@@ -29,20 +29,25 @@ defmodule OffloaderWeb.Plugs.Cors do
     end
   end
 
-  defp apply_cors(conn, _origins, nil), do: preflight_or_pass(conn, false)
-
+  # Wildcard is origin-independent, so emit it on EVERY response (even without an
+  # `Origin` header): responses may be shared-cached (`Cache-Control: public`), and a
+  # copy cached without the header would break a later browser caller.
   defp apply_cors(conn, ["*"], _origin) do
     conn
     |> put_resp_header("access-control-allow-origin", "*")
     |> preflight_or_pass(true)
   end
 
+  # An explicit list echoes per-origin, so EVERY response must carry `Vary: Origin` —
+  # including no-Origin and off-list requests — or a shared cache stores a no-CORS
+  # variant under the bare URL and serves it to allow-listed browsers.
   defp apply_cors(conn, origins, origin) do
-    if origin in origins do
+    conn = merge_resp_header(conn, "vary", "origin")
+
+    if is_binary(origin) and origin in origins do
       conn
       |> put_resp_header("access-control-allow-origin", origin)
       |> put_resp_header("access-control-allow-credentials", "true")
-      |> merge_resp_header("vary", "origin")
       |> preflight_or_pass(true)
     else
       preflight_or_pass(conn, false)
