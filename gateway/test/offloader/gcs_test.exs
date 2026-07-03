@@ -56,6 +56,10 @@ defmodule Offloader.GcsTest do
       end
     end
 
+    # metadata token endpoint that omits expires_in (a lifetime-less token)
+    defp handle(["token-noexpiry"], conn),
+      do: send_json(conn, 200, %{access_token: "meta-token", token_type: "Bearer"})
+
     defp handle(_other, conn), do: send_resp(conn, 404, "not found")
 
     defp auth(conn), do: conn |> get_req_header("authorization") |> List.first()
@@ -119,6 +123,14 @@ defmodule Offloader.GcsTest do
       with_env(:gcs_token, nil, fn ->
         with_env(:gcs_metadata_token_url, base <> "/token", fn ->
           assert {:ok, "meta-token", 600} = Token.fetch()
+        end)
+      end)
+    end
+
+    test "a metadata token without a lifetime reports nil expiry", %{base: base} do
+      with_env(:gcs_token, nil, fn ->
+        with_env(:gcs_metadata_token_url, base <> "/token-noexpiry", fn ->
+          assert {:ok, "meta-token", nil} = Token.fetch()
         end)
       end)
     end

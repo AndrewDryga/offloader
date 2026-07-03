@@ -160,6 +160,34 @@ defmodule Offloader.EngineTest do
     assert n > 0
   end
 
+  test "execute and pool_stats on an engine with no live process are safe, not crashes" do
+    assert {:error, %Error{reason: :not_ready}} =
+             Engine.execute(:offloader_engine_absent, "SELECT 1")
+
+    assert %{connections: 0, busy: 0, saturated: false} =
+             Engine.pool_stats(:offloader_engine_absent)
+  end
+
+  test "swapping from a non-existent source table is a clean swap_failed error", %{eng: eng} do
+    assert {:error, %Error{reason: :swap_failed}} =
+             Engine.swap(eng, "target", "no_such_source_table")
+  end
+
+  test "applies OFFLOADER_DUCKDB_MEMORY_LIMIT as a global DuckDB cap" do
+    prev = Application.get_env(:offloader, :duckdb_memory_limit)
+    Application.put_env(:offloader, :duckdb_memory_limit, "512MB")
+    on_exit(fn -> Application.put_env(:offloader, :duckdb_memory_limit, prev) end)
+
+    dir = Path.join(System.tmp_dir!(), "offl_mem_#{System.unique_integer([:positive])}")
+    {:ok, eng} = Engine.start_link(cache_dir: dir)
+    on_exit(fn -> if Process.alive?(eng), do: Engine.stop(eng) end)
+
+    assert {:ok, %{rows: [[limit]]}} =
+             Engine.execute(eng, "SELECT current_setting('memory_limit')")
+
+    assert is_binary(limit)
+  end
+
   test "applies OFFLOADER_DUCKDB_THREADS as a global DuckDB cap" do
     prev = Application.get_env(:offloader, :duckdb_threads)
     Application.put_env(:offloader, :duckdb_threads, 2)

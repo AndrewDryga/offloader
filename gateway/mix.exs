@@ -11,7 +11,9 @@ defmodule Offloader.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       # An explicit floor (the tool's default is 90) so `mix test --cover` is a real
       # gate: red means coverage regressed, not that no threshold was ever chosen.
-      test_coverage: [summary: [threshold: 78]],
+      # Actual is ~86%; the residual is boot glue, compile-time macros, gcloud/IMDS
+      # shell-outs, and DuckDB-failure branches that need fault injection to reach.
+      test_coverage: [summary: [threshold: 84]],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),

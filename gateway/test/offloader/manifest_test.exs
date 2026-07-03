@@ -103,6 +103,47 @@ defmodule Offloader.ManifestTest do
     end
   end
 
+  describe "load/1 — field validation" do
+    test "a manifest whose top-level JSON is not an object is rejected, not crashed" do
+      assert MapSet.member?(codes(Manifest.load(write_tmp("[1,2,3]", "m.json"))), :invalid_type)
+    end
+
+    test "wrong-typed top-level fields each become a stable error, not a crash" do
+      raw =
+        valid_map()
+        |> Map.merge(%{
+          "snapshot_id" => 123,
+          "created_at" => "not-a-timestamp",
+          "row_count" => -1,
+          "schema_version" => 0,
+          "producer" => 123,
+          "partition_columns" => "not-a-list"
+        })
+
+      c = codes(load_map(raw))
+      assert MapSet.member?(c, :invalid_snapshot_id)
+      assert MapSet.member?(c, :invalid_timestamp)
+      assert MapSet.member?(c, :invalid_value)
+      assert MapSet.member?(c, :invalid_type)
+    end
+
+    test "a schema entry that is not an object is rejected" do
+      assert MapSet.member?(codes(load_map(Map.put(valid_map(), "schema", [123]))), :invalid_type)
+    end
+
+    test "a files entry that is not an object, or missing its path, is rejected" do
+      assert MapSet.member?(codes(load_map(Map.put(valid_map(), "files", ["x"]))), :invalid_type)
+
+      no_path = Map.put(valid_map(), "files", [%{"format" => "csv"}])
+      assert MapSet.member?(codes(load_map(no_path)), :missing)
+    end
+
+    test "partition_columns referencing a column not in the schema is rejected" do
+      raw = Map.put(valid_map(), "partition_columns", ["ghost_column"])
+      assert MapSet.member?(codes(load_map(raw)), :unknown_column)
+    end
+  end
+
   describe "compatibility/2" do
     test "the valid snapshot is compatible with the dataset contract" do
       {:ok, m} = Manifest.load(@valid)
@@ -129,6 +170,45 @@ defmodule Offloader.ManifestTest do
       }
 
       assert {:error, errors} = Manifest.compatibility(m, dataset())
+      assert :incompatible_schema in Enum.map(errors, & &1.code)
+    end
+
+    test "the exact compatibility policy rejects an extra snapshot column" do
+      ds = dataset()
+
+      m = %Manifest{
+        dataset_id: "customer_usage",
+        snapshot_id: "s1",
+        created_at: "2026-06-01T00:00:00Z",
+        watermark: "2026-06-01T00:00:00Z",
+        schema: ds.schema ++ [%{name: "surprise", type: "VARCHAR"}],
+        files: [],
+        compatibility_policy: "exact",
+        columns: MapSet.new(Enum.map(ds.schema, & &1.name) ++ ["surprise"])
+      }
+
+      assert {:error, errors} = Manifest.compatibility(m, ds)
+      assert :incompatible_schema in Enum.map(errors, & &1.code)
+    end
+
+    test "a non-numeric type change (a DATE contract column shipped as VARCHAR) is incompatible" do
+      ds = dataset()
+
+      retyped =
+        Enum.map(ds.schema, fn c -> if c.type == "DATE", do: %{c | type: "VARCHAR"}, else: c end)
+
+      m = %Manifest{
+        dataset_id: "customer_usage",
+        snapshot_id: "s1",
+        created_at: "2026-06-01T00:00:00Z",
+        watermark: "2026-06-01T00:00:00Z",
+        schema: retyped,
+        files: [],
+        compatibility_policy: "additive_only",
+        columns: MapSet.new(Enum.map(retyped, & &1.name))
+      }
+
+      assert {:error, errors} = Manifest.compatibility(m, ds)
       assert :incompatible_schema in Enum.map(errors, & &1.code)
     end
   end
