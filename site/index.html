@@ -300,7 +300,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
             <span>If you don’t save, we don’t earn.</span>
             <span class="illus">A real cutover — anonymized</span>
           </figcaption>
-          <p class="ledger-scale">What that <b>$440</b> served: <b>136M requests a month</b>, 8&nbsp;TB, 94% cached — at the CDN edge, with 99.999% historical uptime on the customer’s own two VMs.</p>
+          <p class="ledger-scale">What that <b>$440</b> served: <b>136M requests a month</b>, 8&nbsp;TB, 94% cached — at the CDN edge, with no unplanned downtime since cutover, on the customer’s own two VMs.</p>
         </figure>
 
         <div class="pricing-notes">
@@ -449,7 +449,9 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
 <pre class="run-code">$ docker run \
     -e OFFLOADER_CONFIG=/cfg/offloader.yml \
     -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -hex 24) \
+    -e OFFLOADER_CACHE_DIR=/cache \
     -v ./examples/public-metrics:/cfg:ro \
+    -v offloader-cache:/cache \
     -p 4000:4000 offloader:dev
 
 $ curl "localhost:4000/v1/endpoints/champion?champion_id=1"

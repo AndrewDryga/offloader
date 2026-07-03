@@ -297,7 +297,9 @@ strong { font-weight: 600; }
 
 /* ── start / cta ────────────────────────────────────────────────────── */
 .start { background: var(--paper-2); border-top-color: var(--line); }
-.start-inner { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 4.5rem); align-items: center; }
+/* the terminal column runs ~10% wider than the copy so the longest command line clears
+   the box edge with breathing room, instead of butting against it */
+.start-inner { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: clamp(2rem, 5vw, 4.5rem); align-items: center; }
 .start-copy p { max-width: 48ch; color: var(--ink-2); }
 .start-note { margin-top: 1.7rem; font-size: var(--fs-small); color: var(--muted); }
 .start-note a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
