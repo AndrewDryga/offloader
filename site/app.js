@@ -26,10 +26,12 @@
     return;
   }
 
-  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  // Quadratic ease-out: brisk enough to notice, with a long soft settle — the ledger
+  // should read as a meter still running, not a slot machine snapping to its total.
+  function easeOut(t) { return 1 - (1 - t) * (1 - t); }
 
   function run() {
-    var dur = 1100, start = null;
+    var dur = 3800, start = null;
     function frame(ts) {
       if (start === null) start = ts;
       var t = Math.min((ts - start) / dur, 1);
