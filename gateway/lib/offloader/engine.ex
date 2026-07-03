@@ -172,6 +172,25 @@ defmodule Offloader.Engine do
     end
   end
 
+  # Keep object-store credentials (HMAC secret / session token / bearer) out of the
+  # crash-report state OTP logs on an abnormal exit.
+  @impl true
+  def format_status(status) do
+    Map.update(status, :state, nil, fn
+      %__MODULE__{pool: %{object_store: os} = pool} = st when is_map(os) ->
+        %{st | pool: %{pool | object_store: redact_credentials(os)}}
+
+      st ->
+        st
+    end)
+  end
+
+  defp redact_credentials(os) do
+    Enum.reduce([:secret, :token, :key_id, :session_token], os, fn k, acc ->
+      if is_binary(Map.get(acc, k)), do: Map.put(acc, k, "[redacted]"), else: acc
+    end)
+  end
+
   # Bearer tokens expire (~1h); re-registering the secret on the writer rotates the
   # credential for EVERY connection of this database instance (verified: CREATE OR
   # REPLACE SECRET propagates immediately). A failed refresh retries sooner and keeps

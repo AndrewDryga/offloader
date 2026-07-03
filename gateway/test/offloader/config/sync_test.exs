@@ -84,6 +84,22 @@ defmodule Offloader.Config.SyncTest do
     assert [%Catalog{}] = GenServer.call(rec, :reloads)
   end
 
+  test "a tick that RAISES is caught — the syncer stays alive and keeps the running config" do
+    rec = start_rec()
+    start_stub(digest: {:ok, "d0"}, load: {:ok, catalog()})
+    sync = start_sync(rec)
+
+    # A malformed loader return makes sync/1 raise (no case clause) — simulating a bang
+    # FS op blowing up when the cache disk fills. Without the tick's rescue this crashes
+    # the GenServer and the following status call would fail.
+    StubLoader.set(:digest, :kaboom)
+    status = tick(sync)
+
+    assert Process.alive?(sync)
+    assert {:error, :sync_crashed} = status.result
+    assert GenServer.call(rec, :reloads) == []
+  end
+
   test "a changed digest with an INVALID config keeps the running config (no reload)" do
     rec = start_rec()
     start_stub(digest: {:ok, "d0"}, load: {:ok, catalog()})

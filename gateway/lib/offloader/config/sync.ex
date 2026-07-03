@@ -87,7 +87,26 @@ defmodule Offloader.Config.Sync do
 
   @impl true
   def handle_info(:tick, state) do
-    state = sync(state)
+    # The tick must never crash the syncer: a raise (e.g. a bang FS op in the loader when
+    # the cache disk fills or is read-only) would, at a low interval, trip the supervisor's
+    # restart intensity and take the whole app down — the opposite of "a bad sync keeps the
+    # running config." Any failure becomes the log-and-keep-running path instead.
+    state =
+      try do
+        sync(state)
+      rescue
+        e ->
+          Logger.error(
+            "config sync tick crashed (keeping running config): #{Exception.message(e)}"
+          )
+
+          put_status(state, %{last_checked: DateTime.utc_now(), result: {:error, :sync_crashed}})
+      catch
+        kind, reason ->
+          Logger.error("config sync tick #{kind} (keeping running config): #{inspect(reason)}")
+          put_status(state, %{last_checked: DateTime.utc_now(), result: {:error, :sync_crashed}})
+      end
+
     schedule(state)
     {:noreply, state}
   end

@@ -48,6 +48,15 @@ defmodule Offloader.Gcs.TokenCache do
     {:ok, %{fetcher: fetcher, token: nil, expires_at: 0}}
   end
 
+  # Keep the bearer token out of the crash-report state OTP logs on an abnormal exit.
+  @impl true
+  def format_status(status) do
+    Map.update(status, :state, %{}, fn
+      %{token: token} = s when is_binary(token) -> %{s | token: "[redacted]"}
+      s -> s
+    end)
+  end
+
   @impl true
   def handle_call(:get, _from, state) do
     if state.token && now() < state.expires_at do
