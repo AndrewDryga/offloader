@@ -80,3 +80,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./dev/scripts/docs-check.sh
+
+  # Rolling `edge` image, published to GHCR once the gate is green — so the quickstart and
+  # the site can `docker run ghcr.io/…/offloader:edge` against the latest main. Tagged
+  # releases (versioned + `latest`, signed) are handled by release.yml, not here.
+  publish-edge:
+    name: publish edge image (GHCR)
+    needs: [gateway, tools, docs]
+    # Real pushes to main only — not PRs, and not when release.yml calls this via workflow_call.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image name (GHCR requires lowercase)
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the rolling edge image
+        uses: docker/build-push-action@v6
+        with:
+          context: gateway
+          file: gateway/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.img.outputs.name }}:edge
+            ${{ steps.img.outputs.name }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -19,9 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ github.ref_name }}
-      IMAGE: ghcr.io/${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Image name (GHCR requires lowercase)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - uses: actions/setup-go@v5
         with:
