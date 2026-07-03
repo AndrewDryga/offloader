@@ -2,5 +2,4 @@
 User-agent: *
 Allow: /
 
-# Add once a production domain is set (also add <link rel="canonical"> + og:url in the pages):
-# Sitemap: https://<your-domain>/sitemap.xml
+Sitemap: https://offloader.dryga.com/sitemap.xml

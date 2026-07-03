@@ -1,0 +1,40 @@
+# Publishes the static marketing site + rendered docs (site/) to GitHub Pages,
+# served at the custom domain offloader.dryga.com (CNAME + HTTPS already configured
+# in repo settings; site/CNAME keeps the domain pinned on each deploy).
+name: Deploy site to Pages
+
+on:
+  push:
+    branches: [main]
+    # Only redeploy when the published site actually changes.
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload site/ as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
