@@ -128,6 +128,7 @@ deploy/           Container deployment notes and examples; no managed cloud scaf
 docs/             Product, architecture, security, operations, and release docs
 examples/         Local demo manifests, endpoint configs, and sample datasets
 dev/              Local verification, benchmark, and deployment-check scripts
+legal/            Contracting templates (diagnostic + pilot SOW) — fill per deal
 ```
 
 ## Project status (for contributors)
