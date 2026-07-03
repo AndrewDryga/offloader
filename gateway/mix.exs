@@ -1,6 +1,8 @@
 defmodule Offloader.MixProject do
   use Mix.Project
 
+  # Source-available under the Functional Source License 1.1 (FSL-1.1-ALv2); each release
+  # converts to Apache-2.0 two years after it ships. See LICENSE at the repository root.
   def project do
     [
       app: :offloader,

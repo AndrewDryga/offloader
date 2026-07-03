@@ -139,3 +139,11 @@ make check        # format, warnings-as-errors, tests
 make e2e          # manifest -> HTTP smoke
 make deploy-check # build the prod image, boot it, verify both ports
 ```
+
+## License
+
+Offloader is source-available under the **[Functional Source License 1.1](LICENSE)**
+(FSL-1.1-ALv2). In plain terms: you may read, run, modify, and self-host it for any
+purpose **except** offering it to others as a competing product or hosted service — and
+each release **automatically becomes Apache-2.0 two years after it ships**. So you self-host
+freely with full source and no lock-in today, and it becomes fully open-source on a clock.
