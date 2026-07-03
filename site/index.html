@@ -246,9 +246,9 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
           <p>Validated at 66 datasets and 67 endpoints, cold-booted against a real production GCS bucket.</p>
         </article>
         <article class="proof-card">
-          <p class="proof-metric">p99 &lt; 60 ms</p>
-          <h3>Fast enough to sit behind a screen</h3>
-          <p>~5–6k requests/second on cached reads over 50&nbsp;KB nested-JSON payloads, each request served in its own process.<sup><a href="#methodology">1</a></sup></p>
+          <p class="proof-metric">p95 66 ms</p>
+          <h3>Measured in production</h3>
+          <p>p50 37 ms, p95 66 ms at the load balancer, across ~136&nbsp;million requests a month — down from multi-second behind the warehouse.<sup><a href="#methodology">1</a></sup></p>
         </article>
         <article class="proof-card">
           <p class="proof-metric">tenant = you</p>
@@ -263,9 +263,10 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
       </div>
 
       <p class="proof-foot" id="methodology">
-        <span class="fn">1.</span> Numbers from a single-machine benchmark on a fixed nested-JSON
-        payload — relative, not a production SLA. Real latency and savings need a benchmark on
-        your data and hardware. The method and harness are in the docs.
+        <span class="fn">1.</span> Latency from a real production deployment — ~136&nbsp;million
+        requests a month, 8&nbsp;TB served, ~94% cached, on two small VMs, measured at the load
+        balancer. Your latency and savings depend on your data, payloads, and hardware; the
+        benchmark method and harness are in the docs.
       </p>
     </div>
   </section>
