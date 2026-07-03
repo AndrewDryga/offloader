@@ -1,9 +1,9 @@
 # Example: customer usage analytics
 
-A tiny, deterministic **B2B SaaS product-usage** dataset with three endpoints and
-a failure lab. It is the single non-game example the whole V1 proof runs on: the
-first-hour demo (D01), config/manifest validation (C02/G02/G03), the e2e smoke
-(E02), the adversarial security suite (S01), and the benchmark harness (B01).
+A tiny, deterministic **B2B SaaS product-usage** dataset with three endpoints and a
+failure lab — the worked example the [quickstart](../../docs/quickstart.md), the e2e
+smoke test, the security suite, and the benchmark harness all run on. Copy it and edit
+it to shape your own project.
 
 ## The domain
 
@@ -26,7 +26,7 @@ customer-analytics/
     customer_usage.csv              the snapshot data (36 rows, checked in)
     manifest.json                   the snapshot manifest (the approved contract)
     generate.py                     regenerates the CSV deterministically
-    to_parquet.sh                   optional CSV -> Parquet (for realism / B01)
+    to_parquet.sh                   optional CSV -> Parquet (for realism)
   failure-lab/                      broken fixtures + expected safe failures
 ```
 
@@ -57,8 +57,8 @@ carries every field the manifest contract requires (`docs/architecture.md`).
 | `top_accounts_by_usage` | top accounts by API calls | `from`, `to`, `limit` (≤ 50) | bound from key |
 
 Each contract is declarative (params, filters, projection, aggregation, ordering,
-pagination, cache, freshness). There is no SQL in a contract — the compiler (G05)
-turns it into a safe parameterized query and inserts the tenant filter after auth.
+pagination, cache, freshness). There is no SQL in a contract — Offloader turns it
+into a safe parameterized query and inserts the tenant filter after auth.
 
 ## The demo keys
 
@@ -70,7 +70,7 @@ Tokens are non-secret and for local use only; only their SHA-256 hash is stored.
 | `offl_demo_globex_key` | tenant_globex | summary only | active |
 | `offl_demo_revoked_key` | tenant_initech | summary only | revoked (always denied) |
 
-Once the gateway can serve (G05/G06), the golden path is:
+Call an endpoint (see the [quickstart](../../docs/quickstart.md) for the full run):
 
 ```sh
 curl -H "Authorization: Bearer offl_demo_acme_key" \

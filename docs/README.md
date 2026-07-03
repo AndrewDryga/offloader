@@ -1,28 +1,37 @@
-# docs
+# Documentation
 
-Product, architecture, security, operations, and release documentation. This is
-the **committed source of truth**: a fresh agent or a buyer reads these to learn
-what Offloader is, how it is built, and what "V1" means. Docs are versioned with
-the code so a claim and the behavior that backs it move together.
+Start with **[What Offloader is, in plain language](concepts.md)**, then pick by what
+you want to do. Docs are versioned with the code, so a claim and the behavior that
+backs it move together.
 
-## What lives here
+## For customers
 
-| File | Owns |
+| Doc | What it covers |
 | --- | --- |
-| `architecture.md` | Data-plane decision, runtime pipeline, ports, manifest contract, security invariant. |
-| `security-model.md` | P0 security requirements, customer-run boundary, required tests. |
-| `developer-experience.md` | First-hour golden path, env-var contract, config layout. |
-| `deployment.md` | Customer-run deployment shape and required examples. |
+| **[concepts.md](concepts.md)** | What Offloader is, why you'd want it, and the words the other docs use. **Start here.** |
+| [quickstart.md](quickstart.md) | Run it against the bundled example in ~15 minutes, no cloud needed. |
+| [developer-experience.md](developer-experience.md) | Config guide: define your datasets, endpoints, and keys; load config from a bucket. |
+| [operator.md](operator.md) | Run it in production: deploy, size, upgrade, roll back, diagnose. |
+| [deployment.md](deployment.md) | Deployment shapes (docker / Compose / Kubernetes) and rollout verification. |
+| [security-model.md](security-model.md) | What Offloader protects for you, and what you're responsible for. |
+| [cutover-runbook.md](cutover-runbook.md) | Replace an existing serving API — gradual and reversible. |
+| [roi.md](roi.md) | Estimate the warehouse savings before committing. |
+| [benchmarks.md](benchmarks.md) | Measure latency, throughput, and footprint on your own data. |
 
-Later tasks add: `quickstart.md` (D01); operator, upgrade, and support pages
-(D02); `operations/` runbooks, dashboards, and alert rules (O01); ROI report
-format (P02); and pilot/procurement collateral (P03).
+
+| Doc | What it covers |
+| --- | --- |
+| [architecture.md](architecture.md) | Data-plane decisions, runtime pipeline, ports, manifest contract. |
+| [release.md](release.md) | Release packaging, SBOM, and provenance. |
+
+Deeper procedures live under [`operations/`](operations/) (runbooks, dashboards, alerts)
 
 ## Rules
 
-- Docs are committed. Keep them true to shipped behavior — never a promise the
-- One page per operator concern; link, do not duplicate (point at runbooks
-  instead of restating them).
-- No stale broad claims: not "works with every lakehouse", not Delta/Iceberg in
-  V1, not hosted cloud, not RBAC/SSO. If the product boundary changes, change the
-  boundary docs in the same commit.
+- Docs are committed and must stay true to shipped behavior — never a promise the code
+  does not keep.
+- One page per concern; **link, don't duplicate** (point at a runbook instead of
+  restating it).
+- No stale broad claims: not "works with every lakehouse", not hosted cloud, not
+  RBAC/SSO in V1. If the product boundary changes, change the boundary docs in the same
+  commit.
