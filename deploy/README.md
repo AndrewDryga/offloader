@@ -21,7 +21,7 @@ provider-neutral and show the container's shape, not your production network.
 | **Config** | A mounted directory with `offloader.yml` + `datasets/`, `endpoints/`, `keys/`, at `OFFLOADER_CONFIG`. |
 | **Cache** | A persistent volume at `/var/lib/offloader/cache` (warm restarts). |
 | **Secrets** | `OFFLOADER_SECRET_KEY_BASE` (required), `OFFLOADER_ADMIN_TOKEN` (gates diagnostics) — from env vars or your secret store, never baked into the image. |
-| **Image** | Pin a version (`ghcr.io/OWNER/offloader:1.0.0`); never `:latest`. Upgrade = new tag; rollback = old tag. |
+| **Image** | Pin a version (`ghcr.io/andrewdryga/offloader:1.0.0`); never `:latest`. Upgrade = new tag; rollback = old tag. |
 
 Before rolling out, run `make deploy-check` (builds + boots + verifies the image).
 See [`../docs/deployment.md`](../docs/deployment.md) for rollout verification and

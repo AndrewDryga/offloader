@@ -10,7 +10,7 @@ first (5 minutes) — it defines the words used below.
 ## 0. Prerequisites
 
 Docker, and this repo (for the example config in `examples/customer-analytics/`).
-A published image will be `ghcr.io/OWNER/offloader:<version>`; until then, build it:
+A published image will be `ghcr.io/andrewdryga/offloader:<version>`; until then, build it:
 
 ```sh
 docker build -t offloader:dev -f gateway/Dockerfile gateway

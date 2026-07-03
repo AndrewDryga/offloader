@@ -159,7 +159,7 @@ defmodule Offloader.Engine do
     object_store = Keyword.get(opts, :object_store)
     size = pool_size(opts)
 
-    with {:ok, db} <- Duckdbex.open(db_path),
+    with {:ok, db} <- open_db(db_path, 5),
          {:ok, writer} <- new_connection(db, object_store),
          :ok <- apply_db_settings(writer),
          {:ok, pool} <- build_pool(db, size, object_store) do
@@ -171,6 +171,23 @@ defmodule Offloader.Engine do
       {:error, reason} -> {:stop, {:engine_open_failed, reason}}
     end
   end
+
+  # DuckDB's single-writer file lock can briefly linger after a crashed process, so a
+  # supervised restart that reopens the same file immediately can fail. Retry a few times
+  # with a short backoff so a transient reopen race doesn't flap the Engine straight into
+  # the top supervisor's restart-intensity ceiling (an app-wide shutdown).
+  defp open_db(path, attempts) when attempts > 1 do
+    case Duckdbex.open(path) do
+      {:ok, db} ->
+        {:ok, db}
+
+      {:error, _reason} ->
+        Process.sleep(200)
+        open_db(path, attempts - 1)
+    end
+  end
+
+  defp open_db(path, _attempts), do: Duckdbex.open(path)
 
   # Keep object-store credentials (HMAC secret / session token / bearer) out of the
   # crash-report state OTP logs on an abnormal exit.

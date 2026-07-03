@@ -13,7 +13,9 @@ Start with **[What Offloader is, in plain language](docs/concepts.md)**.
 Offloader is a self-hostable container that moves repeated product-facing analytical
 reads off Databricks, Snowflake, BigQuery, and similar warehouses by serving approved
 object-storage snapshots through governed REST endpoints — on infrastructure you
-already operate. Nothing leaves your environment; there is no Offloader cloud.
+already operate. There is no Offloader cloud, and your private data never leaves your
+environment. (An optional managed CDN edge can serve already-public data — public only,
+opt-in; see [serving public data](docs/public-serving.md).)
 
 Status: the V1 gateway is **feature-complete and validated against real production
 data**. The commercial offer is a paid diagnostic plus offload pilot, not a broad data
@@ -108,7 +110,7 @@ docker run \
   -v offloader-cache:/var/lib/offloader/cache \
   -p 4000:4000 \
   -p 127.0.0.1:4001:4001 \
-  ghcr.io/<owner>/offloader:<version>
+  ghcr.io/andrewdryga/offloader:<version>
 ```
 
 The full env-var reference is in the [config guide](docs/developer-experience.md).
