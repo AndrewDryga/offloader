@@ -26,12 +26,12 @@
     return;
   }
 
-  // Quadratic ease-out: brisk enough to notice, with a long soft settle — the ledger
-  // should read as a meter still running, not a slot machine snapping to its total.
+  // Quadratic ease-out over a long window — the ledger reads as a meter still
+  // running while you take in the hero, not a stat widget landing on its number.
   function easeOut(t) { return 1 - (1 - t) * (1 - t); }
 
   function run() {
-    var dur = 3800, start = null;
+    var dur = 12000, start = null;
     function frame(ts) {
       if (start === null) start = ts;
       var t = Math.min((ts - start) / dur, 1);

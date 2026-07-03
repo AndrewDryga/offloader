@@ -182,8 +182,10 @@ strong { font-weight: 600; }
 /* ── how / editorial steps ──────────────────────────────────────────── */
 .steps { list-style: none; margin: 0 0 clamp(2.75rem, 5vw, 4.25rem); padding: 0; border-top: 1px solid var(--line); }
 .steps li {
-  display: grid; grid-template-columns: 3.25rem minmax(11ch, 0.72fr) 1.55fr;
-  gap: clamp(1.25rem, 3vw, 2.75rem); align-items: baseline;
+  /* `auto` fits the number exactly — a fixed 3.25rem column pooled its slack onto the
+     number→title gap, making title→description look cramped by comparison. */
+  display: grid; grid-template-columns: auto minmax(11ch, 0.72fr) 1.55fr;
+  gap: clamp(1.5rem, 3.5vw, 3.25rem); align-items: baseline;
   padding: clamp(1.55rem, 3vw, 2.2rem) 0; border-bottom: 1px solid var(--line);
 }
 .step-n { font-family: var(--mono); font-size: 1.05rem; font-weight: 500; color: var(--accent-2); }
