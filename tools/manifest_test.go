@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -28,6 +30,31 @@ func TestManifestRejectsBadManifest(t *testing.T) {
 	assertCode(t, fs, "duplicate_column")
 	assertCode(t, fs, "unsupported_type")
 	assertCode(t, fs, "missing") // producer
+}
+
+func TestManifestRejectsFieldsTheGatewayRequires(t *testing.T) {
+	// The gateway requires partition_columns/sort_columns (referencing schema columns) and
+	// non-empty created_at/watermark. This pre-check must reject what the container would,
+	// or "run this before you ship" is a false promise.
+	raw, _ := os.ReadFile(filepath.Join(exampleDir, "data/customer_usage/manifest.json"))
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	delete(m, "partition_columns")
+	m["created_at"] = ""
+	m["sort_columns"] = []string{"not_a_real_column"}
+	m["files"] = []map[string]string{{"path": "gs://bucket/data.parquet", "format": "parquet"}}
+
+	out := filepath.Join(t.TempDir(), "manifest.json")
+	b, _ := json.Marshal(m)
+	if err := os.WriteFile(out, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := validateManifest(out)
+	assertCode(t, fs, "missing")        // partition_columns absent + created_at empty
+	assertCode(t, fs, "unknown_column") // sort_columns references a non-schema column
 }
 
 func TestManifestRejectsMissingFile(t *testing.T) {

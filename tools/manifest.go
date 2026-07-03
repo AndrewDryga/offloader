@@ -33,6 +33,8 @@ type manifestJSON struct {
 	Watermark           string      `json:"watermark"`
 	Schema              []columnYML `json:"schema"`
 	Files               []fileJSON  `json:"files"`
+	PartitionColumns    *[]string   `json:"partition_columns"`
+	SortColumns         *[]string   `json:"sort_columns"`
 	RowCount            *int        `json:"row_count"`
 	SizeBytes           *int        `json:"size_bytes"`
 	Producer            string      `json:"producer"`
@@ -75,6 +77,8 @@ func validateManifest(path string) findings {
 	checkTimestamp(rel, "created_at", m.CreatedAt, &out)
 	checkTimestamp(rel, "watermark", m.Watermark, &out)
 	checkManifestSchema(rel, m.Schema, &out)
+	checkColumnRefs(rel, "partition_columns", m.PartitionColumns, m.Schema, &out)
+	checkColumnRefs(rel, "sort_columns", m.SortColumns, m.Schema, &out)
 	checkFiles(rel, filepath.Dir(path), m.Files, &out)
 	requireNonEmpty(rel, "producer", m.Producer, &out)
 	requireNonEmpty(rel, "upstream_run_id", m.UpstreamRunID, &out)
@@ -136,11 +140,33 @@ func checkFiles(rel, dir string, files []fileJSON, out *findings) {
 }
 
 func checkTimestamp(rel, field, value string, out *findings) {
+	// created_at/watermark are required by the gateway, so an absent/empty value is a
+	// finding here too — not a silent pass the container then rejects at load.
 	if value == "" {
+		out.add(rel, field, "missing", "required field "+field+" is missing", "")
 		return
 	}
 	if _, err := time.Parse(time.RFC3339, value); err != nil {
 		out.add(rel, field, "invalid_timestamp", fmt.Sprintf("%s %q is not an ISO-8601 timestamp", field, value), "")
+	}
+}
+
+// partition_columns / sort_columns are required and must reference schema columns — the
+// gateway's Manifest.load enforces both; mirror it so this pre-check can't greenlight a
+// manifest the container will reject at refresh.
+func checkColumnRefs(rel, field string, cols *[]string, schema []columnYML, out *findings) {
+	if cols == nil {
+		out.add(rel, field, "missing", "required field "+field+" is missing", "")
+		return
+	}
+	names := map[string]bool{}
+	for _, c := range schema {
+		names[c.Name] = true
+	}
+	for _, col := range *cols {
+		if !names[col] {
+			out.add(rel, field, "unknown_column", fmt.Sprintf("%s references %q which is not in the schema", field, col), "")
+		}
 	}
 }
 
