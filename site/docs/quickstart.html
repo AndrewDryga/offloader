@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quickstart — run it in 15 minutes — Offloader docs</title>
-<meta name="description" content="Run Offloader as a container against the bundled example, call an endpoint, read the
-generated docs, and see a failure fail safely — in about fifteen…">
+<title>Quickstart — serve a real endpoint in 15 minutes — Offloader docs</title>
+<meta name="description" content="Pull the published image, run it against a ready-made example project (real sample data
+included), call an endpoint, read the generated docs, and watch a…">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -75,24 +75,34 @@ generated docs, and see a failure fail safely — in about fifteen…">
   <main id="main" class="docs-main">
     <p class="doc-kicker">Start</p>
     <article class="prose">
-<h1 id="quickstart-run-it-in-15-minutes">Quickstart — run it in 15 minutes</h1>
-<p>Run Offloader as a container against the bundled example, call an endpoint, read the
-generated docs, and see a failure fail safely — in about fifteen minutes, no cloud
-required. Every command here is exercised by <code>make e2e</code> and <code>make deploy-check</code>.</p>
-<p>New to the idea of Offloader? Read <a href="concepts.html">What Offloader is, in plain language</a>
-first (5 minutes) — it defines the words used below.</p>
-<h2 id="0-prerequisites">0. Prerequisites</h2>
-<p>Docker, and this repo — it ships a complete example project in <code>examples/customer-analytics/</code>
-(you can&#39;t serve without an <code>offloader.yml</code>; the <a href="developer-experience.html">config guide</a> walks
-through every file and the <a href="config-reference.html">config reference</a> lists every field).
-Pull the published image — the rolling <code>edge</code> build of <code>main</code>, or a pinned release tag:</p>
-<pre tabindex="0"><code class="language-sh">docker pull ghcr.io/andrewdryga/offloader:edge
+<h1 id="quickstart-serve-a-real-endpoint-in-15-minutes">Quickstart — serve a real endpoint in 15 minutes</h1>
+<p>Pull the published image, run it against a ready-made example project (real sample data
+included), call an endpoint, read the generated docs, and watch a bad request fail safely —
+about fifteen minutes, no cloud required.</p>
+<p>New to Offloader? Read <a href="concepts.html">What Offloader is, in plain language</a> first (5 minutes) —
+it defines the words used below.</p>
+<h2 id="0-get-the-example-and-the-image">0. Get the example and the image</h2>
+<p>You serve from a <strong>project</strong> — an <code>offloader.yml</code> plus its datasets, endpoints, keys, and a
+snapshot. You can&#39;t just start the bare container; it needs a config and data to serve. The
+repo ships a complete, working project (with sample data) in <code>examples/customer-analytics/</code>, so
+clone it and pull the image:</p>
+<pre tabindex="0"><code class="language-sh">git clone https://github.com/andrewdryga/offloader.git
+cd offloader
+docker pull ghcr.io/andrewdryga/offloader:edge   # rolling build of main; or pin a release tag
 </code></pre>
-<p>Prefer to build it yourself? <code>docker build -t offloader:dev -f gateway/Dockerfile gateway</code>,
-then use <code>offloader:dev</code> in place of the <code>ghcr.io/…</code> image below.</p>
+<p>Nothing is baked into the image — the example project is <strong>mounted from your clone</strong> at run
+time, which is exactly how you&#39;ll later mount your own project.</p>
+<details>
+<summary>Prefer to build the image yourself?</summary>
+
+<pre tabindex="0"><code class="language-sh">docker build -t offloader:dev -f gateway/Dockerfile gateway
+</code></pre>
+<p>Then use <code>offloader:dev</code> in place of the <code>ghcr.io/…</code> image in every command below.</p>
+</details>
+
 <h2 id="1-run-the-container">1. Run the container</h2>
-<p>The config directory (<code>offloader.yml</code> + <code>datasets/</code>, <code>endpoints/</code>, <code>keys/</code>, data) is
-mounted; secrets come from env vars; the admin port is bound to loopback.</p>
+<p>Mount the example project read-only; secrets come from env vars; the admin port binds to
+loopback:</p>
 <pre tabindex="0"><code class="language-sh">docker run --rm \
   -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
   -e OFFLOADER_SECRET_KEY_BASE=&quot;$(openssl rand -base64 48)&quot; \
@@ -103,8 +113,8 @@ mounted; secrets come from env vars; the admin port is bound to loopback.</p>
   -v offloader-cache:/var/lib/offloader/cache \
   ghcr.io/andrewdryga/offloader:edge
 </code></pre>
-<p>Wait until the admin <strong>readiness</strong> probe returns 200 (it stays 503 until the snapshot
-is materialized):</p>
+<p>Wait until the admin <strong>readiness</strong> probe returns 200 (it stays 503 until the snapshot is
+materialized):</p>
 <pre tabindex="0"><code class="language-sh">curl -fsS http://127.0.0.1:4001/ready
 # {&quot;status&quot;:&quot;ok&quot;,&quot;ready&quot;:true}
 </code></pre>
@@ -123,42 +133,99 @@ is materialized):</p>
   }
 }
 </code></pre>
-<p>Every response carries <code>snapshot_id</code> and freshness — you always know exactly which
-snapshot you&#39;re reading. (<code>stale:true</code> here just means the demo data is older than its
-120-minute tolerance.)</p>
+<p>Every response carries <code>snapshot_id</code> and freshness — you always know exactly which snapshot
+you&#39;re reading. (<code>stale:true</code> here just means the demo data is older than its 120-minute
+tolerance.)</p>
 <h2 id="3-read-the-generated-docs">3. Read the generated docs</h2>
-<p>The endpoint catalog and OpenAPI spec are generated from the enforced contracts and
-served on the <strong>admin</strong> port (never the API port):</p>
+<p>The endpoint catalog and OpenAPI spec are generated from the enforced contracts and served on
+the <strong>admin</strong> port (never the API port):</p>
 <pre tabindex="0"><code class="language-sh">curl -s http://127.0.0.1:4001/docs | jq &#39;.endpoints[].name&#39;
 curl -s http://127.0.0.1:4001/openapi.json | jq &#39;.paths | keys&#39;
 </code></pre>
-<p>A product engineer integrates from these — params, defaults, limits, response shape,
-error families, and curl/TypeScript/Python snippets are all there.</p>
-<h2 id="4-validate-config-optional-helper">4. Validate config (optional helper)</h2>
-<p><code>offloader</code> is an <strong>optional Go helper</strong> (not part of the container). Build it once, then it
-checks config the same way the container does:</p>
-<pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .   # produces ./offloader; or run inline with `go run . …`
-</code></pre>
-<pre tabindex="0"><code class="language-sh">offloader validate --config examples/customer-analytics/offloader.yml   # &quot;config OK&quot;
-offloader manifest validate examples/customer-analytics/data/customer_usage/manifest.json
-</code></pre>
-<h2 id="5-see-a-failure-fail-safely">5. See a failure fail safely</h2>
+<p>A product engineer integrates from these — params, defaults, limits, response shape, error
+families, and curl/TypeScript/Python snippets are all there.</p>
+<h2 id="4-see-a-failure-fail-safely">4. See a failure fail safely</h2>
 <p>Bad input is rejected with a named error family — never a leak, never a 500:</p>
 <pre tabindex="0"><code class="language-sh"># an unknown/undeclared param (e.g. smuggling a tenant) -&gt; 422 invalid_param
 curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
   &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&amp;tenant_id=tenant_globex&quot;
 # 422
 </code></pre>
-<p>The <a href="https://github.com/AndrewDryga/offloader/blob/main/examples/customer-analytics/failure-lab/README.md">failure lab</a> has the full
-set (bad manifest, stale dataset, forbidden tenant, …) and what each must produce.</p>
+<p>The <a href="https://github.com/AndrewDryga/offloader/blob/main/examples/customer-analytics/failure-lab/README.md">failure lab</a> has the full set (bad
+manifest, stale dataset, forbidden tenant, …) and what each must produce.</p>
+<h2 id="5-start-your-own-project">5. Start your own project</h2>
+<p>The bundled example proves the path; to serve <strong>your</strong> data, scaffold a fresh project with the
+<code>offloader</code> CLI (an optional helper — not part of the container). Install or update it:</p>
+<pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh
+</code></pre>
+<details>
+<summary>No installer? build from source (needs Go)</summary>
+
+<pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .    # then ./offloader &lt;command&gt;
+</code></pre>
+</details>
+
+<p>Scaffold a starter project and check it exactly the way the container does:</p>
+<pre tabindex="0"><code class="language-sh"># a complete, valid, fully-commented project (one dataset + endpoint + demo key)
+offloader init --out my-project
+
+# validate the whole tree before you run anything
+offloader validate --config my-project/offloader.yml
+</code></pre>
+<p>The two files you edit are small and declarative — no SQL. The simplest possible pair:</p>
+<pre tabindex="0"><code class="language-yaml"># my-project/datasets/events.yml — the table + the columns you serve
+id: events
+manifest: data/events/manifest.json     # point this at your snapshot (Parquet + a manifest.json)
+schema:
+  - { name: day,    type: DATE }
+  - { name: tenant, type: VARCHAR }
+  - { name: hits,   type: BIGINT }
+</code></pre>
+<pre tabindex="0"><code class="language-yaml"># my-project/endpoints/events_daily.yml — the REST contract over that dataset
+name: events_daily
+version: 1
+dataset: events
+params:
+  - { name: from, type: date, required: true }
+  - { name: to,   type: date, required: true }
+query:
+  select:
+    - { as: day,  column: day }
+    - { as: hits, column: hits }
+  filters:
+    - { column: day, op: gte, param: from }
+    - { column: day, op: lte, param: to }
+columns: [day, hits]
+</code></pre>
+<p>Point <code>manifest:</code> at a snapshot of your data, then run the container against <code>my-project/</code>
+exactly as in step 1. The <a href="developer-experience.html">config guide</a> walks through every file; the
+<a href="config-reference.html">config reference</a> lists every field.</p>
+<details>
+<summary>Let an AI agent migrate your existing endpoints</summary>
+
+<p>Already have analytics endpoints (raw SQL, an ORM, a hand-rolled API)? Point a coding agent at
+both your code and this repo, and paste:</p>
+<blockquote>
+<p>You are migrating our existing analytics endpoints to Offloader. Read Offloader&#39;s
+<code>docs/config-reference.md</code> and the <code>examples/customer-analytics/</code> project for the exact schema.
+For <strong>each</strong> of our current endpoints: (1) write a <code>datasets/&lt;id&gt;.yml</code> whose <code>schema</code> matches
+the columns it returns; (2) write an <code>endpoints/&lt;name&gt;.yml</code> reproducing its params, filters,
+aggregation, ordering, and limits using only Offloader&#39;s declarative <code>query:</code> — no raw SQL;
+(3) preserve tenant isolation by setting the dataset&#39;s <code>tenant_column</code> and the endpoint&#39;s
+<code>tenant:</code>. Then run <code>offloader validate --config my-project/offloader.yml</code> and
+<code>offloader endpoint test</code> against a running instance, and fix every reported error until both
+pass. Finally, list any endpoint you could not express and exactly why.</p>
+</blockquote>
+<p>It produces a project you own and can diff — review it before serving.</p>
+</details>
+
 <h2 id="6-next">6. Next</h2>
 <ul>
-<li><a href="developer-experience.html">Config guide</a> — how to publish your own dataset + endpoint, and
-how to load config from a <code>gs://</code> bucket (fully stateless, with zero-downtime hot-reload).</li>
-<li>The generated endpoint docs (step 3) — hand these to a product engineer to integrate.</li>
-<li><a href="operator.html">Operator guide</a> · <a href="deployment.html">Deployment</a> — run it in production: deploy,
-size, upgrade, roll back.</li>
-<li><a href="https://github.com/AndrewDryga/offloader/blob/main/dev/scripts/e2e.sh"><code>make e2e</code></a> — the manifest→HTTP smoke this quickstart mirrors.</li>
+<li><a href="developer-experience.html">Config guide</a> — publish your own datasets and endpoints, and load
+config from a <code>gs://</code>/<code>s3://</code> bucket (fully stateless, with zero-downtime hot-reload).</li>
+<li><a href="operator.html">Operator guide</a> · <a href="deployment.html">Deployment</a> — run it in production: size,
+upgrade, roll back, diagnose.</li>
+<li>Hand the generated endpoint docs (step 3) to a product engineer to integrate against.</li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <div class="table-scroll" tabindex="0">

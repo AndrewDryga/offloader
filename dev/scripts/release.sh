@@ -20,12 +20,15 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 echo "release $VERSION -> $DIST/"
 
-# 1. Version-stamped helper binary (reproducible via ldflags).
-echo "[1/6] build helper binary"
-GOOS_="$(cd tools && go env GOOS)"; GOARCH_="$(cd tools && go env GOARCH)"
-BIN="offloader-$VERSION-$GOOS_-$GOARCH_"
-( cd tools && go build -trimpath -ldflags "-X main.version=$VERSION" -o "$REPO_ROOT/$DIST/$BIN" . )
-note "wrote $BIN"
+# 1. Version-stamped helper binaries — cross-compiled for the install.sh targets.
+echo "[1/6] build helper binaries"
+for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+  os="${platform%/*}"; arch="${platform#*/}"
+  bin="offloader-$VERSION-$os-$arch"
+  ( cd tools && GOOS="$os" GOARCH="$arch" \
+      go build -trimpath -ldflags "-X main.version=$VERSION" -o "$REPO_ROOT/$DIST/$bin" . )
+  note "wrote $bin"
+done
 
 # 2. SBOM — syft if available, else the pinned dependency manifests (still an SBOM).
 echo "[2/6] SBOM"
