@@ -233,6 +233,7 @@ function page({ title, description, active, activeSlug, main }) {
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet" href="../docs.css">
+<script src="../analytics.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
