@@ -1,6 +1,6 @@
 # Runbooks
 
-One short runbook per V1 incident class. The first job is **classification** — is
+One short runbook per incident class. The first job is **classification** — is
 this an Offloader bug, the customer environment, or upstream data? The admin
 `/diagnostics` and `/metrics` answer that in under five minutes. Each runbook:
 symptom → signals → likely owner → action → escalation.

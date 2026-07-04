@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deployment — Offloader docs</title>
-<meta name="description" content="Offloader V1 is a customer-run container. The product ships an image, documented
-env vars, mounted config conventions, health checks, metrics, and smoke…">
+<meta name="description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
+conventions, health checks, metrics, and smoke tests — you…">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -61,7 +61,6 @@ env vars, mounted config conventions, health checks, metrics, and smoke…">
         <li><a href="operator.html">Operator guide</a></li>
         <li><a href="runbooks.html">Runbooks</a></li>
         <li><a href="ownership.html">Ownership & support</a></li>
-        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
       </ul>
     </div>
     <div class="nav-group">
@@ -77,34 +76,36 @@ env vars, mounted config conventions, health checks, metrics, and smoke…">
     <p class="doc-kicker">Operate</p>
     <article class="prose">
 <h1 id="deployment">Deployment</h1>
-<p>Offloader V1 is a customer-run container. The product ships an image, documented
-env vars, mounted config conventions, health checks, metrics, and smoke tests.
-Customers decide how to run it on their servers, Kubernetes clusters, Nomad
-clusters, ECS tasks, VMs, or other internal platforms.</p>
+<p>Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
+conventions, health checks, metrics, and smoke tests — you decide how to run it (VMs,
+Kubernetes, Nomad, ECS, or your own platform).</p>
 <h2 id="runtime-shape">Runtime shape</h2>
-<pre tabindex="0"><code class="language-text">product traffic -&gt; API port      -&gt; endpoint API keys and tenant enforcement
-operators       -&gt; admin port    -&gt; health, readiness, metrics, diagnostics, docs
-</code></pre>
-<p>The admin port is not an identity product. Customers expose it only through their
-own network, proxy, firewall, IAM, SSO, or RBAC controls.</p>
+<p>Two ports, with different audiences:</p>
+<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
+  <div class="ports">
+    <div class="node node-hero"><span class="node-k">Product traffic</span><strong>API port · 4000</strong><span class="node-sub">endpoint API keys · tenant enforcement</span></div>
+    <div class="node"><span class="node-k">Operators — keep private</span><strong>Admin port · 4001</strong><span class="node-sub">health · metrics · diagnostics · docs</span></div>
+  </div>
+</figure>
+
+<p>The admin port is not an identity product — expose it only through your own network, proxy,
+firewall, or IAM.</p>
 <p><strong>Config</strong> comes from <code>OFFLOADER_CONFIG</code>: either a mounted directory (a ConfigMap/volume with
 <code>offloader.yml</code> + <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code>) or a <code>gs://…</code> bucket prefix fetched at boot
 (fully stateless). With <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set, bucket changes hot-reload with no
 restart — see the <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</p>
-<h2 id="required-examples">Required examples</h2>
+<h2 id="deployment-examples">Deployment examples</h2>
+<p>Provider-neutral, ready-to-adapt examples live in <a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/README.md"><code>deploy/</code></a>:</p>
 <ul>
-<li>Single-node <code>docker run</code>.</li>
-<li>Docker Compose with a mounted cache volume.</li>
-<li>Kubernetes Deployment, Service, ConfigMap, Secret, and PersistentVolumeClaim.</li>
-<li>Prometheus scrape config for the admin port.</li>
-<li>Rollback to previous image.</li>
-<li>Cache quarantine and rebuild.</li>
+<li><a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/docker-run/README.md"><code>docker-run/</code></a> — single-node <code>docker run</code>.</li>
+<li><a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/compose/README.md"><code>compose/</code></a> — Docker Compose with a persistent cache volume.</li>
+<li><a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/kubernetes/README.md"><code>kubernetes/</code></a> — Deployment, Services, ConfigMap, Secret, PVC, health probes, resource limits.</li>
+<li><a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/prometheus/README.md"><code>prometheus/</code></a> — scrape config + ServiceMonitor for the admin port.</li>
 </ul>
 <h2 id="rollout-verification-and-rollback">Rollout verification and rollback</h2>
-<p>Deploy the <strong>published, signed image</strong> (<code>ghcr.io/andrewdryga/offloader:&lt;version&gt;</code> — pull it,
-don&#39;t build it), then verify the running instance. <code>dev/scripts/deploy-check.sh</code> is the reusable
-shape a customer&#39;s deployment system can wrap around a freshly-deployed instance (contributors
-can build-and-verify locally in one step with <code>make deploy-check</code>):</p>
+<p>Deploy the <strong>published, signed image</strong> (<code>ghcr.io/andrewdryga/offloader:&lt;version&gt;</code>), then verify
+the running instance. <code>dev/scripts/deploy-check.sh</code> is a reusable shape your deployment system
+can wrap around a freshly-deployed instance:</p>
 <ol>
 <li>Wait for the admin <code>/ready</code> to return 200 (it stays 503 until a snapshot is
 materialized, so traffic is held until the instance can actually serve).</li>
@@ -120,13 +121,6 @@ materialized, so traffic is held until the instance can actually serve).</li>
 compatibility, so serving is already protected. To revert a <em>good-but-wrong</em>
 snapshot, roll the dataset back to its previous good snapshot (see
 <a href="runbooks.html">runbooks</a> → &quot;Rollback to previous snapshot&quot;).</li>
-</ul>
-<h2 id="non-goals">Non-goals</h2>
-<ul>
-<li>No hosted Offloader cloud.</li>
-<li>No Terraform module for a specific provider in V1.</li>
-<li>No RBAC, SSO, organization management, or team management.</li>
-<li>No fleet management portal.</li>
 </ul>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
@@ -158,7 +152,6 @@ snapshot, roll the dataset back to its previous good snapshot (see
         <h3>Evaluate</h3>
         <a href="roi.html">ROI diagnostic</a>
         <a href="benchmarks.html">Benchmarks</a>
-        <a href="cutover-runbook.html">Cutover</a>
       </div>
       <div>
         <h3>Talk to us</h3>

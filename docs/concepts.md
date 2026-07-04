@@ -113,4 +113,3 @@ Offloader listens on two ports, on purpose:
 - **[Define your own endpoints](developer-experience.md)** — what the config files look like.
 - **[Run it in production](operator.md)** — deploy, size, upgrade, roll back.
 - **[Security](security-model.md)** — what's protected, and what you're responsible for.
-- **[Replace an existing serving API](cutover-runbook.md)** — the safe, gradual switch-over.

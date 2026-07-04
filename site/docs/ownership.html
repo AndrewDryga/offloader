@@ -61,7 +61,6 @@ matrix is the first thing to consult in an incident — it keeps a…">
         <li><a href="operator.html">Operator guide</a></li>
         <li><a href="runbooks.html">Runbooks</a></li>
         <li><a href="ownership.html" aria-current="page">Ownership & support</a></li>
-        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
       </ul>
     </div>
     <div class="nav-group">
@@ -121,9 +120,8 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
 </tr>
 </tbody></table>
 </div>
-<h2 id="support-exclusions-v1">Support exclusions (V1)</h2>
-<p>These are the customer&#39;s, not covered by an Offloader support response target
-(a response-time target, not an uptime SLA in V1):</p>
+<h2 id="support-exclusions">Support exclusions</h2>
+<p>These are the customer&#39;s, not covered by the Offloader support response-time target:</p>
 <ul>
 <li>Upstream pipeline failures; bad or incomplete manifests.</li>
 <li>Customer IAM/network changes; object-store outages.</li>
@@ -131,17 +129,10 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
 <li>Unsupported config changes.</li>
 <li>Data modeling work; custom connector work outside a signed SOW.</li>
 </ul>
-<h2 id="classify-in-under-five-minutes">Classify in under five minutes</h2>
-<ol>
-<li><code>curl $ADMIN/ready</code> — is the instance serving at all?</li>
-<li><code>DIAG</code> — per dataset: <code>last_attempted.status</code>, <code>refresh_error</code>, <code>source_reachable</code>,
-<code>stale</code>, <code>duckdb_status</code>, <code>disk</code>.</li>
-<li>Map the failing signal to the matrix above → owner → the matching runbook.</li>
-</ol>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="runbooks.html"><span>Previous</span><b>Runbooks</b></a>
-      <a class="pg next" href="cutover-runbook.html"><span>Next</span><b>Cutover runbook</b></a>
+      <a class="pg next" href="roi.html"><span>Next</span><b>ROI diagnostic</b></a>
     </nav>
   </main>
 </div>
@@ -168,7 +159,6 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
         <h3>Evaluate</h3>
         <a href="roi.html">ROI diagnostic</a>
         <a href="benchmarks.html">Benchmarks</a>
-        <a href="cutover-runbook.html">Cutover</a>
       </div>
       <div>
         <h3>Talk to us</h3>

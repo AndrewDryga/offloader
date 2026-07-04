@@ -190,3 +190,7 @@
 .flow .node-warn { border-style: dashed; border-color: var(--muted); }
 .flow .node-warn strong { color: var(--muted); }
 @media (max-width: 720px) { .flow-lane { grid-template-columns: 1fr; } }
+
+/* two-port diagram (deployment "Runtime shape"): API vs admin side by side. */
+.ports { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 720px) { .ports { grid-template-columns: 1fr; } }

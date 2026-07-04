@@ -81,7 +81,7 @@ whose repeated same-param reads are worth caching; leave it `none` otherwise.
 ## Snapshot manifest contract
 
 A manifest is a small JSON file that points Offloader at one snapshot's files and declares its
-shape. You rarely hand-write one — `offloader import-schema` and the Databricks source generate
+shape. You rarely hand-write one — your snapshot pipeline (or the Databricks source) generates
 it, and `offloader manifest validate` checks it. Required fields:
 
 - `dataset_id`

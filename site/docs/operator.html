@@ -61,7 +61,6 @@ diagnostics fields. It links to the deep docs rather than repeating…">
         <li><a href="operator.html" aria-current="page">Operator guide</a></li>
         <li><a href="runbooks.html">Runbooks</a></li>
         <li><a href="ownership.html">Ownership & support</a></li>
-        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
       </ul>
     </div>
     <div class="nav-group">
@@ -175,17 +174,15 @@ prints a concise per-dataset summary. Metrics for alerting are on <code>/metrics
 <li><strong>Availability (many instances)</strong> — an instance is <strong>stateless</strong>: it materializes each
 snapshot into its own local cache from the bucket and serves reads with no shared state or
 coordination. Run N behind your load balancer; each loads config and snapshots
-independently, and any instance can serve any request. Keep each instance&#39;s admin port
-private. (The V1 caveat below is the <em>support commitment</em> — response targets, not an uptime
-SLA — not the topology.)</li>
+independently, and any instance can serve any request. Keep each instance&#39;s admin port private.</li>
 </ul>
-<h2 id="support-tiers-and-exclusions">Support tiers and exclusions</h2>
-<p>V1 sells <strong>response targets</strong>, not an uptime SLA (until HA reference deployments are
-proven). The customer-run ownership matrix and the support exclusions (upstream
-pipelines, customer IAM/network, disk/CPU, unsupported config changes, data modeling)
-are in <a href="ownership.html"><code>operations/ownership.md</code></a>.</p>
+<h2 id="support">Support</h2>
+<p>Support is a <strong>response-time commitment</strong>, not an uptime SLA — you run the container, so
+availability is yours, and you email a person, not a queue. The
+<a href="ownership.html">ownership matrix</a> spells out what Offloader covers versus what stays
+with your environment (upstream pipelines, IAM, network, resources, config content).</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
-<p>Symptom → signals → owner → action for every V1 incident class:
+<p>Symptom → signals → owner → action for every incident class:
 <a href="runbooks.html"><code>operations/runbooks.md</code></a>. The first step is always
 classification (Offloader vs customer environment vs upstream data) from <code>/diagnostics</code>.</p>
 </article>
@@ -218,7 +215,6 @@ classification (Offloader vs customer environment vs upstream data) from <code>/
         <h3>Evaluate</h3>
         <a href="roi.html">ROI diagnostic</a>
         <a href="benchmarks.html">Benchmarks</a>
-        <a href="cutover-runbook.html">Cutover</a>
       </div>
       <div>
         <h3>Talk to us</h3>

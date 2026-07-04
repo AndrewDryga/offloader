@@ -20,7 +20,6 @@ backs it move together.
 | [deployment.md](deployment.md) | Deployment shapes (docker / Compose / Kubernetes) and rollout verification. |
 | [security-model.md](security-model.md) | What Offloader protects for you, and what you're responsible for. |
 | [public-serving.md](public-serving.md) | Serve public data to a front-end and cache it at the edge (auth, ETags, CORS). |
-| [cutover-runbook.md](cutover-runbook.md) | Replace an existing serving API — gradual and reversible. |
 | [roi.md](roi.md) | Estimate the warehouse savings before committing. |
 | [benchmarks.md](benchmarks.md) | Measure latency, throughput, and footprint on your own data. |
 

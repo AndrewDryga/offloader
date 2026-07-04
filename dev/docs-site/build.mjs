@@ -50,7 +50,6 @@ const GROUPS = [
       ["operator", "docs/operator.md", "Operator guide", "Run it in production: size it, upgrade, roll back, diagnose."],
       ["runbooks", "docs/operations/runbooks.md", "Runbooks", "Step-by-step responses to the alerts that can fire."],
       ["ownership", "docs/operations/ownership.md", "Ownership & support", "The responsibility matrix for a deployment you run yourself."],
-      ["cutover-runbook", "docs/cutover-runbook.md", "Cutover runbook", "Replace an existing serving API gradually and reversibly."],
     ],
   },
   {
@@ -202,7 +201,6 @@ const FOOT = `<footer class="site-foot">
         <h3>Evaluate</h3>
         <a href="roi.html">ROI diagnostic</a>
         <a href="benchmarks.html">Benchmarks</a>
-        <a href="cutover-runbook.html">Cutover</a>
       </div>
       <div>
         <h3>Talk to us</h3>

@@ -32,7 +32,6 @@ Then, by what you want to do:
 - **Define your endpoints** — [Config guide](docs/developer-experience.md): what the `offloader.yml` + `datasets/`/`endpoints/`/`keys/` files look like.
 - **Run it in production** — [Operator guide](docs/operator.md) · [Deployment](docs/deployment.md).
 - **Security** — [Security model](docs/security-model.md): what's protected, and what you own.
-- **Replace an existing serving API** — [Cutover runbook](docs/cutover-runbook.md): the safe, gradual switch-over.
 - **Cost case** — [ROI diagnostic](docs/roi.md) · [Benchmarks](docs/benchmarks.md).
 
 
@@ -89,13 +88,6 @@ The engineer's-eye view (the plain-language version is in [concepts](docs/concep
 - Preserve the previous good snapshot on refresh failure (`rollback`), and ship a
   signed container image via CI on every version tag.
 
-## Replacing an existing serving API
-
-Offloader was built and proven to replace a real warehouse-backed serving API's production serving:
-`offloader import-schema` converts a `serving_schema.json` into a whole project, and
-`offloader shadow-diff` gates the cutover on proven response parity against the live
-system. See **[the cutover runbook](docs/cutover-runbook.md)** for the shadow → canary → cutover playbook.
-
 ## Runtime configuration
 
 The primary product surface is the container plus environment variables. A standard
@@ -121,8 +113,7 @@ The full env-var reference is in the [config guide](docs/developer-experience.md
 gateway/          Elixir/Phoenix self-hostable container: REST APIs, auth,
                   tenant enforcement, env-driven config, manifest refresh,
                   DuckDB materialization, admin/metrics port
-tools/            Optional helper CLI: config/manifest validation, serving-schema
-                  import (import-schema), cutover response-diff (shadow-diff),
+tools/            Optional helper CLI: config/manifest validation,
                   diagnostics, endpoint tests, support bundles
 deploy/           Container deployment notes and examples; no managed cloud scaffold
 docs/             Product, architecture, security, operations, and release docs

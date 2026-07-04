@@ -1,40 +1,42 @@
 # Deployment
 
-Offloader V1 is a customer-run container. The product ships an image, documented
-env vars, mounted config conventions, health checks, metrics, and smoke tests.
-Customers decide how to run it on their servers, Kubernetes clusters, Nomad
-clusters, ECS tasks, VMs, or other internal platforms.
+Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
+conventions, health checks, metrics, and smoke tests — you decide how to run it (VMs,
+Kubernetes, Nomad, ECS, or your own platform).
 
 ## Runtime shape
 
-```text
-product traffic -> API port      -> endpoint API keys and tenant enforcement
-operators       -> admin port    -> health, readiness, metrics, diagnostics, docs
-```
+Two ports, with different audiences:
 
-The admin port is not an identity product. Customers expose it only through their
-own network, proxy, firewall, IAM, SSO, or RBAC controls.
+<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
+  <div class="ports">
+    <div class="node node-hero"><span class="node-k">Product traffic</span><strong>API port · 4000</strong><span class="node-sub">endpoint API keys · tenant enforcement</span></div>
+    <div class="node"><span class="node-k">Operators — keep private</span><strong>Admin port · 4001</strong><span class="node-sub">health · metrics · diagnostics · docs</span></div>
+  </div>
+</figure>
+
+The admin port is not an identity product — expose it only through your own network, proxy,
+firewall, or IAM.
 
 **Config** comes from `OFFLOADER_CONFIG`: either a mounted directory (a ConfigMap/volume with
 `offloader.yml` + `datasets/`/`endpoints/`/`keys/`) or a `gs://…` bucket prefix fetched at boot
 (fully stateless). With `OFFLOADER_CONFIG_SYNC_INTERVAL` set, bucket changes hot-reload with no
 restart — see the [config guide](developer-experience.md#config-from-object-storage-optional).
 
-## Required examples
+## Deployment examples
 
-- Single-node `docker run`.
-- Docker Compose with a mounted cache volume.
-- Kubernetes Deployment, Service, ConfigMap, Secret, and PersistentVolumeClaim.
-- Prometheus scrape config for the admin port.
-- Rollback to previous image.
-- Cache quarantine and rebuild.
+Provider-neutral, ready-to-adapt examples live in [`deploy/`](../deploy/README.md):
+
+- [`docker-run/`](../deploy/docker-run/README.md) — single-node `docker run`.
+- [`compose/`](../deploy/compose/README.md) — Docker Compose with a persistent cache volume.
+- [`kubernetes/`](../deploy/kubernetes/README.md) — Deployment, Services, ConfigMap, Secret, PVC, health probes, resource limits.
+- [`prometheus/`](../deploy/prometheus/README.md) — scrape config + ServiceMonitor for the admin port.
 
 ## Rollout verification and rollback
 
-Deploy the **published, signed image** (`ghcr.io/andrewdryga/offloader:<version>` — pull it,
-don't build it), then verify the running instance. `dev/scripts/deploy-check.sh` is the reusable
-shape a customer's deployment system can wrap around a freshly-deployed instance (contributors
-can build-and-verify locally in one step with `make deploy-check`):
+Deploy the **published, signed image** (`ghcr.io/andrewdryga/offloader:<version>`), then verify
+the running instance. `dev/scripts/deploy-check.sh` is a reusable shape your deployment system
+can wrap around a freshly-deployed instance:
 
 1. Wait for the admin `/ready` to return 200 (it stays 503 until a snapshot is
    materialized, so traffic is held until the instance can actually serve).
@@ -50,10 +52,3 @@ If a check fails, roll back:
   compatibility, so serving is already protected. To revert a *good-but-wrong*
   snapshot, roll the dataset back to its previous good snapshot (see
   [runbooks](operations/runbooks.md) → "Rollback to previous snapshot").
-
-## Non-goals
-
-- No hosted Offloader cloud.
-- No Terraform module for a specific provider in V1.
-- No RBAC, SSO, organization management, or team management.
-- No fleet management portal.

@@ -226,37 +226,11 @@ the first try.
 - `offloader scaffold-dataset` — draft a dataset schema from a manifest or CSV
 - `offloader validate`
 - `offloader manifest validate`
-- `offloader import-schema`
-- `offloader shadow-diff`
 - `offloader endpoint test`
 - `offloader snapshot status`
 - `offloader keys create`
 - `offloader doctor`
 - `offloader support-bundle`
-
-### Importing an existing serving schema
-
-If you already run a warehouse-backed serving API described by a `serving_schema.json`,
-`offloader import-schema` generates a whole Offloader project from it: one dataset per
-source table, one endpoint per query, with the source's `defaults`/`combinations`/
-`param_aliases` preserved, plus a `mapping.json` the cutover diff harness uses. (In that
-schema format each query is grouped by its `game` and `table` fields — hence the
-`game__table` keys below; those are the schema's own field names, whatever your domain.)
-
-Column types aren't in the schema file (its queries are `SELECT *`), so supply a hints
-file — one DESCRIBE per table, mapping nested `STRUCT`/`MAP`/`LIST` columns to `JSON`:
-
-```bash
-# one row per source table: {"game__table": [{"name":"c","type":"VARCHAR"}, ...]}
-offloader import-schema \
-  --from serving_schema.json --hints schema_hints.json \
-  --out ./project --bucket your-snapshot-bucket
-```
-
-Queries whose params aren't columns of their table (or whose table has no hints) fail
-the run so nothing is silently mis-served; `--skip-broken` converts the rest and reports
-each skip. The output passes `offloader validate` and serves live once GCS credentials
-are set (see below).
 
 ## Config layout
 

@@ -111,19 +111,17 @@ Two independent axes:
 - **Availability (many instances)** — an instance is **stateless**: it materializes each
   snapshot into its own local cache from the bucket and serves reads with no shared state or
   coordination. Run N behind your load balancer; each loads config and snapshots
-  independently, and any instance can serve any request. Keep each instance's admin port
-  private. (The V1 caveat below is the *support commitment* — response targets, not an uptime
-  SLA — not the topology.)
+  independently, and any instance can serve any request. Keep each instance's admin port private.
 
-## Support tiers and exclusions
+## Support
 
-V1 sells **response targets**, not an uptime SLA (until HA reference deployments are
-proven). The customer-run ownership matrix and the support exclusions (upstream
-pipelines, customer IAM/network, disk/CPU, unsupported config changes, data modeling)
-are in [`operations/ownership.md`](operations/ownership.md).
+Support is a **response-time commitment**, not an uptime SLA — you run the container, so
+availability is yours, and you email a person, not a queue. The
+[ownership matrix](operations/ownership.md) spells out what Offloader covers versus what stays
+with your environment (upstream pipelines, IAM, network, resources, config content).
 
 ## Troubleshooting
 
-Symptom → signals → owner → action for every V1 incident class:
+Symptom → signals → owner → action for every incident class:
 [`operations/runbooks.md`](operations/runbooks.md). The first step is always
 classification (Offloader vs customer environment vs upstream data) from `/diagnostics`.

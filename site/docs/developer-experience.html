@@ -62,7 +62,6 @@ What Offloader is, in…">
         <li><a href="operator.html">Operator guide</a></li>
         <li><a href="runbooks.html">Runbooks</a></li>
         <li><a href="ownership.html">Ownership & support</a></li>
-        <li><a href="cutover-runbook.html">Cutover runbook</a></li>
       </ul>
     </div>
     <div class="nav-group">
@@ -271,32 +270,12 @@ the first try.</p>
 <li><code>offloader scaffold-dataset</code> — draft a dataset schema from a manifest or CSV</li>
 <li><code>offloader validate</code></li>
 <li><code>offloader manifest validate</code></li>
-<li><code>offloader import-schema</code></li>
-<li><code>offloader shadow-diff</code></li>
 <li><code>offloader endpoint test</code></li>
 <li><code>offloader snapshot status</code></li>
 <li><code>offloader keys create</code></li>
 <li><code>offloader doctor</code></li>
 <li><code>offloader support-bundle</code></li>
 </ul>
-<h3 id="importing-an-existing-serving-schema">Importing an existing serving schema</h3>
-<p>If you already run a warehouse-backed serving API described by a <code>serving_schema.json</code>,
-<code>offloader import-schema</code> generates a whole Offloader project from it: one dataset per
-source table, one endpoint per query, with the source&#39;s <code>defaults</code>/<code>combinations</code>/
-<code>param_aliases</code> preserved, plus a <code>mapping.json</code> the cutover diff harness uses. (In that
-schema format each query is grouped by its <code>game</code> and <code>table</code> fields — hence the
-<code>game__table</code> keys below; those are the schema&#39;s own field names, whatever your domain.)</p>
-<p>Column types aren&#39;t in the schema file (its queries are <code>SELECT *</code>), so supply a hints
-file — one DESCRIBE per table, mapping nested <code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> columns to <code>JSON</code>:</p>
-<pre tabindex="0"><code class="language-bash"># one row per source table: {&quot;game__table&quot;: [{&quot;name&quot;:&quot;c&quot;,&quot;type&quot;:&quot;VARCHAR&quot;}, ...]}
-offloader import-schema \
-  --from serving_schema.json --hints schema_hints.json \
-  --out ./project --bucket your-snapshot-bucket
-</code></pre>
-<p>Queries whose params aren&#39;t columns of their table (or whose table has no hints) fail
-the run so nothing is silently mis-served; <code>--skip-broken</code> converts the rest and reports
-each skip. The output passes <code>offloader validate</code> and serves live once GCS credentials
-are set (see below).</p>
 <h2 id="config-layout">Config layout</h2>
 <p>The project directory <code>OFFLOADER_CONFIG</code> points at:</p>
 <pre tabindex="0"><code class="language-text">offloader.yml       # top-level project file (version, dirs, auth mode, keys path)
@@ -336,7 +315,6 @@ before you ship a change. See <code>examples/customer-analytics/</code> for a co
         <h3>Evaluate</h3>
         <a href="roi.html">ROI diagnostic</a>
         <a href="benchmarks.html">Benchmarks</a>
-        <a href="cutover-runbook.html">Cutover</a>
       </div>
       <div>
         <h3>Talk to us</h3>
