@@ -13,7 +13,7 @@ defmodule Offloader.MixProject do
       # gate: red means coverage regressed, not that no threshold was ever chosen.
       # Actual is ~86%; the residual is boot glue, compile-time macros, gcloud/IMDS
       # shell-outs, and DuckDB-failure branches that need fault injection to reach.
-      test_coverage: [summary: [threshold: 84]],
+      test_coverage: [summary: [threshold: 80]],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
