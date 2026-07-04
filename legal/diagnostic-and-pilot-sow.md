@@ -68,7 +68,7 @@ notice. **No lock-in:** Offloader is self-hosted; on termination the Client keep
 config, snapshots, and data, and the warehouse/app are exactly as before.
 
 **What the Provider delivers in the Pilot.** Endpoint configuration for the in-scope datasets,
-cutover support (shadow-diff parity → canary → cutover), and V1 support that is a **response-time
+cutover support (response-parity validation → canary → cutover), and support that is a **response-time
 commitment, not an uptime SLA** — the Client operates the software, so availability is the
 Client's.
 

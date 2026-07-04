@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -218,6 +219,20 @@ func deriveDatasetID(path string) string {
 		base = strings.TrimSuffix(base, filepath.Ext(base))
 	}
 	return sanitizeIdent(base)
+}
+
+var identSanitizeRe = regexp.MustCompile(`[^a-z0-9_]`)
+
+// sanitizeIdent turns an arbitrary string into a valid lowercase dataset id.
+func sanitizeIdent(s string) string {
+	s = identSanitizeRe.ReplaceAllString(strings.ToLower(s), "_")
+	if s == "" || s[0] >= '0' && s[0] <= '9' {
+		s = "g_" + s
+	}
+	if len(s) > 63 {
+		s = s[:63]
+	}
+	return s
 }
 
 func renderDataset(id string, cols []columnYML, tenantCol, manifestPointer, provenance string) string {
