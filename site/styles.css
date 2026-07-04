@@ -132,8 +132,8 @@ strong { font-weight: 600; }
 
 /* closing call-to-action band */
 .cta-band { text-align: center; }
-.cta-band-inner { max-width: 54ch; margin-inline: auto; }
-.cta-band-sub { margin-top: 1.15rem; color: var(--ink-2); font-size: var(--fs-lede); line-height: 1.55; }
+.cta-band-inner { max-width: 44rem; margin-inline: auto; }
+.cta-band-sub { margin-top: 1.15rem; max-width: 42rem; margin-inline: auto; color: var(--ink-2); font-size: var(--fs-lede); line-height: 1.55; }
 .cta-band-row { justify-content: center; margin-top: 2.25rem; }
 
 /* ── hero ───────────────────────────────────────────────────────────── */
