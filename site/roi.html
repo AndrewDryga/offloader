@@ -64,9 +64,6 @@
       .unit { position: relative; }
       .unit input { padding-right: 3rem; }
       .unit > span { position: absolute; right: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.9rem; pointer-events: none; }
-      .field select { font-family: var(--sans); font-size: 1rem; color: var(--ink); background: var(--paper-2); border: 1px solid var(--line); border-radius: 9px; padding: 0.6rem 0.75rem; width: 100%; }
-      .field select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
-      .opt { color: var(--muted); font-weight: 400; }
 
       .adv summary { cursor: pointer; font-size: 0.9rem; font-weight: 550; color: var(--ink-2); list-style: none; }
       .adv summary::-webkit-details-marker { display: none; }
@@ -153,31 +150,21 @@
             <h2>Your numbers</h2>
             <div class="calc-body">
               <div class="field">
-                <label for="warehouse">Current warehouse spend on these reads, per month</label>
-                <div class="money"><input type="number" id="warehouse" min="0" step="100" value="6000" /></div>
-                <span class="hint">What your product's repeated dashboard / stats reads cost the warehouse today.</span>
-              </div>
-
-              <div class="field">
                 <label for="requests">Requests served per month</label>
                 <input type="number" id="requests" min="0" step="1000000" value="50000000" />
-                <span class="hint">Total product reads Offloader would serve — this sizes the fleet.</span>
+                <span class="hint">Total product reads you serve for these dashboards / stats.</span>
               </div>
 
               <div class="field">
-                <label for="latency">Latency goal (p99)</label>
-                <select id="latency">
-                  <option value="30">Under 30 ms — tight</option>
-                  <option value="60" selected>Under 60 ms — typical</option>
-                  <option value="120">Under 120 ms — relaxed</option>
-                </select>
-                <span class="hint">A tighter target runs each instance cooler, so the fleet needs a little more headroom.</span>
+                <label for="warehouse">Current warehouse cost for those reads, per month</label>
+                <div class="money"><input type="number" id="warehouse" min="0" step="100" value="6000" /></div>
+                <span class="hint">What the warehouse bills you today to answer them.</span>
               </div>
 
               <div class="field">
-                <label for="snapshot">Served snapshot size <span class="opt">(optional)</span></label>
-                <div class="unit"><input type="number" id="snapshot" min="0" step="1" placeholder="e.g. 4" /><span>GB</span></div>
-                <span class="hint">The materialized data each instance holds in memory — sets the RAM per instance. Blank assumes a small dataset.</span>
+                <label for="repeatable">Share that's repeatable</label>
+                <div class="unit"><input type="number" id="repeatable" min="0" max="100" step="5" value="70" /><span>%</span></div>
+                <span class="hint">The same query shapes, run over and over — that's what Offloader serves from a snapshot. The rest stays on the warehouse.</span>
               </div>
 
               <details class="adv">
@@ -200,7 +187,7 @@
             <div class="calc-body">
               <table class="save-table" id="result-table">
                 <tbody>
-                  <tr><td>Warehouse bill</td><td id="r-wh">—</td></tr>
+                  <tr><td>Repeatable warehouse cost</td><td id="r-wh">—</td></tr>
                   <tr><td>Offloader infrastructure</td><td id="r-infra">—</td></tr>
                   <tr class="expected"><td id="r-save-label">Estimated savings / mo</td><td id="r-save">—</td></tr>
                   <tr><td>Annualized</td><td id="r-annual">—</td></tr>
@@ -227,26 +214,25 @@
           <div class="explain-card">
             <h3>The plain difference</h3>
             <p>
-              Savings = your <b>current warehouse bill</b> for these reads − what the <b>Offloader
-              fleet</b> costs to run. No reduction factors, no labor line, no scenarios — just the two
-              bills, side by side.
+              Savings = the <b>repeatable share</b> of your warehouse cost − what the <b>Offloader
+              fleet</b> costs to run. No labor line, no scenarios — just the two bills, side by side.
             </p>
           </div>
           <div class="explain-card">
             <h3>How the fleet is sized</h3>
             <p>
-              Requests per month become a <b>peak</b> rate (product traffic runs ~4× its average at
-              busy hours). Each instance sustains <code>~5,000 req/s</code> cached at p99 &lt; 60 ms
-              from the benchmark; a tighter latency goal runs it cooler, so the fleet grows. Minimum
-              two instances for availability.
+              The repeatable requests become a <b>peak</b> rate (product traffic runs ~4× its average
+              at busy hours). Each instance sustains <code>~5,000 req/s</code> cached from the
+              benchmark, so the fleet is however many instances that peak needs — minimum two for
+              availability.
             </p>
           </div>
           <div class="explain-card">
-            <h3>Instance spec from snapshot size</h3>
+            <h3>Only the repeatable reads</h3>
             <p>
-              Each instance materializes the snapshot in memory, so <b>RAM is sized to the snapshot</b>
-              plus working headroom, then rounded to a standard tier. Object storage holds a few
-              retained snapshot versions; a load balancer fronts the fleet.
+              Offloader serves the <b>repeatable</b> query shapes from a snapshot; ad-hoc and one-off
+              reads stay on the warehouse. So the saving applies to the repeatable share of your bill —
+              the rest is untouched.
             </p>
           </div>
           <div class="explain-card">
@@ -254,7 +240,7 @@
             <p>
               Sizing is an <b>estimate</b> from a single-machine benchmark — confirm it with a pilot. On
               <b>committed capacity</b> the warehouse savings are <em>potential</em> until you downsize the
-              tier. And your warehouse still runs the periodic snapshot build — a small residual left in.
+              tier — the calculator flags it.
             </p>
           </div>
         </div>
@@ -330,19 +316,12 @@
         "use strict";
 
         // Fleet-sizing constants, grounded in the validated benchmark (docs/benchmarks.md:
-        // ~5–6k req/s cached at p99 < 60 ms on a single instance). Estimates, not an SLA.
+        // ~5–6k req/s cached on a single instance). An estimate, not an SLA.
         var REF_RPS = 5000;                 // sustained cached req/s per instance (benchmark low end)
+        var UTIL = 0.6;                     // typical per-instance utilization headroom
         var PEAK_FACTOR = 4;                // product traffic peaks well above its monthly average
         var SEC_PER_MONTH = 30 * 24 * 3600; // 2,592,000
-        var UTIL = { "30": 0.4, "60": 0.6, "120": 0.75 }; // per-instance headroom by latency goal
-        var TIERS = [                       // instance tiers — mainstream-cloud on-demand ballpark
-          { ram: 4, vcpu: 2, usd: 35 },
-          { ram: 8, vcpu: 2, usd: 65 },
-          { ram: 16, vcpu: 4, usd: 130 },
-          { ram: 32, vcpu: 8, usd: 260 },
-          { ram: 64, vcpu: 16, usd: 520 }
-        ];
-        var LB_USD = 20;
+        var INSTANCE = { vcpu: 2, ram: 8, usd: 65 }; // a typical serving instance
 
         var $ = function (id) { return document.getElementById(id); };
         var money0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -350,26 +329,24 @@
         function usd(v) { var n = Math.round(v); return (n < 0 ? "−" : "") + money0.format(Math.abs(n)); }
         function fnum(el) { var v = parseFloat(String(el.value).replace(/[^0-9.\-]/g, "")); return isFinite(v) && v > 0 ? v : 0; }
 
-        // Size the Offloader fleet from traffic + latency goal + snapshot size.
-        function sizeFleet(requests, latency, snapshotGb) {
-          var peakRps = (requests / SEC_PER_MONTH) * PEAK_FACTOR;
-          var perInstance = REF_RPS * (UTIL[latency] || 0.6);
-          var instances = Math.max(2, Math.ceil(peakRps / perInstance) || 0); // min 2 for availability
-          var needRam = snapshotGb > 0 ? snapshotGb * 1.5 + 1 : 2;             // materialized data + working memory
-          var tier = TIERS[TIERS.length - 1];
-          for (var i = 0; i < TIERS.length; i++) { if (TIERS[i].ram >= needRam) { tier = TIERS[i]; break; } }
-          var storage = Math.max(1, (snapshotGb || 1) * 3 * 0.02);            // ~3 retained versions @ $0.02/GB-mo
-          return { instances: instances, tier: tier, storage: storage, peakRps: peakRps,
-                   infra: instances * tier.usd + storage + LB_USD };
+        // Size the fleet from the repeatable request volume alone.
+        function sizeFleet(repeatableRequests) {
+          var peakRps = (repeatableRequests / SEC_PER_MONTH) * PEAK_FACTOR;
+          var instances = Math.max(2, Math.ceil(peakRps / (REF_RPS * UTIL)) || 0); // min 2 for availability
+          return { instances: instances, peakRps: peakRps, infra: instances * INSTANCE.usd };
         }
 
         function render() {
-          var warehouse = fnum($("warehouse"));
+          var requests = fnum($("requests"));
+          var cost = fnum($("warehouse"));
+          var pct = Math.min(100, fnum($("repeatable"))) / 100;
           var committed = $("committed").checked;
-          var f = sizeFleet(fnum($("requests")), $("latency").value, fnum($("snapshot")));
-          var savings = warehouse - f.infra;
 
-          $("r-wh").textContent = usd(warehouse) + "/mo";
+          var offloadable = cost * pct;      // warehouse cost of the repeatable reads
+          var f = sizeFleet(requests * pct); // the fleet only serves the repeatable requests
+          var savings = offloadable - f.infra;
+
+          $("r-wh").textContent = usd(offloadable) + "/mo";
           $("r-infra").textContent = usd(f.infra) + "/mo";
           $("r-save-label").textContent = committed ? "Potential savings / mo" : "Estimated savings / mo";
           $("r-save").textContent = usd(savings) + "/mo";
@@ -378,12 +355,11 @@
 
           $("fleet").innerHTML =
             "Sized for ~" + int0.format(Math.round(f.peakRps)) + " req/s peak: <b>" +
-            f.instances + " × " + f.tier.vcpu + " vCPU / " + f.tier.ram + " GB</b> (" +
-            usd(f.tier.usd) + "/mo each) + " + usd(f.storage) + " object storage + " + usd(LB_USD) + " load balancer.";
+            f.instances + " × " + INSTANCE.vcpu + " vCPU / " + INSTANCE.ram + " GB</b> (~" + usd(INSTANCE.usd) + "/mo each).";
 
-          var cav = ["Fleet sizing is an estimate from the validated benchmark (~5k req/s per instance at p99 < 60 ms) — real capacity depends on your payloads and data, so confirm it with a pilot."];
+          var cav = ["Fleet sizing is an estimate from the validated benchmark (~5k req/s per instance) — real capacity depends on your payloads, so confirm it with a pilot."];
+          cav.push("Only the repeatable reads move; the rest stay on the warehouse, so this is the saving on the part you offload.");
           if (committed) cav.push("Committed / flat-rate capacity: moving the reads off doesn't lower the warehouse bill until you actually downsize the tier — until then these savings are potential, not realized.");
-          cav.push("Your warehouse still runs the periodic snapshot build (once per refresh, not per request) — a small residual not subtracted here.");
           $("caveats").innerHTML = cav.map(function (c) { return "<li>" + c + "</li>"; }).join("");
         }
 
