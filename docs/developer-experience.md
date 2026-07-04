@@ -179,12 +179,16 @@ On GKE/GCE the bearer token comes from the metadata server (no credential env ne
 laptop it falls back to `gcloud`. Add `OFFLOADER_CONFIG_SYNC_INTERVAL` and edits you publish to
 the prefix hot-reload with no restart (below).
 
-- Uses the **GCS bearer token chain** (the same one the Databricks source lists with):
-  `OFFLOADER_GCS_TOKEN`, the GCE metadata server, or `gcloud` — set `OFFLOADER_GCS_AUTH=bearer`.
-  Remote config is GCS-only for now (`s3://`/`https://` config is not yet supported).
-- Only `.yml`/`.yaml` objects under the prefix are fetched (bounded to 500 files / 32 MiB). A
-  transient GCS error at boot is retried a few times; an invalid config fails boot loudly, exactly
-  as a bad mounted config does.
+- **`gs://`** uses the GCS bearer token chain (`OFFLOADER_GCS_TOKEN`, the GCE metadata server, or
+  `gcloud` — set `OFFLOADER_GCS_AUTH=bearer`), or **no credentials** with `OFFLOADER_GCS_AUTH=none`
+  for a public bucket. **`s3://`** is also supported — SigV4-signed with the `OFFLOADER_S3_*`
+  credentials (or anonymous for a public bucket; `OFFLOADER_S3_ENDPOINT` targets an S3-compatible
+  store). (`https://` config is not supported.)
+- The whole project tree under the prefix is fetched — the config `.yml` **and** its companion
+  data (a static `manifest.json` + the small snapshot files a relative `manifest:` points at) —
+  bounded to 500 files / 32 MiB, so a self-contained project boots straight from the bucket. A
+  transient error at boot is retried a few times; an invalid config fails boot loudly, exactly as
+  a bad mounted config does.
 - Datasets served from a remote config should use a remote `source:` (Databricks/GCS) or an
   absolute/remote `manifest:` — a *relative local* `manifest:` has no mounted data to resolve
   against.

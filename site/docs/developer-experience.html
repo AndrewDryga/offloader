@@ -226,12 +226,16 @@ and boot the published image straight against it — the only volume is the opti
 laptop it falls back to <code>gcloud</code>. Add <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> and edits you publish to
 the prefix hot-reload with no restart (below).</p>
 <ul>
-<li>Uses the <strong>GCS bearer token chain</strong> (the same one the Databricks source lists with):
-<code>OFFLOADER_GCS_TOKEN</code>, the GCE metadata server, or <code>gcloud</code> — set <code>OFFLOADER_GCS_AUTH=bearer</code>.
-Remote config is GCS-only for now (<code>s3://</code>/<code>https://</code> config is not yet supported).</li>
-<li>Only <code>.yml</code>/<code>.yaml</code> objects under the prefix are fetched (bounded to 500 files / 32 MiB). A
-transient GCS error at boot is retried a few times; an invalid config fails boot loudly, exactly
-as a bad mounted config does.</li>
+<li><strong><code>gs://</code></strong> uses the GCS bearer token chain (<code>OFFLOADER_GCS_TOKEN</code>, the GCE metadata server, or
+<code>gcloud</code> — set <code>OFFLOADER_GCS_AUTH=bearer</code>), or <strong>no credentials</strong> with <code>OFFLOADER_GCS_AUTH=none</code>
+for a public bucket. <strong><code>s3://</code></strong> is also supported — SigV4-signed with the <code>OFFLOADER_S3_*</code>
+credentials (or anonymous for a public bucket; <code>OFFLOADER_S3_ENDPOINT</code> targets an S3-compatible
+store). (<code>https://</code> config is not supported.)</li>
+<li>The whole project tree under the prefix is fetched — the config <code>.yml</code> <strong>and</strong> its companion
+data (a static <code>manifest.json</code> + the small snapshot files a relative <code>manifest:</code> points at) —
+bounded to 500 files / 32 MiB, so a self-contained project boots straight from the bucket. A
+transient error at boot is retried a few times; an invalid config fails boot loudly, exactly as
+a bad mounted config does.</li>
 <li>Datasets served from a remote config should use a remote <code>source:</code> (Databricks/GCS) or an
 absolute/remote <code>manifest:</code> — a <em>relative local</em> <code>manifest:</code> has no mounted data to resolve
 against.</li>

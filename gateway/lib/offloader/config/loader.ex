@@ -47,27 +47,16 @@ defmodule Offloader.Config.Loader do
   """
   @spec digest(String.t()) :: {:ok, binary()} | {:error, term()}
   def digest("gs://" <> _ = url) do
-    with {:ok, {bucket, prefix}} <- parse_gs(url) do
-      list_prefix = if prefix == "", do: "", else: prefix <> "/"
+    with {:ok, {bucket, prefix}} <- parse_gs(url), do: digest_remote(gcs_client(), bucket, prefix)
+  end
 
-      with_retry(fn ->
-        with {:ok, items} <- client().list_objects(bucket, list_prefix) do
-          token =
-            items
-            |> Enum.filter(&yaml_name?(&1["name"]))
-            |> Enum.map(&{&1["name"], &1["updated"], &1["size"]})
-            |> Enum.sort()
-            |> hash()
-
-          {:ok, token}
-        end
-      end)
-    end
+  def digest("s3://" <> _ = url) do
+    with {:ok, {bucket, prefix}} <- parse_s3(url), do: digest_remote(s3_client(), bucket, prefix)
   end
 
   def digest(path) do
     case URI.parse(path) do
-      %URI{scheme: scheme} when scheme in ["s3", "https", "http"] ->
+      %URI{scheme: scheme} when scheme in ["https", "http"] ->
         {:error, {:unsupported_config_scheme, scheme}}
 
       _ ->
@@ -89,6 +78,23 @@ defmodule Offloader.Config.Loader do
     end
   end
 
+  defp digest_remote(client, bucket, prefix) do
+    list_prefix = if prefix == "", do: "", else: prefix <> "/"
+
+    with_retry(fn ->
+      with {:ok, items} <- client.list_objects(bucket, list_prefix) do
+        token =
+          items
+          |> Enum.filter(&yaml_name?(&1["name"]))
+          |> Enum.map(&{&1["name"], &1["updated"], &1["size"]})
+          |> Enum.sort()
+          |> hash()
+
+        {:ok, token}
+      end
+    end)
+  end
+
   defp hash(term), do: :crypto.hash(:sha256, :erlang.term_to_binary(term))
 
   # ── resolve config_path → a local offloader.yml ────────────────────────────────
@@ -96,14 +102,22 @@ defmodule Offloader.Config.Loader do
   defp resolve("gs://" <> _ = url, cache_dir) do
     with {:ok, {bucket, prefix}} <- parse_gs(url),
          dir = Path.join(cache_dir, @config_subdir),
-         :ok <- fetch_remote(bucket, prefix, dir) do
+         :ok <- fetch_remote(gcs_client(), bucket, prefix, dir) do
+      {:ok, Path.join(dir, "offloader.yml")}
+    end
+  end
+
+  defp resolve("s3://" <> _ = url, cache_dir) do
+    with {:ok, {bucket, prefix}} <- parse_s3(url),
+         dir = Path.join(cache_dir, @config_subdir),
+         :ok <- fetch_remote(s3_client(), bucket, prefix, dir) do
       {:ok, Path.join(dir, "offloader.yml")}
     end
   end
 
   defp resolve(path, _cache_dir) do
     case URI.parse(path) do
-      %URI{scheme: scheme} when scheme in ["s3", "https", "http"] ->
+      %URI{scheme: scheme} when scheme in ["https", "http"] ->
         {:error, {:unsupported_config_scheme, scheme}}
 
       _ ->
@@ -111,25 +125,29 @@ defmodule Offloader.Config.Loader do
     end
   end
 
-  # `gs://bucket/prefix/...` → {bucket, prefix} with the trailing slash trimmed. A
-  # bucket-only URL (`gs://bucket`) uses the empty prefix (whole bucket).
-  defp parse_gs("gs://" <> rest) do
+  # `gs://bucket/prefix/...` (or `s3://…`) → {bucket, prefix} with the trailing slash trimmed.
+  # A bucket-only URL uses the empty prefix (whole bucket).
+  defp parse_gs("gs://" <> rest), do: split_bucket_prefix(rest, "gs")
+  defp parse_s3("s3://" <> rest), do: split_bucket_prefix(rest, "s3")
+
+  defp split_bucket_prefix(rest, scheme) do
     case rest |> String.trim_trailing("/") |> String.split("/", parts: 2) do
       [bucket] when bucket != "" -> {:ok, {bucket, ""}}
       [bucket, prefix] when bucket != "" -> {:ok, {bucket, prefix}}
-      _ -> {:error, {:invalid_gs_url, "gs://" <> rest}}
+      _ -> {:error, {:"invalid_#{scheme}_url", "#{scheme}://" <> rest}}
     end
   end
 
   # ── fetch the project tree from GCS ────────────────────────────────────────────
 
-  defp fetch_remote(bucket, prefix, dir), do: with_retry(fn -> do_fetch(bucket, prefix, dir) end)
+  defp fetch_remote(client, bucket, prefix, dir),
+    do: with_retry(fn -> do_fetch(client, bucket, prefix, dir) end)
 
-  defp do_fetch(bucket, prefix, dir) do
+  defp do_fetch(client, bucket, prefix, dir) do
     # Scope the listing to the prefix "directory" so a sibling like `<prefix>2/` can't leak in.
     list_prefix = if prefix == "", do: "", else: prefix <> "/"
 
-    with {:ok, items} <- client().list_objects(bucket, list_prefix) do
+    with {:ok, items} <- client.list_objects(bucket, list_prefix) do
       # Fetch the whole project tree — the config `.yml` AND its companion data (a static
       # `manifest.json` + small snapshot files a relative `manifest:` points at) — so a
       # self-contained project boots straight from a bucket. Still bounded by @max_files/
@@ -146,13 +164,13 @@ defmodule Offloader.Config.Loader do
           {:error, {:config_too_large, total_bytes(items)}}
 
         true ->
-          download_all(bucket, list_prefix, items, dir)
+          download_all(client, bucket, list_prefix, items, dir)
       end
     end
   end
 
   # Wipe the local config dir first so a file removed upstream doesn't linger and get loaded.
-  defp download_all(bucket, list_prefix, items, dir) do
+  defp download_all(client, bucket, list_prefix, items, dir) do
     File.rm_rf!(dir)
     File.mkdir_p!(dir)
 
@@ -167,7 +185,7 @@ defmodule Offloader.Config.Loader do
             {:halt, {:error, {:unsafe_config_path, rel}}}
 
           true ->
-            case client().get_object(bucket, name) do
+            case client.get_object(bucket, name) do
               {:ok, body} ->
                 path = Path.join(dir, rel)
                 File.mkdir_p!(Path.dirname(path))
@@ -182,7 +200,7 @@ defmodule Offloader.Config.Loader do
 
     with :ok <- result do
       Logger.info(
-        "loaded config: #{length(items)} file(s) from gs://#{bucket}/#{list_prefix} → #{dir}"
+        "loaded config: #{length(items)} file(s) from #{bucket}/#{list_prefix} → #{dir}"
       )
 
       :ok
@@ -212,8 +230,10 @@ defmodule Offloader.Config.Loader do
   defp transient?({:too_many_config_files, _}), do: false
   defp transient?({:config_too_large, _}), do: false
   defp transient?({:invalid_gs_url, _}), do: false
+  defp transient?({:invalid_s3_url, _}), do: false
   defp transient?(:unauthorized), do: false
   defp transient?({:gcs_api_error, status}) when is_integer(status), do: status >= 500
+  defp transient?({:s3_api_error, status}) when is_integer(status), do: status >= 500
   defp transient?({:fetch_failed, _rel, reason}), do: transient?(reason)
   defp transient?(_), do: true
 
@@ -239,7 +259,8 @@ defmodule Offloader.Config.Loader do
   defp parse_size(size) when is_integer(size), do: size
   defp parse_size(_), do: 0
 
-  # The GCS client is swappable so tests inject a fixture (no network) — same override the
-  # Databricks refresh path uses.
-  defp client, do: Application.get_env(:offloader, :gcs_source_client, Offloader.Gcs.Client)
+  # The source clients are swappable so tests inject a fixture (no network) — same override the
+  # Databricks refresh path uses. One per scheme: gs:// → GCS, s3:// → S3.
+  defp gcs_client, do: Application.get_env(:offloader, :gcs_source_client, Offloader.Gcs.Client)
+  defp s3_client, do: Application.get_env(:offloader, :s3_source_client, Offloader.S3.Client)
 end

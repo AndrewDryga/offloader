@@ -47,17 +47,17 @@ defmodule Offloader.Config.LoaderTest do
       do: Enum.filter(objects, &String.starts_with?(&1["name"], prefix))
   end
 
-  defp with_fake(opts) do
-    prev = Application.get_env(:offloader, :gcs_source_client)
+  defp with_fake(opts, env_key \\ :gcs_source_client) do
+    prev = Application.get_env(:offloader, env_key)
     FakeGcs.start(opts)
-    Application.put_env(:offloader, :gcs_source_client, FakeGcs)
+    Application.put_env(:offloader, env_key, FakeGcs)
 
     on_exit(fn ->
       FakeGcs.stop()
 
       if prev,
-        do: Application.put_env(:offloader, :gcs_source_client, prev),
-        else: Application.delete_env(:offloader, :gcs_source_client)
+        do: Application.put_env(:offloader, env_key, prev),
+        else: Application.delete_env(:offloader, env_key)
     end)
   end
 
@@ -196,10 +196,28 @@ defmodule Offloader.Config.LoaderTest do
     end
   end
 
+  describe "remote config (s3://)" do
+    test "fetches the project tree from s3:// via the S3 client seam" do
+      {objects, bodies} = example_objects("proj")
+      with_fake([objects: objects, bodies: bodies], :s3_source_client)
+      cache = tmp_cache()
+
+      assert {:ok, catalog} = Loader.load("s3://my-bucket/proj", cache)
+      assert Map.has_key?(catalog.datasets, "customer_usage")
+      assert File.exists?(Path.join([cache, "config", "offloader.yml"]))
+    end
+
+    test "digest reads via LIST for s3:// too" do
+      {objects, _bodies} = example_objects("proj")
+      with_fake([objects: objects, bodies: %{}], :s3_source_client)
+      assert {:ok, _} = Loader.digest("s3://my-bucket/proj")
+    end
+  end
+
   describe "unsupported schemes" do
-    test "s3:// config is rejected (GCS-only for v1)" do
-      assert {:error, {:unsupported_config_scheme, "s3"}} =
-               Loader.load("s3://bucket/path", tmp_cache())
+    test "https:// config is rejected" do
+      assert {:error, {:unsupported_config_scheme, "https"}} =
+               Loader.load("https://host/path", tmp_cache())
     end
   end
 
