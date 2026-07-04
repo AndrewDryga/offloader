@@ -435,10 +435,10 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
         <p class="kicker">Get started</p>
         <h2 id="start-h" class="h2">Run it in fifteen minutes.</h2>
         <p>
-          It’s a container you run on your own infrastructure. Pull it from the registry and
-          point it at your config bucket — endpoints, keys, and data all load from
-          <code>gs://…</code>, nothing to clone or build. New to it? The 15-minute quickstart
-          runs against a bundled example locally.
+          It’s a container. Pull it from the registry and point it at our <b>public sample
+          bucket</b> — config and data load from <code>gs://…</code> with <b>no credentials</b>,
+          nothing to clone or build. Ready for your own data? Point <code>OFFLOADER_CONFIG</code>
+          at your bucket, or run the 15-minute quickstart locally.
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="docs/quickstart.html">The 15-minute quickstart</a>
@@ -454,16 +454,15 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
       <aside class="start-run" aria-label="Run it">
         <div class="run-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span> <span class="run-title">docker</span></div>
 <pre class="run-code">$ docker run \
-    -e OFFLOADER_CONFIG=gs://your-bucket/offloader/ \
-    -e OFFLOADER_GCS_AUTH=bearer \
-    -e OFFLOADER_GCS_TOKEN=$(gcloud auth print-access-token) \
+    -e OFFLOADER_CONFIG=gs://offloader-public-samples/offloader/ \
+    -e OFFLOADER_GCS_AUTH=none \
     -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -hex 24) \
     -e OFFLOADER_CACHE_DIR=/cache \
     -v offloader-cache:/cache \
     -p 4000:4000 \
     ghcr.io/andrewdryga/offloader:edge
 
-$ curl "localhost:4000/v1/endpoints/revenue_by_day?account=42"
+$ curl "localhost:4000/v1/endpoints/champion?champion_id=1"
 <span class="run-ok">→ 200</span>  served from a snapshot, not your warehouse</pre>
       </aside>
     </div>

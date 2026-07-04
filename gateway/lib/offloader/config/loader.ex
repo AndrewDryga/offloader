@@ -130,20 +130,23 @@ defmodule Offloader.Config.Loader do
     list_prefix = if prefix == "", do: "", else: prefix <> "/"
 
     with {:ok, items} <- client().list_objects(bucket, list_prefix) do
-      yaml = Enum.filter(items, &yaml_name?(&1["name"]))
-
+      # Fetch the whole project tree — the config `.yml` AND its companion data (a static
+      # `manifest.json` + small snapshot files a relative `manifest:` points at) — so a
+      # self-contained project boots straight from a bucket. Still bounded by @max_files/
+      # @max_bytes and path-guarded; a config-less prefix is rejected. Large data belongs
+      # in remote-scan / gs:// manifest paths that DuckDB reads directly, not here.
       cond do
-        yaml == [] ->
+        not Enum.any?(items, &yaml_name?(&1["name"])) ->
           {:error, {:no_config_objects, bucket, prefix}}
 
-        length(yaml) > @max_files ->
-          {:error, {:too_many_config_files, length(yaml)}}
+        length(items) > @max_files ->
+          {:error, {:too_many_config_files, length(items)}}
 
-        total_bytes(yaml) > @max_bytes ->
-          {:error, {:config_too_large, total_bytes(yaml)}}
+        total_bytes(items) > @max_bytes ->
+          {:error, {:config_too_large, total_bytes(items)}}
 
         true ->
-          download_all(bucket, list_prefix, yaml, dir)
+          download_all(bucket, list_prefix, items, dir)
       end
     end
   end

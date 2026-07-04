@@ -24,3 +24,12 @@ tools/offloader
 # Docs-site build tooling deps (the generator + generated site/docs/*.html are committed)
 node_modules/
 dev/docs-site/node_modules/
+
+# Terraform local state + provider cache (infra/). Terraform Cloud manages the provider
+# lock (a lock generated here would miss linux_amd64 hashes and break the TFC run).
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+crash.log

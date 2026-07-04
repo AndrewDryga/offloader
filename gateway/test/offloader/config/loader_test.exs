@@ -104,6 +104,31 @@ defmodule Offloader.Config.LoaderTest do
       assert File.exists?(Path.join([cache, "config", "offloader.yml"]))
     end
 
+    test "fetches companion data (a manifest.json + snapshot file), not just yaml" do
+      {objects, bodies} = example_objects("proj")
+
+      # A relative manifest points at these; a self-contained bucket project must bring
+      # them down too, not only the .yml config.
+      data = [
+        {"proj/data/x/manifest.json", ~s({"snapshot_id":"s1"})},
+        {"proj/data/x/snap.parquet", "PAR1"}
+      ]
+
+      objects =
+        objects ++
+          Enum.map(data, fn {name, body} ->
+            %{"name" => name, "size" => Integer.to_string(byte_size(body)), "updated" => "t"}
+          end)
+
+      bodies = Enum.reduce(data, bodies, fn {name, body}, acc -> Map.put(acc, name, body) end)
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+
+      assert {:ok, _catalog} = Loader.load("gs://my-bucket/proj", cache)
+      assert File.read!(Path.join([cache, "config", "data/x/manifest.json"])) =~ "s1"
+      assert File.exists?(Path.join([cache, "config", "data/x/snap.parquet"]))
+    end
+
     test "retries a transient 5xx and then succeeds" do
       {objects, bodies} = example_objects("proj")
       with_fake(objects: objects, bodies: bodies, list_fail_times: 1)
