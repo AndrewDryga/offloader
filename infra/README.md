@@ -5,17 +5,16 @@ uploads the [`examples/public-metrics`](../examples/public-metrics) demo project
 anyone can run Offloader against hosted sample data with **zero credentials**:
 
 ```sh
-docker run \
-  -e OFFLOADER_CONFIG=gs://offloader-public-samples/offloader/ \
-  -e OFFLOADER_GCS_AUTH=none \
-  -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -hex 24) \
-  -p 4000:4000 \
-  ghcr.io/andrewdryga/offloader:edge
-# → curl "localhost:4000/v1/endpoints/champion?champion_id=1"
+offloader serve gs://offloader-public-samples/offloader/
+# serve prints the API port it chose (default :8088), then:
+# → curl "localhost:8088/v1/endpoints/champion?champion_id=1"
 ```
 
-`OFFLOADER_GCS_AUTH=none` reads the public bucket unauthenticated (config **and** data), so
-there is nothing to clone, build, or authenticate.
+A `gs://` bucket defaults to anonymous access (`OFFLOADER_GCS_AUTH=none`), so `serve` reads the
+public bucket — config **and** data — with nothing to clone, build, or authenticate. The raw
+equivalent is `docker run -e OFFLOADER_CONFIG=gs://…/ -e OFFLOADER_GCS_AUTH=none -p 4000:4000
+ghcr.io/andrewdryga/offloader:edge` (the container serves on 4000 unless you set
+`OFFLOADER_API_PORT`).
 
 ## Apply with Terraform Cloud (VCS-driven)
 
