@@ -43,6 +43,27 @@ defmodule Offloader.ObjectStoreTest do
       refute ddl =~ "SESSION_TOKEN"
     end
 
+    test "S3 provider credential_chain uses the instance role — no static keys, bareword provider" do
+      ddl =
+        ObjectStore.secret_ddl(%{
+          type: "s3",
+          provider: "credential_chain",
+          region: "us-east-1",
+          key_id: "SHOULD_NOT_APPEAR",
+          secret: "SHOULD_NOT_APPEAR"
+        })
+
+      assert ddl =~ "TYPE S3"
+      assert ddl =~ "PROVIDER credential_chain"
+      assert ddl =~ "REGION 'us-east-1'"
+      # the point: no static credential FIELDS in the DDL (the SECRET keyword is fine), and
+      # PROVIDER is a bareword not a quoted string
+      refute ddl =~ "KEY_ID"
+      refute ddl =~ "SECRET '"
+      refute ddl =~ "SHOULD_NOT_APPEAR"
+      refute ddl =~ "PROVIDER 'credential_chain'"
+    end
+
     test "GCS renders only KEY_ID/SECRET under TYPE GCS" do
       ddl = ObjectStore.secret_ddl(%{type: "gcs", key_id: "GOOG", secret: "hmac"})
       assert ddl =~ "TYPE GCS"

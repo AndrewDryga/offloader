@@ -21,6 +21,7 @@ defmodule Offloader.ObjectStore do
 
   @type t :: %{
           required(:type) => String.t(),
+          optional(:provider) => String.t() | nil,
           optional(:key_id) => String.t() | nil,
           optional(:secret) => String.t() | nil,
           optional(:region) => String.t() | nil,
@@ -148,6 +149,19 @@ defmodule Offloader.ObjectStore do
     [key_id: config[:key_id], secret: config[:secret]]
   end
 
+  # PROVIDER credential_chain: DuckDB resolves credentials itself (env, ~/.aws, and the
+  # EC2/EKS instance profile via IMDS) — so no static KEY_ID/SECRET/SESSION_TOKEN, just the
+  # non-secret knobs. Lets Offloader run on AWS with an IAM role and no baked-in keys.
+  defp secret_fields(%{provider: "credential_chain"} = config, _s3) do
+    [
+      provider: "credential_chain",
+      region: config[:region],
+      endpoint: config[:endpoint],
+      url_style: config[:url_style],
+      use_ssl: config[:use_ssl]
+    ]
+  end
+
   defp secret_fields(config, _s3) do
     [
       key_id: config[:key_id],
@@ -164,6 +178,9 @@ defmodule Offloader.ObjectStore do
   defp secret_type(_), do: "S3"
 
   defp render_field({:use_ssl, value}) when is_boolean(value), do: "USE_SSL #{value}"
+  # PROVIDER is a bareword keyword, not a quoted string — whitelist it so nothing arbitrary
+  # is ever rendered unquoted into the DDL.
+  defp render_field({:provider, "credential_chain"}), do: "PROVIDER credential_chain"
   defp render_field({key, value}), do: "#{field_name(key)} '#{Sql.escape(to_string(value))}'"
 
   defp field_name(:key_id), do: "KEY_ID"

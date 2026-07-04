@@ -89,6 +89,10 @@ directly by DuckDB (httpfs). Two credential modes:
   `OFFLOADER_S3_KEY_ID`, `OFFLOADER_S3_SECRET` (and for S3: `OFFLOADER_S3_REGION`,
   `OFFLOADER_S3_ENDPOINT`, `OFFLOADER_S3_URL_STYLE`, `OFFLOADER_S3_SESSION_TOKEN`,
   `OFFLOADER_S3_USE_SSL`). Covers `s3://` and `gs://` paths.
+- **AWS instance role (no static keys)** — `OFFLOADER_S3_TYPE=s3` + `OFFLOADER_S3_AUTH=chain`.
+  DuckDB uses its credential chain (env, `~/.aws`, and the **EC2/EKS instance profile via IMDS**),
+  so a container on AWS reads `s3://` data with an IAM role and no baked-in keys. The non-secret
+  knobs (`OFFLOADER_S3_REGION`, `OFFLOADER_S3_ENDPOINT`, …) still apply.
 - **GCS OAuth bearer** — `OFFLOADER_GCS_AUTH=bearer`. Tokens come from, in order:
   `OFFLOADER_GCS_TOKEN` (explicit), the GCE metadata server (the GKE/GCE production
   path), or the `gcloud` CLI (developer laptops). The token is registered as a

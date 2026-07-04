@@ -40,6 +40,9 @@ object_store =
     {type, _} when type in ["s3", "gcs"] ->
       %{
         type: type,
+        # OFFLOADER_S3_AUTH=chain → DuckDB's credential_chain (env / ~/.aws / EC2/EKS instance
+        # profile via IMDS) instead of static keys. Nil otherwise (static-key mode).
+        provider: if(System.get_env("OFFLOADER_S3_AUTH") == "chain", do: "credential_chain"),
         key_id: System.get_env("OFFLOADER_S3_KEY_ID"),
         secret: System.get_env("OFFLOADER_S3_SECRET"),
         region: System.get_env("OFFLOADER_S3_REGION"),
