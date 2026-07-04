@@ -58,12 +58,12 @@
         border: 1px solid var(--line); border-radius: 9px; padding: 0.6rem 0.75rem; width: 100%;
       }
       .field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
-      .money { position: relative; }
-      .money::before { content: "$"; position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 1rem; pointer-events: none; }
-      .money input { padding-left: 1.9rem; }
       .unit { position: relative; }
-      .unit input { padding-right: 3rem; }
+      .unit input { padding-right: 3.1rem; }
       .unit > span { position: absolute; right: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.9rem; pointer-events: none; }
+      .range-row { display: flex; align-items: center; gap: 1rem; }
+      .range-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+      .range-out { font-family: var(--mono); font-size: 0.95rem; color: var(--accent-2); min-width: 3.5ch; text-align: right; }
 
       .adv summary { cursor: pointer; font-size: 0.9rem; font-weight: 550; color: var(--ink-2); list-style: none; }
       .adv summary::-webkit-details-marker { display: none; }
@@ -77,6 +77,7 @@
 
       /* results */
       .save-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      .save-table caption { text-align: left; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); padding: 0.3rem 0 0.55rem; }
       .save-table td { text-align: right; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--line-2); }
       .save-table td:first-child { text-align: left; color: var(--ink-2); }
       .save-table tbody td { font-family: var(--mono); font-size: 0.95rem; color: var(--ink); }
@@ -151,19 +152,22 @@
             <div class="calc-body">
               <div class="field">
                 <label for="requests">Requests served per month</label>
-                <input type="number" id="requests" min="0" step="1000000" value="50000000" />
+                <div class="unit"><input type="number" id="requests" min="0" step="1000000" value="50000000" /><span>/mo</span></div>
                 <span class="hint">Total product reads you serve for these dashboards / stats.</span>
               </div>
 
               <div class="field">
                 <label for="warehouse">Current warehouse cost for those reads, per month</label>
-                <div class="money"><input type="number" id="warehouse" min="0" step="100" value="6000" /></div>
+                <div class="unit"><input type="number" id="warehouse" min="0" step="100" value="6000" /><span>$/mo</span></div>
                 <span class="hint">What the warehouse bills you today to answer them.</span>
               </div>
 
               <div class="field">
                 <label for="repeatable">Share that's repeatable</label>
-                <div class="unit"><input type="number" id="repeatable" min="0" max="100" step="5" value="70" /><span>%</span></div>
+                <div class="range-row">
+                  <input type="range" id="repeatable" min="0" max="100" step="5" value="70" />
+                  <output class="range-out" id="repeatable-out" for="repeatable">70%</output>
+                </div>
                 <span class="hint">The same query shapes, run over and over — that's what Offloader serves from a snapshot. The rest stays on the warehouse.</span>
               </div>
 
@@ -185,13 +189,15 @@
           <div class="calc-panel" aria-live="polite">
             <h2>Estimate</h2>
             <div class="calc-body">
-              <table class="save-table" id="result-table">
+              <table class="save-table">
                 <tbody>
                   <tr><td>Repeatable warehouse cost</td><td id="r-wh">—</td></tr>
                   <tr><td>Offloader infrastructure</td><td id="r-infra">—</td></tr>
-                  <tr class="expected"><td id="r-save-label">Estimated savings / mo</td><td id="r-save">—</td></tr>
-                  <tr><td>Annualized</td><td id="r-annual">—</td></tr>
                 </tbody>
+              </table>
+              <table class="save-table" id="scen">
+                <caption id="scen-cap">Estimated savings — per month · annualized</caption>
+                <tbody id="scen-body"></tbody>
               </table>
               <p class="fleet" id="fleet"></p>
               <ul class="caveats" id="caveats"></ul>
@@ -215,7 +221,8 @@
             <h3>The plain difference</h3>
             <p>
               Savings = the <b>repeatable share</b> of your warehouse cost − what the <b>Offloader
-              fleet</b> costs to run. No labor line, no scenarios — just the two bills, side by side.
+              fleet</b> costs to run. Three predictions bracket how much of that spend actually clears
+              once it's served from cache.
             </p>
           </div>
           <div class="explain-card">
@@ -322,6 +329,13 @@
         var PEAK_FACTOR = 4;                // product traffic peaks well above its monthly average
         var SEC_PER_MONTH = 30 * 24 * 3600; // 2,592,000
         var INSTANCE = { vcpu: 2, ram: 8, usd: 65 }; // a typical serving instance
+        // Three predictions on how much of the repeatable warehouse spend actually clears once
+        // served from cache — long-tail params and refresh windows still touch the warehouse.
+        var SCENARIOS = [
+          { name: "Optimistic", clear: 0.9 },
+          { name: "Expected", clear: 0.75, hi: true },
+          { name: "Conservative", clear: 0.6 }
+        ];
 
         var $ = function (id) { return document.getElementById(id); };
         var money0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -341,25 +355,29 @@
           var cost = fnum($("warehouse"));
           var pct = Math.min(100, fnum($("repeatable"))) / 100;
           var committed = $("committed").checked;
+          $("repeatable-out").textContent = Math.round(pct * 100) + "%";
 
           var offloadable = cost * pct;      // warehouse cost of the repeatable reads
           var f = sizeFleet(requests * pct); // the fleet only serves the repeatable requests
-          var savings = offloadable - f.infra;
 
           $("r-wh").textContent = usd(offloadable) + "/mo";
           $("r-infra").textContent = usd(f.infra) + "/mo";
-          $("r-save-label").textContent = committed ? "Potential savings / mo" : "Estimated savings / mo";
-          $("r-save").textContent = usd(savings) + "/mo";
-          $("r-save").className = savings < 0 ? "neg" : "";
-          $("r-annual").textContent = usd(savings * 12) + "/yr";
+
+          $("scen-cap").textContent = (committed ? "Potential" : "Estimated") + " savings — per month · annualized";
+          $("scen-body").innerHTML = SCENARIOS.map(function (s) {
+            var save = offloadable * s.clear - f.infra;
+            var neg = save < 0 ? ' class="neg"' : "";
+            return '<tr class="' + (s.hi ? "expected" : "") + '"><td>' + s.name + "</td><td" + neg + ">" +
+              usd(save) + "/mo</td><td" + neg + ">" + usd(save * 12) + "/yr</td></tr>";
+          }).join("");
 
           $("fleet").innerHTML =
             "Sized for ~" + int0.format(Math.round(f.peakRps)) + " req/s peak: <b>" +
             f.instances + " × " + INSTANCE.vcpu + " vCPU / " + INSTANCE.ram + " GB</b> (~" + usd(INSTANCE.usd) + "/mo each).";
 
-          var cav = ["Fleet sizing is an estimate from the validated benchmark (~5k req/s per instance) — real capacity depends on your payloads, so confirm it with a pilot."];
-          cav.push("Only the repeatable reads move; the rest stay on the warehouse, so this is the saving on the part you offload.");
-          if (committed) cav.push("Committed / flat-rate capacity: moving the reads off doesn't lower the warehouse bill until you actually downsize the tier — until then these savings are potential, not realized.");
+          var cav = ["The three predictions vary how much of the repeatable spend actually clears once served from cache (90 / 75 / 60%) — long-tail params and refresh windows still touch the warehouse."];
+          cav.push("Fleet sizing is an estimate from the validated benchmark (~5k req/s per instance) — confirm capacity with a pilot.");
+          if (committed) cav.push("Committed / flat-rate capacity: moving the reads off doesn't lower the warehouse bill until you downsize the tier — until then these savings are potential, not realized.");
           $("caveats").innerHTML = cav.map(function (c) { return "<li>" + c + "</li>"; }).join("");
         }
 
