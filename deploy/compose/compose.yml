@@ -9,7 +9,7 @@
 # operators through your own private network, not the public internet.
 services:
   offloader:
-    image: ghcr.io/andrewdryga/offloader:0.1.1 # pin a version; never :latest
+    image: ghcr.io/andrewdryga/offloader:0.1.2 # pin a version; never :latest
     restart: unless-stopped
     environment:
       OFFLOADER_CONFIG: /etc/offloader/offloader.yml
