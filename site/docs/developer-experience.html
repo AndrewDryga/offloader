@@ -45,6 +45,7 @@ What Offloader is, in…">
       <ul>
         <li><a href="developer-experience.html" aria-current="page">Config guide</a></li>
         <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="cli.html">CLI reference</a></li>
         <li><a href="api.html">API reference</a></li>
       </ul>
     </div>
@@ -265,21 +266,10 @@ latter == 0); admin <code>/diagnostics</code> shows the last sync result + times
 <p>Push a new revision the boring way: update the objects under the config prefix and the next tick picks
 them up. Sequence a schema change as <strong>data first, then config</strong>, so the new-schema build succeeds on
 the first try.</p>
-<h2 id="useful-helper-commands">Useful helper commands</h2>
-<p>Each is <code>offloader &lt;command&gt; --help</code> for full flags:</p>
-<ul>
-<li><code>offloader init</code> — scaffold a new, valid project</li>
-<li><code>offloader scaffold-dataset</code> — draft a dataset schema from a manifest or CSV</li>
-<li><code>offloader validate</code> — check a whole project the way the container does (run it in CI)</li>
-<li><code>offloader serve</code> — pull and run the container locally against a project, for a POC</li>
-<li><code>offloader manifest validate</code> — check one manifest file against its dataset contract</li>
-<li><code>offloader endpoint test</code> — call an endpoint on a running instance and assert the response</li>
-<li><code>offloader snapshot status</code> — per-dataset active / last-good snapshot, freshness, source health</li>
-<li><code>offloader keys create</code> — mint an API key (prints the token once; stores only its hash)</li>
-<li><code>offloader doctor</code> — check env vars and source connectivity before you deploy</li>
-<li><code>offloader support-bundle</code> — write a redacted config + diagnostics bundle for support</li>
-</ul>
-<p>The full field reference for every file is <a href="config-reference.html">config-reference.md</a>; a
+<h2 id="the-offloader-cli">The <code>offloader</code> CLI</h2>
+<p>The <code>offloader …</code> commands in this guide are part of the optional helper. Its full reference —
+every command, its flags, and an example — is on its own page: <strong><a href="cli.html">CLI reference</a></strong>.</p>
+<p>The full field reference for every config file is <a href="config-reference.html">config-reference.md</a>; a
 complete working project to copy is <code>examples/customer-analytics/</code>.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
@@ -305,6 +295,7 @@ complete working project to copy is <code>examples/customer-analytics/</code>.</
         <h3>Docs</h3>
         <a href="concepts.html">Concepts</a>
         <a href="quickstart.html">Quickstart</a>
+        <a href="cli.html">CLI reference</a>
         <a href="security-model.html">Security</a>
       </div>
       <div>

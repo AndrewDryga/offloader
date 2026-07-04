@@ -33,6 +33,7 @@ const GROUPS = [
     items: [
       ["developer-experience", "docs/developer-experience.md", "Config guide", "Define your datasets, endpoints, and keys; load the config from a bucket."],
       ["config-reference", "docs/config-reference.md", "Config reference", "Every field of every config file, with the exact value vocabularies."],
+      ["cli", "docs/cli.md", "CLI reference", "The optional `offloader` helper: every command, its flags, and an example."],
       ["api", "docs/api.md", "API reference", "The consumer request/response contract and the error-to-status-code table."],
     ],
   },
@@ -195,6 +196,7 @@ const FOOT = `<footer class="site-foot">
         <h3>Docs</h3>
         <a href="concepts.html">Concepts</a>
         <a href="quickstart.html">Quickstart</a>
+        <a href="cli.html">CLI reference</a>
         <a href="security-model.html">Security</a>
       </div>
       <div>

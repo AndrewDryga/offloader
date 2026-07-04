@@ -15,6 +15,7 @@ backs it move together.
 | [quickstart.md](quickstart.md) | Run it against the bundled example in ~15 minutes, no cloud needed. |
 | [developer-experience.md](developer-experience.md) | Config guide: define your datasets, endpoints, and keys; load config from a bucket. |
 | [config-reference.md](config-reference.md) | Field-by-field reference for every config file, with the exact allowed values. |
+| [cli.md](cli.md) | The optional `offloader` helper: every command, its flags, and an example. |
 | [api.md](api.md) | The consumer API contract: request, the `data`/`meta` envelope, and the error-to-status table. |
 | [operator.md](operator.md) | Run it in production: deploy, size, upgrade, roll back, diagnose. |
 | [deployment.md](deployment.md) | Deployment shapes (docker / Compose / Kubernetes) and rollout verification. |

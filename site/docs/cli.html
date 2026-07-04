@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLI reference — the offloader helper — Offloader docs</title>
+<meta name="description" content="offloader is an optional command-line helper for authoring and operating a deployment. It
+is not part of the container — the gateway needs only its config…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#proof">Proof</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
+      <li><a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html">Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="cli.html" aria-current="page">CLI reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="roi.html">ROI diagnostic</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Configure</p>
+    <article class="prose">
+<h1 id="cli-reference-the-offloader-helper">CLI reference — the <code>offloader</code> helper</h1>
+<p><code>offloader</code> is an <strong>optional</strong> command-line helper for authoring and operating a deployment. It
+is <strong>not</strong> part of the container — the gateway needs only its config files and env vars — so you
+install it only for the scaffolding, validation, and diagnostics commands below.</p>
+<h2 id="install">Install</h2>
+<pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh
+</code></pre>
+<p>Re-run any time to update. No installer (or you&#39;d rather build it)? From a clone:</p>
+<pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .   # then ./offloader &lt;command&gt;
+</code></pre>
+<p>The convention is <code>offloader &lt;command&gt; [flags]</code>, and every command takes <code>--help</code>.</p>
+<h2 id="author-a-project">Author a project</h2>
+<h3 id="offloader-init"><code>offloader init</code></h3>
+<p>Scaffold a complete, valid, fully-commented starter project (<code>offloader.yml</code> plus one dataset,
+endpoint, and demo key).</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--out</code></td>
+<td><code>offloader-project</code></td>
+<td>directory to create the project in</td>
+</tr>
+<tr>
+<td><code>--public</code></td>
+<td>off</td>
+<td>scaffold a public project (<code>auth: none</code> — no keys, no tenant)</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>off</td>
+<td>overwrite existing files</td>
+</tr>
+</tbody></table>
+</div>
+<pre tabindex="0"><code class="language-sh">offloader init --out my-project
+</code></pre>
+<h3 id="offloader-scaffold-dataset"><code>offloader scaffold-dataset</code></h3>
+<p>Draft a <code>datasets/*.yml</code> schema from something you already have — reuse a manifest&#39;s schema, or
+infer column types from a CSV.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--from</code></td>
+<td>a <code>manifest.json</code> (reuse its schema) or a <code>.csv</code> (infer column types)</td>
+</tr>
+<tr>
+<td><code>--id</code></td>
+<td>dataset id (default: derived from the file/dir name)</td>
+</tr>
+<tr>
+<td><code>--tenant-column</code></td>
+<td>mark a column as the tenant column (multi-tenant datasets)</td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td>write to this file (default: stdout)</td>
+</tr>
+</tbody></table>
+</div>
+<pre tabindex="0"><code class="language-sh">offloader scaffold-dataset --from data/events/manifest.json --tenant-column tenant_id
+</code></pre>
+<h3 id="offloader-validate"><code>offloader validate</code></h3>
+<p>Check a whole project the way the container does — every dataset, endpoint, and key. Run it in
+CI before you ship a config change.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--config</code></td>
+<td><code>offloader.yml</code></td>
+<td>path to the project&#39;s <code>offloader.yml</code></td>
+</tr>
+</tbody></table>
+</div>
+<pre tabindex="0"><code class="language-sh">offloader validate --config my-project/offloader.yml
+</code></pre>
+<h3 id="offloader-manifest-validate"><code>offloader manifest validate</code></h3>
+<p>Validate one snapshot manifest file against its dataset contract.</p>
+<pre tabindex="0"><code class="language-sh">offloader manifest validate my-project/data/events/manifest.json
+</code></pre>
+<h2 id="run-it">Run it</h2>
+<h3 id="offloader-serve"><code>offloader serve</code></h3>
+<p>Pull the published image and run it locally against a project — the one-command POC path. It
+validates the config first, mounts it read-only, publishes the API on <code>:4000</code>, and binds the
+admin port to loopback.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--image</code></td>
+<td><code>ghcr.io/andrewdryga/offloader:edge</code></td>
+<td>container image to run</td>
+</tr>
+<tr>
+<td><code>--api-port</code></td>
+<td><code>4000</code></td>
+<td>host port for the product API</td>
+</tr>
+<tr>
+<td><code>--admin-port</code></td>
+<td><code>4001</code></td>
+<td>host port for the admin surface (loopback)</td>
+</tr>
+<tr>
+<td><code>--cache-volume</code></td>
+<td><code>offloader-poc-cache</code></td>
+<td>Docker volume for the materialization cache</td>
+</tr>
+<tr>
+<td><code>--no-pull</code></td>
+<td>off</td>
+<td>skip <code>docker pull</code> and use the local image as-is</td>
+</tr>
+</tbody></table>
+</div>
+<pre tabindex="0"><code class="language-sh">offloader serve my-project/
+</code></pre>
+<h3 id="offloader-keys-create"><code>offloader keys create</code></h3>
+<p>Mint an API key: prints the bearer token <strong>once</strong> and the SHA-256 hash to paste into <code>keys.yml</code>
+(only the hash is ever stored).</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--id</code></td>
+<td><code>key1</code></td>
+<td>key id (a label; appears in diagnostics, never the token)</td>
+</tr>
+<tr>
+<td><code>--tenant</code></td>
+<td><code>TENANT</code></td>
+<td>the tenant this key is bound to</td>
+</tr>
+<tr>
+<td><code>--endpoints</code></td>
+<td>—</td>
+<td>comma-separated endpoint allowlist</td>
+</tr>
+</tbody></table>
+</div>
+<pre tabindex="0"><code class="language-sh">offloader keys create --id acme_prod --tenant tenant_acme --endpoints customer_usage_summary
+</code></pre>
+<h2 id="verify-and-operate">Verify and operate</h2>
+<h3 id="offloader-doctor"><code>offloader doctor</code></h3>
+<p>Pre-flight check: the toolchain (<code>docker</code>, <code>curl</code>), optionally a project config, and optionally a
+running gateway&#39;s admin <code>/ready</code>.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--config</code></td>
+<td>validate this project config (optional)</td>
+</tr>
+<tr>
+<td><code>--admin-url</code></td>
+<td>ping this gateway admin URL (optional)</td>
+</tr>
+<tr>
+<td><code>--admin-token</code></td>
+<td>admin token for the gateway ping</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="offloader-endpoint-test"><code>offloader endpoint test</code></h3>
+<p>Call one endpoint on a running instance and assert its response status — a smoke test for CI or a
+post-deploy check.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--url</code></td>
+<td><code>http://localhost:4000</code></td>
+<td>gateway API base URL</td>
+</tr>
+<tr>
+<td><code>--endpoint</code></td>
+<td>—</td>
+<td>endpoint name</td>
+</tr>
+<tr>
+<td><code>--key</code></td>
+<td>—</td>
+<td>bearer API key</td>
+</tr>
+<tr>
+<td><code>--params</code></td>
+<td>—</td>
+<td>query string, e.g. <code>from=2026-05-30&amp;to=2026-06-01</code></td>
+</tr>
+<tr>
+<td><code>--expect-status</code></td>
+<td><code>200</code></td>
+<td>expected HTTP status</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="offloader-snapshot-status"><code>offloader snapshot status</code></h3>
+<p>Print a per-dataset summary from a running gateway: active / last-good snapshot, freshness, and
+source health.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--admin-url</code></td>
+<td>gateway admin base URL</td>
+</tr>
+<tr>
+<td><code>--admin-token</code></td>
+<td>admin token</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="offloader-docs"><code>offloader docs</code></h3>
+<p>Print (or open) the admin-port docs URLs — the generated endpoint catalog and OpenAPI spec.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--admin-url</code></td>
+<td><code>http://localhost:4001</code></td>
+<td>gateway admin base URL</td>
+</tr>
+<tr>
+<td><code>--open</code></td>
+<td>off</td>
+<td>open the endpoint catalog in a browser</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="offloader-support-bundle"><code>offloader support-bundle</code></h3>
+<p>Collect a <strong>redacted</strong> config + diagnostics bundle into a tar.gz for support — secrets, tokens,
+and credentialed URIs are masked; safe key hashes are kept.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--config</code></td>
+<td><code>offloader.yml</code></td>
+<td>path to the project&#39;s <code>offloader.yml</code></td>
+</tr>
+<tr>
+<td><code>--admin-url</code></td>
+<td>—</td>
+<td>admin base URL to include redacted <code>/diagnostics</code> (optional)</td>
+</tr>
+<tr>
+<td><code>--admin-token</code></td>
+<td>—</td>
+<td>admin token for <code>/diagnostics</code></td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td><code>offloader-support-bundle.tar.gz</code></td>
+<td>output tar.gz path</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="estimate-savings">Estimate savings</h2>
+<h3 id="offloader-roi-report"><code>offloader roi report</code></h3>
+<p>Generate the finance-grade <a href="roi.html">ROI diagnostic</a> from your warehouse query history — reducible
+spend with confidence levels, run locally on your own data.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--input</code></td>
+<td>—</td>
+<td>query-history CSV (see the <a href="roi.html">ROI diagnostic</a>)</td>
+</tr>
+<tr>
+<td><code>--gateway-cost</code></td>
+<td><code>800</code></td>
+<td>estimated Offloader infra cost per month (USD)</td>
+</tr>
+<tr>
+<td><code>--migration-labor</code></td>
+<td><code>20000</code></td>
+<td>one-time pilot/migration labor (USD)</td>
+</tr>
+<tr>
+<td><code>--committed-capacity</code></td>
+<td>off</td>
+<td>the warehouse is on committed/flat-rate capacity</td>
+</tr>
+<tr>
+<td><code>--shared-warehouse</code></td>
+<td>off</td>
+<td>the warehouse is shared with other workloads</td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td>stdout</td>
+<td>write the markdown report here</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="offloader-version"><code>offloader version</code></h3>
+<p>Print the helper version.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="config-reference.html"><span>Previous</span><b>Config reference</b></a>
+      <a class="pg next" href="api.html"><span>Next</span><b>API reference</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <div>
+        <h3>Product</h3>
+        <a href="../index.html#how">How it works</a>
+        <a href="../index.html#pricing">Pricing</a>
+        <a href="../index.html#faq">FAQ</a>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <a href="concepts.html">Concepts</a>
+        <a href="quickstart.html">Quickstart</a>
+        <a href="cli.html">CLI reference</a>
+        <a href="security-model.html">Security</a>
+      </div>
+      <div>
+        <h3>Evaluate</h3>
+        <a href="roi.html">ROI diagnostic</a>
+        <a href="benchmarks.html">Benchmarks</a>
+      </div>
+      <div>
+        <h3>Talk to us</h3>
+        <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+      </div>
+    </nav>
+  </div>
+  <div class="wrap foot-legal">
+    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
+    <span>© 2026 Offloader</span>
+  </div>
+</footer>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
+</body>
+</html>

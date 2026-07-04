@@ -222,20 +222,10 @@ Push a new revision the boring way: update the objects under the config prefix a
 them up. Sequence a schema change as **data first, then config**, so the new-schema build succeeds on
 the first try.
 
-## Useful helper commands
+## The `offloader` CLI
 
-Each is `offloader <command> --help` for full flags:
+The `offloader …` commands in this guide are part of the optional helper. Its full reference —
+every command, its flags, and an example — is on its own page: **[CLI reference](cli.md)**.
 
-- `offloader init` — scaffold a new, valid project
-- `offloader scaffold-dataset` — draft a dataset schema from a manifest or CSV
-- `offloader validate` — check a whole project the way the container does (run it in CI)
-- `offloader serve` — pull and run the container locally against a project, for a POC
-- `offloader manifest validate` — check one manifest file against its dataset contract
-- `offloader endpoint test` — call an endpoint on a running instance and assert the response
-- `offloader snapshot status` — per-dataset active / last-good snapshot, freshness, source health
-- `offloader keys create` — mint an API key (prints the token once; stores only its hash)
-- `offloader doctor` — check env vars and source connectivity before you deploy
-- `offloader support-bundle` — write a redacted config + diagnostics bundle for support
-
-The full field reference for every file is [config-reference.md](config-reference.md); a
+The full field reference for every config file is [config-reference.md](config-reference.md); a
 complete working project to copy is `examples/customer-analytics/`.
