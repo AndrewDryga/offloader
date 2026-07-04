@@ -164,21 +164,7 @@ and credentialed URIs are masked; safe key hashes are kept.
 | `--admin-token` | — | admin token for `/diagnostics` |
 | `--out` | `offloader-support-bundle.tar.gz` | output tar.gz path |
 
-## Estimate savings
-
-### `offloader roi report`
-
-Generate the finance-grade [ROI diagnostic](roi.md) from your warehouse query history — reducible
-spend with confidence levels, run locally on your own data.
-
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--input` | — | query-history CSV (see the [ROI diagnostic](roi.md)) |
-| `--gateway-cost` | `800` | estimated Offloader infra cost per month (USD) |
-| `--migration-labor` | `20000` | one-time pilot/migration labor (USD) |
-| `--committed-capacity` | off | the warehouse is on committed/flat-rate capacity |
-| `--shared-warehouse` | off | the warehouse is shared with other workloads |
-| `--out` | stdout | write the markdown report here |
+## Version
 
 ### `offloader version`
 

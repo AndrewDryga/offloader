@@ -67,7 +67,6 @@ is not part of the container — the gateway needs only its config…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
-        <li><a href="roi.html">ROI diagnostic</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -392,51 +391,7 @@ and credentialed URIs are masked; safe key hashes are kept.</p>
 </tr>
 </tbody></table>
 </div>
-<h2 id="estimate-savings">Estimate savings</h2>
-<h3 id="offloader-roi-report"><code>offloader roi report</code></h3>
-<p>Generate the finance-grade <a href="roi.html">ROI diagnostic</a> from your warehouse query history — reducible
-spend with confidence levels, run locally on your own data.</p>
-<div class="table-scroll" tabindex="0">
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>--input</code></td>
-<td>—</td>
-<td>query-history CSV (see the <a href="roi.html">ROI diagnostic</a>)</td>
-</tr>
-<tr>
-<td><code>--gateway-cost</code></td>
-<td><code>800</code></td>
-<td>estimated Offloader infra cost per month (USD)</td>
-</tr>
-<tr>
-<td><code>--migration-labor</code></td>
-<td><code>20000</code></td>
-<td>one-time pilot/migration labor (USD)</td>
-</tr>
-<tr>
-<td><code>--committed-capacity</code></td>
-<td>off</td>
-<td>the warehouse is on committed/flat-rate capacity</td>
-</tr>
-<tr>
-<td><code>--shared-warehouse</code></td>
-<td>off</td>
-<td>the warehouse is shared with other workloads</td>
-</tr>
-<tr>
-<td><code>--out</code></td>
-<td>stdout</td>
-<td>write the markdown report here</td>
-</tr>
-</tbody></table>
-</div>
+<h2 id="version">Version</h2>
 <h3 id="offloader-version"><code>offloader version</code></h3>
 <p>Print the helper version.</p>
 </article>
@@ -468,7 +423,7 @@ spend with confidence levels, run locally on your own data.</p>
       </div>
       <div>
         <h3>Evaluate</h3>
-        <a href="roi.html">ROI diagnostic</a>
+        <a href="../roi.html">ROI calculator</a>
         <a href="benchmarks.html">Benchmarks</a>
       </div>
       <div>

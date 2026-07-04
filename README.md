@@ -33,7 +33,7 @@ Then, by what you want to do:
 - **Tooling** — [CLI reference](docs/cli.md): the optional `offloader` helper, every command and flag.
 - **Run it in production** — [Operator guide](docs/operator.md) · [Deployment](docs/deployment.md).
 - **Security** — [Security model](docs/security-model.md): what's protected, and what you own.
-- **Cost case** — [ROI diagnostic](docs/roi.md) · [Benchmarks](docs/benchmarks.md).
+- **Cost case** — [ROI calculator](https://offloader.dryga.com/roi.html) · [Benchmarks](docs/benchmarks.md).
 
 
 ## Product boundary

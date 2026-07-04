@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://offloader.dryga.com/</loc><lastmod>2026-07-04</lastmod><priority>1.0</priority></url>
+  <url><loc>https://offloader.dryga.com/roi.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/api.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/benchmarks.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/cli.html</loc><lastmod>2026-07-04</lastmod></url>
@@ -13,7 +14,6 @@
   <url><loc>https://offloader.dryga.com/docs/ownership.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/public-serving.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/quickstart.html</loc><lastmod>2026-07-04</lastmod></url>
-  <url><loc>https://offloader.dryga.com/docs/roi.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/runbooks.html</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://offloader.dryga.com/docs/security-model.html</loc><lastmod>2026-07-04</lastmod></url>
 </urlset>

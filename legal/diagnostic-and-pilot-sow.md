@@ -6,7 +6,7 @@
 > figures) to this public repository — keep executed SOWs off-repo.
 
 The commercial terms here mirror, and must stay consistent with, the public offer
-([pricing on the site](../site/index.html) and [the ROI diagnostic](../docs/roi.md)). If you
+([pricing on the site](../site/index.html) and [the ROI calculator](../site/roi.html)). If you
 change the model in one place, change it in all of them.
 
 ---

@@ -1,6 +1,0 @@
-fingerprint,executions_per_month,avg_cost_usd,warehouse,bounded,candidate_endpoint
-q_usage_summary,120000,0.012,analytics_wh,true,customer_usage_summary
-q_usage_daily,60000,0.020,analytics_wh,true,customer_usage_daily
-q_top_accounts,20000,0.030,analytics_wh,true,top_accounts_by_usage
-q_adhoc_join,500,2.500,analytics_wh,false,
-q_ml_feature_export,2000,0.800,ml_wh,false,

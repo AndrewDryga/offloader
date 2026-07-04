@@ -56,7 +56,6 @@ const GROUPS = [
   {
     name: "Evaluate",
     items: [
-      ["roi", "docs/roi.md", "ROI diagnostic", "Estimate the warehouse savings before you commit."],
       ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data."],
     ],
   },
@@ -201,7 +200,7 @@ const FOOT = `<footer class="site-foot">
       </div>
       <div>
         <h3>Evaluate</h3>
-        <a href="roi.html">ROI diagnostic</a>
+        <a href="../roi.html">ROI calculator</a>
         <a href="benchmarks.html">Benchmarks</a>
       </div>
       <div>

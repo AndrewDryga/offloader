@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ROI calculator — Offloader</title>
+    <meta
+      name="description"
+      content="Estimate how much of your warehouse bill is actually reducible by offloading repeated product reads. Runs entirely in your browser — your numbers are never sent anywhere."
+    />
+    <link rel="canonical" href="https://offloader.dryga.com/roi.html" />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:title" content="Offloader — ROI calculator" />
+    <meta
+      property="og:description"
+      content="How much of your warehouse bill is reducible by offloading repeated reads? A number with a confidence level, computed in your browser."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Offloader" />
+    <meta property="og:url" content="https://offloader.dryga.com/roi.html" />
+    <meta property="og:image" content="https://offloader.dryga.com/og.png" />
+    <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0E0E11" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/SpaceGrotesk-700.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/JetBrainsMono-400.woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+
+    <style>
+      /* ── ROI calculator (page-scoped) ─────────────────────────────────── */
+      .calc-intro { padding-top: clamp(3rem, 6vw, 5rem); }
+      .calc-intro h1 { font-size: var(--fs-h2); max-width: 20ch; margin-bottom: 1.1rem; }
+      .calc-lede { max-width: 54ch; font-size: var(--fs-lede); color: var(--ink-2); line-height: 1.55; }
+      .privacy-pill {
+        display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.6rem;
+        padding: 0.5rem 0.9rem; border: 1px solid var(--line); border-radius: 999px;
+        font-size: var(--fs-small); color: var(--ink-2); background: var(--paper-2);
+      }
+      .privacy-pill svg { color: var(--ok); flex: none; }
+
+      .calc { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.5rem, 3vw, 2.75rem); align-items: start; }
+      @media (max-width: 860px) { .calc { grid-template-columns: 1fr; } }
+
+      .calc-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--paper); overflow: hidden; }
+      .calc-panel > h2 {
+        font-family: var(--mono); font-size: var(--fs-label); font-weight: 500;
+        letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted);
+        padding: 1.1rem 1.4rem; margin: 0; border-bottom: 1px solid var(--line-2);
+      }
+      .calc-body { padding: 1.4rem; display: grid; gap: 1.4rem; }
+
+      .seg { display: inline-flex; padding: 0.25rem; gap: 0.25rem; background: var(--paper-2); border-radius: 999px; border: 1px solid var(--line-2); }
+      .seg label { position: relative; }
+      .seg input { position: absolute; opacity: 0; pointer-events: none; }
+      .seg span {
+        display: block; padding: 0.4rem 0.95rem; border-radius: 999px; font-size: 0.9rem;
+        font-weight: 550; color: var(--ink-2); cursor: pointer; transition: background 0.15s var(--ease), color 0.15s var(--ease);
+      }
+      .seg input:checked + span { background: var(--ink); color: var(--paper); }
+      .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      .field { display: grid; gap: 0.4rem; }
+      .field label { font-size: 0.94rem; font-weight: 550; color: var(--ink); }
+      .field .hint { font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
+      .field input[type="number"], .field textarea {
+        font-family: var(--sans); font-size: 1rem; color: var(--ink); background: var(--paper-2);
+        border: 1px solid var(--line); border-radius: 9px; padding: 0.6rem 0.75rem; width: 100%;
+      }
+      .field textarea { font-family: var(--mono); font-size: var(--fs-mono); line-height: 1.6; min-height: 8.5rem; resize: vertical; white-space: pre; }
+      .field input:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+      .money { position: relative; }
+      .money::before { content: "$"; position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 1rem; pointer-events: none; }
+      .money input { padding-left: 1.9rem; }
+
+      .range-row { display: flex; align-items: center; gap: 1rem; }
+      .range-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+      .range-out { font-family: var(--mono); font-size: 0.95rem; color: var(--accent-2); min-width: 3.5ch; text-align: right; }
+
+      .adv summary { cursor: pointer; font-size: 0.9rem; font-weight: 550; color: var(--ink-2); list-style: none; }
+      .adv summary::-webkit-details-marker { display: none; }
+      .adv summary::after { content: " ＋"; color: var(--muted); }
+      .adv[open] summary::after { content: " －"; }
+      .adv[open] summary { margin-bottom: 1rem; }
+      .adv .adv-grid { display: grid; gap: 1.1rem; }
+      .check { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.94rem; color: var(--ink); }
+      .check input { margin-top: 0.15rem; accent-color: var(--accent); width: 1.05rem; height: 1.05rem; flex: none; }
+      .check .hint { display: block; font-size: var(--fs-small); color: var(--muted); font-weight: 400; }
+
+      .btn-mini { font-size: 0.85rem; padding: 0.4rem 0.85rem; }
+      .csv-error { color: var(--accent-2); font-size: var(--fs-small); min-height: 1.2em; }
+
+      /* results */
+      .badge {
+        display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.85rem;
+        border-radius: 999px; font-size: 0.86rem; font-weight: 550; line-height: 1.3;
+        background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-2);
+      }
+      .framing { font-size: 0.96rem; color: var(--ink-2); line-height: 1.6; }
+      .framing b { color: var(--ink); font-variant-numeric: tabular-nums; }
+      .save-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      .save-table caption { text-align: left; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); padding-bottom: 0.6rem; }
+      .save-table th, .save-table td { text-align: right; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--line-2); }
+      .save-table th:first-child, .save-table td:first-child { text-align: left; color: var(--ink-2); }
+      .save-table thead th { font-size: var(--fs-small); color: var(--muted); font-weight: 500; }
+      .save-table tbody td { font-family: var(--mono); font-size: 0.95rem; color: var(--ink); }
+      .save-table tr.expected td { font-weight: 600; }
+      .save-table tr.expected td:not(:first-child) { color: var(--ok); }
+      .neg { color: var(--accent-2) !important; }
+      .payback { font-size: 0.96rem; color: var(--ink-2); }
+      .payback b { color: var(--ink); }
+      .ep-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+      .ep-table caption { text-align: left; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); padding-bottom: 0.6rem; }
+      .ep-table th, .ep-table td { padding: 0.4rem; border-bottom: 1px solid var(--line-2); text-align: right; }
+      .ep-table th:first-child, .ep-table td:first-child { text-align: left; }
+      .ep-table td:first-child { font-family: var(--mono); color: var(--ink-2); }
+      .caveats { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.5rem; }
+      .caveats li { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+      .caveats li::marker { color: var(--muted); }
+      .result-cta { padding: 1.1rem 1.4rem; border-top: 1px solid var(--line-2); background: var(--paper-2); font-size: 0.94rem; color: var(--ink-2); }
+      .result-cta a { color: var(--accent-2); font-weight: 550; text-decoration: underline; text-underline-offset: 2px; }
+
+      .explain-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; margin-top: 1.5rem; }
+      @media (max-width: 640px) { .explain-grid { grid-template-columns: 1fr; } }
+      .explain-card { background: var(--paper); padding: clamp(1.4rem, 3vw, 2rem); }
+      .explain-card h3 { font-size: var(--fs-h3); margin-bottom: 0.7rem; }
+      .explain-card p, .explain-card li { font-size: 0.94rem; color: var(--ink-2); line-height: 1.55; }
+      .explain-card ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; }
+      .explain-card code { font-family: var(--mono); font-size: 0.85em; background: var(--paper-2); padding: 0.05em 0.35em; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#calc">Skip to the calculator</a>
+
+    <header class="site" role="banner">
+      <nav class="wrap nav" aria-label="Primary">
+        <a class="brand" href="index.html" aria-label="Offloader home">
+          <svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+            <rect width="4.4" height="4.4" rx="0.6" fill="currentColor" />
+            <rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor" />
+          </svg>
+          <span class="brand-word">Offloader</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="index.html#how">How it works</a></li>
+          <li><a href="index.html#pricing">Pricing</a></li>
+          <li><a href="docs/index.html">Docs</a></li>
+          <li>
+            <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="wrap calc-intro">
+        <p class="kicker">ROI calculator</p>
+        <h1>How much of your warehouse bill is actually reducible?</h1>
+        <p class="calc-lede">
+          Offloading only helps the spend that's <strong>repeated and bounded</strong> — the same
+          query shapes your product runs all day. This estimates that reducible spend and the net
+          savings after Offloader's cost, as a number with a confidence level, not a sales promise.
+        </p>
+        <p class="privacy-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 2 4 5v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V5l-8-3Z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          Computed entirely in your browser. Your numbers are never sent, stored, or logged.
+        </p>
+      </section>
+
+      <section class="wrap band" id="calc">
+        <div class="calc">
+          <!-- inputs ─────────────────────────────────────────────── -->
+          <form class="calc-panel" id="calc-form" autocomplete="off">
+            <h2>Your numbers</h2>
+            <div class="calc-body">
+              <div class="seg" role="radiogroup" aria-label="Input mode">
+                <label>
+                  <input type="radio" name="mode" value="quick" checked />
+                  <span>Quick estimate</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="csv" />
+                  <span>Paste query history</span>
+                </label>
+              </div>
+
+              <!-- quick mode -->
+              <div id="mode-quick" class="mode-fields">
+                <div class="field">
+                  <label for="q-total">Monthly warehouse spend on product-facing serving</label>
+                  <div class="money"><input type="number" id="q-total" min="0" step="100" value="6000" /></div>
+                  <span class="hint">What your app's dashboards/stats reads cost the warehouse each month.</span>
+                </div>
+                <div class="field" style="margin-top:1.1rem">
+                  <label for="q-share">…of which is repeated &amp; bounded (offloadable)</label>
+                  <div class="range-row">
+                    <input type="range" id="q-share" min="0" max="100" step="5" value="60" />
+                    <output class="range-out" id="q-share-out" for="q-share">60%</output>
+                  </div>
+                  <span class="hint">Same query shapes, minutes-to-hours fresh. Ad-hoc / exploratory reads don't count.</span>
+                </div>
+              </div>
+
+              <!-- csv mode -->
+              <div id="mode-csv" class="mode-fields" hidden>
+                <div class="field">
+                  <label for="csv">Query-history CSV</label>
+                  <textarea id="csv" spellcheck="false" placeholder="fingerprint,executions_per_month,avg_cost_usd,warehouse,bounded,candidate_endpoint&#10;q_usage_summary,120000,0.012,analytics_wh,true,customer_usage_summary"></textarea>
+                  <span class="hint">
+                    One row per query shape. Required columns: <code>fingerprint</code>,
+                    <code>executions_per_month</code>, <code>avg_cost_usd</code>, <code>bounded</code>,
+                    <code>candidate_endpoint</code>. Reducible = <code>bounded=true</code> with an endpoint.
+                  </span>
+                  <div>
+                    <button type="button" class="btn btn-ghost btn-mini" id="load-example">Load an example</button>
+                  </div>
+                  <div class="csv-error" id="csv-error" role="alert"></div>
+                </div>
+              </div>
+
+              <details class="adv">
+                <summary>Assumptions</summary>
+                <div class="adv-grid">
+                  <div class="field">
+                    <label for="infra">Offloader infrastructure, per month</label>
+                    <div class="money"><input type="number" id="infra" min="0" step="50" value="800" /></div>
+                    <span class="hint">A couple of small VMs plus object storage; subtracted from every scenario.</span>
+                  </div>
+                  <div class="field">
+                    <label for="labor">One-time migration / pilot labor</label>
+                    <div class="money"><input type="number" id="labor" min="0" step="500" value="20000" /></div>
+                  </div>
+                  <label class="check">
+                    <input type="checkbox" id="committed" />
+                    <span>Committed / flat-rate warehouse capacity
+                      <span class="hint">Removing volume won't lower the bill until you cut the committed tier or cluster size.</span>
+                    </span>
+                  </label>
+                  <label class="check">
+                    <input type="checkbox" id="shared" />
+                    <span>Shared warehouse (other workloads run on it too)
+                      <span class="hint">This workload isn't the only cost driver, so attribution is an estimate.</span>
+                    </span>
+                  </label>
+                </div>
+              </details>
+            </div>
+          </form>
+
+          <!-- results ───────────────────────────────────────────── -->
+          <div class="calc-panel" aria-live="polite">
+            <h2>Estimate</h2>
+            <div class="calc-body">
+              <span class="badge" id="confidence">—</span>
+              <p class="framing" id="framing"></p>
+              <table class="save-table" id="savings">
+                <caption id="savings-cap">Net monthly savings (after Offloader cost)</caption>
+                <thead>
+                  <tr><th>Scenario</th><th>Per month</th><th>Annualized</th></tr>
+                </thead>
+                <tbody id="savings-body"></tbody>
+              </table>
+              <p class="payback" id="payback" hidden></p>
+              <table class="ep-table" id="endpoints" hidden>
+                <caption>Per-endpoint mapping</caption>
+                <thead>
+                  <tr><th>Candidate endpoint</th><th>Exec/mo</th><th>Warehouse cost/mo</th></tr>
+                </thead>
+                <tbody id="endpoints-body"></tbody>
+              </table>
+              <ul class="caveats" id="caveats"></ul>
+            </div>
+            <div class="result-cta">
+              These are estimates from your assumptions. The
+              <a href="index.html#pricing">paid diagnostic</a> produces the validated version — a
+              finance-grade before/after against your real query history and hardware.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap band">
+        <div class="section-head">
+          <p class="kicker">How this is computed</p>
+          <h2 style="font-size:var(--fs-h2)">Honest by construction</h2>
+        </div>
+        <div class="explain-grid">
+          <div class="explain-card">
+            <h3>Reducible, not total</h3>
+            <p>
+              Only <b>bounded, endpoint-mapped</b> spend counts as reducible — the repeated query
+              shapes Offloader can serve from a snapshot. Ad-hoc joins and one-off exports stay on
+              the warehouse and are excluded. Net savings = reducible × a reduction factor −
+              Offloader's monthly cost.
+            </p>
+          </div>
+          <div class="explain-card">
+            <h3>Confidence levels</h3>
+            <ol>
+              <li><b>1</b> — the repeated workload is identified (a technical candidate, no dollar claim).</li>
+              <li><b>2</b> — query logs + cost allocation estimate the reducible spend. <em>This tool tops out here.</em></li>
+              <li><b>3</b> — warehouse size or schedule can actually be reduced.</li>
+              <li><b>4</b> — finance verifies the bill dropped, after you offload.</li>
+            </ol>
+          </div>
+          <div class="explain-card">
+            <h3>Three scenarios</h3>
+            <p>
+              Reduction of the reducible spend is modeled at <code>40%</code> conservative,
+              <code>70%</code> expected, and <code>90%</code> aggressive. The expected row also drives
+              the payback estimate on your one-time migration labor.
+            </p>
+          </div>
+          <div class="explain-card">
+            <h3>Where it won't overclaim</h3>
+            <p>
+              On <b>committed capacity</b> the savings show as <em>potential, not realized</em> with no
+              payback — cutting query volume doesn't lower a flat-rate bill until you resize. A
+              <b>shared warehouse</b> adds an attribution caveat. It never promises a bill reduction the
+              inputs don't support.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="band cta-band">
+        <div class="wrap cta-band-inner">
+          <p class="kicker" style="text-align:center">Ready for the real number?</p>
+          <h2 style="font-size:var(--fs-h2)">Book the paid diagnostic.</h2>
+          <p class="cta-band-sub">
+            We run this against your actual query history and hardware and hand you a finance-grade
+            report — reducible spend, per-endpoint mapping, and a confidence level you can take to
+            whoever signs off on the spend.
+          </p>
+          <div class="cta-row cta-band-row">
+            <a class="btn btn-primary" href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+            <a class="btn btn-ghost" href="index.html#how">See how it works</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <div class="wrap foot-inner">
+        <div class="foot-brand">
+          <p class="foot-word">
+            <svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+              <rect width="4.4" height="4.4" rx="0.6" fill="currentColor" />
+              <rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor" />
+            </svg>
+            Offloader
+          </p>
+          <p class="foot-tag">
+            The serving layer for customer-facing analytics. Self-hosted; your private data never
+            leaves your environment.
+          </p>
+        </div>
+        <nav class="foot-nav" aria-label="Footer">
+          <div>
+            <h3>Product</h3>
+            <a href="index.html#how">How it works</a>
+            <a href="index.html#pricing">Pricing</a>
+            <a href="index.html#faq">FAQ</a>
+          </div>
+          <div>
+            <h3>Docs</h3>
+            <a href="docs/concepts.html">Concepts</a>
+            <a href="docs/quickstart.html">Quickstart</a>
+            <a href="docs/cli.html">CLI reference</a>
+            <a href="docs/security-model.html">Security</a>
+          </div>
+          <div>
+            <h3>Evaluate</h3>
+            <a href="roi.html">ROI calculator</a>
+            <a href="docs/benchmarks.html">Benchmarks</a>
+          </div>
+          <div>
+            <h3>Talk to us</h3>
+            <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+            <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+          </div>
+        </nav>
+      </div>
+      <div class="wrap foot-legal">
+        <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
+        <span>© 2026 Offloader</span>
+      </div>
+    </footer>
+
+    <script>
+      // ROI calculator — runs entirely in the browser. No network requests, no storage,
+      // no analytics on these inputs: your numbers never leave this page. (View source.)
+      (function () {
+        "use strict";
+        var FACTORS = { conservative: 0.4, expected: 0.7, aggressive: 0.9 };
+        var EXAMPLE =
+          "fingerprint,executions_per_month,avg_cost_usd,warehouse,bounded,candidate_endpoint\n" +
+          "q_usage_summary,120000,0.012,analytics_wh,true,customer_usage_summary\n" +
+          "q_usage_daily,60000,0.020,analytics_wh,true,customer_usage_daily\n" +
+          "q_top_accounts,20000,0.030,analytics_wh,true,top_accounts_by_usage\n" +
+          "q_adhoc_join,500,2.500,analytics_wh,false,\n" +
+          "q_ml_feature_export,2000,0.800,ml_wh,false,";
+
+        var $ = function (id) { return document.getElementById(id); };
+        var money0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+        var int0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+        function usd(v) {
+          var n = Math.round(v);
+          var s = money0.format(Math.abs(n));
+          return n < 0 ? "−" + s : s; // minus sign
+        }
+        function fnum(el) {
+          var v = parseFloat(String(el.value).replace(/[^0-9.\-]/g, ""));
+          return isFinite(v) && v > 0 ? v : 0;
+        }
+
+        function parseCSV(text) {
+          var lines = text.trim().split(/\r?\n/).filter(function (l) { return l.trim() !== ""; });
+          if (lines.length < 2) throw new Error("Paste a header row plus at least one data row.");
+          var header = lines[0].split(",").map(function (h) { return h.trim().toLowerCase(); });
+          var need = ["fingerprint", "executions_per_month", "avg_cost_usd", "bounded", "candidate_endpoint"];
+          for (var i = 0; i < need.length; i++) {
+            if (header.indexOf(need[i]) === -1) throw new Error('Missing required column "' + need[i] + '".');
+          }
+          var col = function (n) { return header.indexOf(n); };
+          var total = 0, reducible = 0, byEp = {};
+          for (var r = 1; r < lines.length; r++) {
+            var rec = lines[r].split(",");
+            var exec = parseFloat(rec[col("executions_per_month")]);
+            var cost = parseFloat(rec[col("avg_cost_usd")]);
+            if (!isFinite(exec) || !isFinite(cost)) throw new Error("Row " + (r + 1) + ": non-numeric executions_per_month / avg_cost_usd.");
+            var monthly = exec * cost;
+            total += monthly;
+            var bounded = (rec[col("bounded")] || "").trim().toLowerCase() === "true";
+            var ep = (rec[col("candidate_endpoint")] || "").trim();
+            if (bounded && ep) {
+              reducible += monthly;
+              if (!byEp[ep]) byEp[ep] = { endpoint: ep, exec: 0, cost: 0 };
+              byEp[ep].exec += exec;
+              byEp[ep].cost += monthly;
+            }
+          }
+          var perEndpoint = Object.keys(byEp).map(function (k) { return byEp[k]; })
+            .sort(function (a, b) { return b.cost - a.cost; });
+          return { total: total, reducible: reducible, perEndpoint: perEndpoint };
+        }
+
+        function compute(base, opts) {
+          var reducible = base.reducible;
+          var excluded = Math.max(0, base.total - reducible);
+          var net = function (f) { return reducible * f - opts.infra; };
+          var conservative = net(FACTORS.conservative);
+          var expected = net(FACTORS.expected);
+          var aggressive = net(FACTORS.aggressive);
+          var payback = !opts.committed && expected > 0 ? opts.labor / expected : null;
+
+          var level;
+          if (reducible <= 0) level = "Level 1 — technical candidate only, no dollar claim";
+          else if (opts.committed) level = "Level 1–2 — committed capacity may not reduce the bill";
+          else level = "Level 2 — query logs estimate the reducible spend";
+
+          var caveats = [];
+          if (reducible <= 0)
+            caveats.push("No reducible (bounded, endpoint-mapped) spend in this input — nothing to offload here.");
+          if (opts.committed)
+            caveats.push("Committed / flat-rate capacity: removing query volume does not lower the bill until you actually cut the committed tier or cluster size (that is Level 3). No bill reduction, and no payback, until capacity is reduced.");
+          if (opts.shared)
+            caveats.push("Shared warehouse: this workload is not the only cost driver, so attributing savings to it is an estimate — validate against per-query / per-warehouse cost allocation.");
+          caveats.push("Level 3 (reduce warehouse size or schedule) and Level 4 (finance verifies the bill dropped) require a live before/after, after you offload.");
+
+          return {
+            total: base.total, reducible: reducible, excluded: excluded,
+            conservative: conservative, expected: expected, aggressive: aggressive,
+            payback: payback, committed: opts.committed, level: level,
+            caveats: caveats, perEndpoint: base.perEndpoint || []
+          };
+        }
+
+        function render(rep) {
+          $("confidence").textContent = rep.level;
+          $("framing").innerHTML =
+            "Analyzed spend <b>" + usd(rep.total) + "/mo</b>. Reducible (bounded + endpoint-mapped) <b>" +
+            usd(rep.reducible) + "/mo</b>. Excluded <b>" + usd(rep.excluded) + "/mo</b>.";
+
+          $("savings-cap").textContent = rep.committed
+            ? "Potential monthly savings — not realized on committed capacity"
+            : "Net monthly savings (after Offloader cost)";
+          var rows = [
+            ["Conservative", rep.conservative, ""],
+            ["Expected", rep.expected, "expected"],
+            ["Aggressive", rep.aggressive, ""]
+          ];
+          $("savings-body").innerHTML = rows.map(function (row) {
+            var cls = row[1] < 0 ? " class=\"neg\"" : "";
+            return "<tr class=\"" + row[2] + "\"><td>" + row[0] + "</td><td" + cls + ">" +
+              usd(row[1]) + "</td><td" + cls + ">" + usd(row[1] * 12) + "</td></tr>";
+          }).join("");
+
+          var pb = $("payback");
+          if (rep.payback && rep.payback > 0) {
+            pb.hidden = false;
+            pb.innerHTML = "Payback on migration labor (expected): <b>" + rep.payback.toFixed(1) + " months</b>.";
+          } else {
+            pb.hidden = true;
+          }
+
+          var ep = $("endpoints");
+          if (rep.perEndpoint && rep.perEndpoint.length) {
+            ep.hidden = false;
+            $("endpoints-body").innerHTML = rep.perEndpoint.map(function (e) {
+              return "<tr><td>" + e.endpoint + "</td><td>" + int0.format(Math.round(e.exec)) +
+                "</td><td>" + usd(e.cost) + "</td></tr>";
+            }).join("");
+          } else {
+            ep.hidden = true;
+          }
+
+          $("caveats").innerHTML = rep.caveats.map(function (c) { return "<li>" + c + "</li>"; }).join("");
+        }
+
+        function currentMode() {
+          var el = document.querySelector('input[name="mode"]:checked');
+          return el ? el.value : "quick";
+        }
+
+        function recompute() {
+          var opts = { infra: fnum($("infra")), labor: fnum($("labor")), committed: $("committed").checked, shared: $("shared").checked };
+          var base;
+          if (currentMode() === "csv") {
+            var text = $("csv").value.trim();
+            if (!text) { base = { total: 0, reducible: 0, perEndpoint: [] }; $("csv-error").textContent = ""; }
+            else {
+              try { base = parseCSV(text); $("csv-error").textContent = ""; }
+              catch (e) { $("csv-error").textContent = e.message; return; }
+            }
+          } else {
+            var total = fnum($("q-total"));
+            var share = parseFloat($("q-share").value) / 100;
+            base = { total: total, reducible: total * share, perEndpoint: [] };
+          }
+          render(compute(base, opts));
+        }
+
+        // wiring
+        $("q-share").addEventListener("input", function () { $("q-share-out").textContent = this.value + "%"; });
+        Array.prototype.forEach.call(document.querySelectorAll('input[name="mode"]'), function (r) {
+          r.addEventListener("change", function () {
+            var csv = currentMode() === "csv";
+            $("mode-csv").hidden = !csv;
+            $("mode-quick").hidden = csv;
+            recompute();
+          });
+        });
+        $("load-example").addEventListener("click", function () { $("csv").value = EXAMPLE; recompute(); });
+        document.getElementById("calc-form").addEventListener("input", recompute);
+
+        recompute();
+      })();
+    </script>
+  </body>
+</html>
