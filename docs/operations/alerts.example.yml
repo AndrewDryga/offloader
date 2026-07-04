@@ -4,6 +4,7 @@
 # server/lib/offloader/metrics.ex). Copy into your Prometheus rule files and tune
 # thresholds/`for` durations to your freshness tolerance and disk sizing. Each alert
 # names the likely owner so an operator can classify the incident quickly
+# (see the runbooks in docs/operations/).
 groups:
   - name: offloader
     rules:

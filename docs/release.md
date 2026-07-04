@@ -51,5 +51,6 @@ cosign verify --key <pubkey> ghcr.io/andrewdryga/offloader:1.0.0
 
 ## Publishing
 
-Pin image tags (`ghcr.io/andrewdryga/offloader:1.0.0`, never `:latest`), publish
-`SHA256SUMS` (+ signature) and the SBOM alongside the release, and reference their
+Pin image tags (`ghcr.io/andrewdryga/offloader:1.0.0`, never `:latest`), and publish
+`SHA256SUMS` (+ signature) and the SBOM alongside the release so downstream consumers
+can verify provenance.

@@ -35,6 +35,7 @@ Then, by what you want to do:
 - **Security** — [Security model](docs/security-model.md): what's protected, and what you own.
 - **Cost case** — [ROI calculator](https://offloader.dryga.com/roi.html) · [Benchmarks](docs/benchmarks.md).
 
+Deeper: [Architecture](docs/architecture.md) · [Release process](docs/release.md).
 
 ## Product boundary
 
@@ -127,7 +128,7 @@ legal/            Contracting templates (diagnostic + pilot SOW) — fill per de
 
 ## Project status (for contributors)
 
-(technical + commercial proof gates). The development gate is:
+The development gate is:
 
 ```sh
 make check        # format, warnings-as-errors, tests

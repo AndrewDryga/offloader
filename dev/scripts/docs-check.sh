@@ -10,6 +10,7 @@ fail=0
 for f in README.md docs/concepts.md docs/quickstart.md docs/developer-experience.md \
          docs/config-reference.md docs/cli.md docs/api.md docs/public-serving.md \
          docs/security-model.md docs/operator.md docs/deployment.md docs/benchmarks.md \
+         docs/architecture.md docs/release.md; do
   [ -f "$f" ] || { echo "docs-check: missing required doc $f" >&2; fail=1; }
 done
 

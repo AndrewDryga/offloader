@@ -23,13 +23,14 @@ backs it move together.
 | [public-serving.md](public-serving.md) | Serve public data to a front-end and cache it at the edge (auth, ETags, CORS). |
 | [benchmarks.md](benchmarks.md) | Measure latency, throughput, and footprint on your own data. |
 
+## Deeper reference
 
 | Doc | What it covers |
 | --- | --- |
 | [architecture.md](architecture.md) | Data-plane decisions, runtime pipeline, ports, manifest contract. |
 | [release.md](release.md) | Release packaging, SBOM, and provenance. |
 
-Deeper procedures live under [`operations/`](operations/) (runbooks, dashboards, alerts)
+Operational procedures live under [`operations/`](operations/) (runbooks, dashboards, alerts).
 
 ## Rules
 

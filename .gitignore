@@ -36,3 +36,6 @@ crash.log
 
 # Local release artifacts (dev/scripts/release.sh writes dist/; CI uploads it, never commits it)
 dist/
+
+# Internal business / GTM / planning docs — kept locally, out of the public repo.
+.internal/
