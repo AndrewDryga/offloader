@@ -26,7 +26,7 @@ there is nothing to clone, build, or authenticate.
 
    ```sh
    gcloud auth login
-   ./setup-wif.sh   # creates the WIF pool + OIDC provider + service account, scoped to this workspace
+   ./infra/scripts/setup-wif.sh   # creates the WIF pool + OIDC provider + SA, scoped to this workspace
    ```
 
    Set the three variables from the output as **Environment variables** on the workspace —

@@ -8,3 +8,6 @@
 !/examples
 /examples/*
 !/examples/public-metrics
+
+# The WIF bootstrap is run once by a human, not by the TFC run — keep it out of the archive.
+/infra/scripts

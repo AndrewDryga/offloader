@@ -19,6 +19,18 @@ PROVIDER_ID="${PROVIDER_ID:-tfc-oidc}"
 SA_ID="${SA_ID:-tfc-offloader}"
 SA_EMAIL="${SA_ID}@${PROJECT}.iam.gserviceaccount.com"
 
+# GCP IAM is eventually consistent — a just-created resource can take a few seconds to be
+# usable in a policy binding. Retry to ride out that propagation.
+retry() {
+  local n=1
+  until "$@"; do
+    if [ "$n" -ge 6 ]; then echo "  ✗ still failing after $n attempts" >&2; return 1; fi
+    echo "  … not ready, retrying in 5s ($n/6)" >&2
+    n=$((n + 1))
+    sleep 5
+  done
+}
+
 echo "→ project ${PROJECT} · workspace ${TFC_ORG}/${TFC_WORKSPACE}"
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
 echo "→ project number ${PROJECT_NUMBER}"
@@ -50,12 +62,19 @@ gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT" >/dev/null
   gcloud iam service-accounts create "$SA_ID" \
     --project="$PROJECT" --display-name="Terraform Cloud — offloader"
 
+# Wait for the SA to become referenceable before binding roles to it (see retry() above).
+echo "→ waiting for the service account to propagate"
+for _ in $(seq 1 12); do
+  if gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT" >/dev/null 2>&1; then break; fi
+  sleep 3
+done
+
 echo "→ grant the SA storage-admin (create the demo bucket + set its allUsers IAM)"
-gcloud projects add-iam-policy-binding "$PROJECT" \
+retry gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${SA_EMAIL}" --role="roles/storage.admin" --condition=None >/dev/null
 
 echo "→ let ONLY the ${TFC_WORKSPACE} workspace's federated identity impersonate the SA"
-gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" --project="$PROJECT" \
+retry gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" --project="$PROJECT" \
   --role="roles/iam.workloadIdentityUser" \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.terraform_workspace_name/${TFC_WORKSPACE}" >/dev/null
 
