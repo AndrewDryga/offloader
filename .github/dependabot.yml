@@ -1,0 +1,13 @@
+# Keep the SHA-pinned GitHub Actions current. The workflows pin each action to a
+# commit SHA (supply-chain hardening — a moving @vN tag can be repointed, a digest
+# can't); Dependabot bumps those SHAs and their `# vX.Y.Z` comments so pinning to a
+# digest doesn't mean silently going stale. One grouped PR a week keeps the noise low.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
