@@ -102,6 +102,9 @@ jobs:
         id: img
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
+      # QEMU registers binfmt handlers so buildx can cross-build the linux/arm64 image
+      # on this amd64 runner (Apple Silicon can then pull it natively).
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -117,6 +120,7 @@ jobs:
           context: server
           file: server/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.img.outputs.name }}:edge
             ${{ steps.img.outputs.name }}:sha-${{ github.sha }}
