@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"net"
 	"os"
 	"path/filepath"
@@ -54,6 +55,16 @@ func TestFirstFreePortSkipsBusyPort(t *testing.T) {
 
 	if got := firstFreePort(busy); got <= busy {
 		t.Fatalf("firstFreePort(%d) = %d, want a higher free port (the busy one must be skipped)", busy, got)
+	}
+}
+
+func TestColorNeverLeaksIntoNonTTY(t *testing.T) {
+	// A buffer/pipe is not a terminal, so the banner must stay plain — no ANSI escapes.
+	if colorEnabled(&bytes.Buffer{}) {
+		t.Error("colorEnabled must be false for a non-*os.File writer")
+	}
+	if got := colorizer(&bytes.Buffer{})(cBold, "x"); got != "x" {
+		t.Errorf("colorizer on a non-TTY must be a no-op; got %q", got)
 	}
 }
 

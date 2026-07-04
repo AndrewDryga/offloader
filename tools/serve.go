@@ -98,12 +98,16 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 	}
 	adminHost := firstFreePort(adminStart)
 
-	fmt.Fprintf(stdout, "offloader serve: %s\n", target)
-	fmt.Fprintf(stdout, "  API     http://localhost:%d      ← curl your endpoints here\n", apiHost)
-	fmt.Fprintf(stdout, "  admin   http://127.0.0.1:%d      health/metrics/docs (keep private)\n", adminHost)
-	fmt.Fprintf(stdout, "  ready   curl -fsS http://127.0.0.1:%d/ready\n", adminHost)
-	fmt.Fprintf(stdout, "  docs    curl -fsS http://127.0.0.1:%d/docs   # lists the endpoints you can call\n", adminHost)
-	fmt.Fprintf(stdout, "  stop    Ctrl-C\n")
+	paint := colorizer(stdout)
+	fmt.Fprintf(stdout, "%s %s\n", paint(cBold, "offloader serve:"), target)
+	fmt.Fprintf(stdout, "  %s  %s   %s\n", paint(cBold+cGreen, "API  "),
+		paint(cCyan, fmt.Sprintf("http://localhost:%d", apiHost)), paint(cDim, "← curl your endpoints here"))
+	fmt.Fprintf(stdout, "  %s  %s   %s\n", paint(cBold+cYellow, "admin"),
+		paint(cCyan, fmt.Sprintf("http://127.0.0.1:%d", adminHost)), paint(cDim, "health/metrics/docs (keep private)"))
+	fmt.Fprintf(stdout, "  %s  curl -fsS http://127.0.0.1:%d/ready\n", paint(cDim, "ready"), adminHost)
+	fmt.Fprintf(stdout, "  %s  curl -fsS http://127.0.0.1:%d/docs   %s\n",
+		paint(cDim, "docs "), adminHost, paint(cDim, "# lists the endpoints you can call"))
+	fmt.Fprintf(stdout, "  %s  Ctrl-C\n", paint(cDim, "stop "))
 	return runDocker(stdout, stderr,
 		dockerRunArgs(*image, configValue, mountDir, apiHost, adminHost, *cacheVol, secret, extraEnv)...)
 }
@@ -133,6 +137,39 @@ func dockerRunArgs(image, configValue, mountDir string, apiPort, adminPort int, 
 		args = append(args, "-v", mountDir+":/etc/offloader:ro")
 	}
 	return append(args, "-v", cacheVol+":/var/lib/offloader/cache", image)
+}
+
+// ANSI colors for the serve banner. colorizer returns a painter that is a no-op unless stdout is
+// a real terminal and NO_COLOR (https://no-color.org) is unset — so color never leaks into a pipe.
+const (
+	cReset  = "\x1b[0m"
+	cBold   = "\x1b[1m"
+	cDim    = "\x1b[2m"
+	cGreen  = "\x1b[32m"
+	cYellow = "\x1b[33m"
+	cCyan   = "\x1b[36m"
+)
+
+func colorizer(w io.Writer) func(code, s string) string {
+	on := colorEnabled(w)
+	return func(code, s string) string {
+		if !on {
+			return s
+		}
+		return code + s + cReset
+	}
+}
+
+func colorEnabled(w io.Writer) bool {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		return false
+	}
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 // firstFreePort returns the first port >= start that nothing is already listening on. It probes
