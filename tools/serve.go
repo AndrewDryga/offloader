@@ -98,9 +98,12 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 	}
 	adminHost := firstFreePort(adminStart)
 
-	fmt.Fprintf(stdout, "offloader serve: %s → http://localhost:%d  (admin on 127.0.0.1:%d)\n",
-		target, apiHost, adminHost)
-	fmt.Fprintf(stdout, "  ready:  curl -fsS http://127.0.0.1:%d/ready\n  stop:   Ctrl-C\n", adminHost)
+	fmt.Fprintf(stdout, "offloader serve: %s\n", target)
+	fmt.Fprintf(stdout, "  API     http://localhost:%d      ← curl your endpoints here\n", apiHost)
+	fmt.Fprintf(stdout, "  admin   http://127.0.0.1:%d      health/metrics/docs (keep private)\n", adminHost)
+	fmt.Fprintf(stdout, "  ready   curl -fsS http://127.0.0.1:%d/ready\n", adminHost)
+	fmt.Fprintf(stdout, "  docs    curl -fsS http://127.0.0.1:%d/docs   # lists the endpoints you can call\n", adminHost)
+	fmt.Fprintf(stdout, "  stop    Ctrl-C\n")
 	return runDocker(stdout, stderr,
 		dockerRunArgs(*image, configValue, mountDir, apiHost, adminHost, *cacheVol, secret, extraEnv)...)
 }
@@ -113,13 +116,18 @@ func dockerRunArgs(image, configValue, mountDir string, apiPort, adminPort int, 
 		"run", "--rm",
 		"-e", "OFFLOADER_CONFIG=" + configValue,
 		"-e", "OFFLOADER_SECRET_KEY_BASE=" + secret,
+		// Tell the container to LISTEN on the ports we publish (not its 4000/4001 default), so
+		// its own startup logs and the URL serve prints agree — otherwise it says "8088" while
+		// the container logs "Access at :4000", which sends people curling the wrong port.
+		"-e", fmt.Sprintf("OFFLOADER_API_PORT=%d", apiPort),
+		"-e", fmt.Sprintf("OFFLOADER_ADMIN_PORT=%d", adminPort),
 	}
 	for _, e := range extraEnv {
 		args = append(args, "-e", e)
 	}
 	args = append(args,
-		"-p", fmt.Sprintf("%d:4000", apiPort),
-		"-p", fmt.Sprintf("127.0.0.1:%d:4001", adminPort),
+		"-p", fmt.Sprintf("%d:%d", apiPort, apiPort),
+		"-p", fmt.Sprintf("127.0.0.1:%d:%d", adminPort, adminPort),
 	)
 	if mountDir != "" {
 		args = append(args, "-v", mountDir+":/etc/offloader:ro")

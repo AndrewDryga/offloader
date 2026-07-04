@@ -18,8 +18,11 @@ func TestDockerRunArgs(t *testing.T) {
 	for _, want := range []string{
 		"OFFLOADER_CONFIG=/etc/offloader/offloader.yml",
 		"OFFLOADER_SECRET_KEY_BASE=s3cr3t",
-		"8080:4000",
-		"127.0.0.1:9090:4001",
+		// container listens on the published ports, so its logs match the URL serve prints
+		"OFFLOADER_API_PORT=8080",
+		"OFFLOADER_ADMIN_PORT=9090",
+		"8080:8080",
+		"127.0.0.1:9090:9090",
 		"/abs/proj:/etc/offloader:ro",
 		"poc-cache:/var/lib/offloader/cache",
 	} {
