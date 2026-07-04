@@ -1,0 +1,10 @@
+# HCP Terraform ingests the whole repo on each VCS run, but the workspace only runs Terraform
+# in infra/ — which uploads examples/public-metrics/ to the sample bucket. Ship just those two so
+# the ingress archive stays small (the rest is the product: server/, tools/, site/, docs/, …).
+
+# Ignore everything at the repo root, then re-include only what the infra/ run needs.
+/*
+!/infra
+!/examples
+/examples/*
+!/examples/public-metrics
