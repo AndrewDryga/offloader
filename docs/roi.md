@@ -1,8 +1,26 @@
 # ROI diagnostic
 
-The first paid offer is a diagnostic: ingest a customer's query
-history, cluster the repeated bounded reads, and estimate the **reducible** warehouse
-spend — honestly, with confidence levels, never an inflated bill-reduction promise.
+Before you offload anything, this answers one question: **how much of your warehouse bill is
+actually reducible** by moving repeated reads to Offloader — as a number with a confidence
+level, not a sales promise. It clusters your repeated bounded reads, maps them to serving
+endpoints, and estimates the reducible spend.
+
+## Who runs it, and when
+
+It's the first step of the paid diagnostic — run while you're deciding whether offloading is
+even worth it, against your own warehouse's query history. You run it (or we do, from an export
+you provide); either way the output is a report you keep and can hand to whoever signs off on
+the spend.
+
+## Why it's a local tool, not an online calculator
+
+Because the input is your **private** query history and cost data — the last thing you'd paste
+into a public web form. The diagnostic reads a CSV you export from your warehouse, runs entirely
+on your machine, and writes a file; none of it leaves your environment. That's the same boundary
+as the product itself. A generic web calculator would either guess your numbers (untrustworthy)
+or ask you to upload exactly the data you're trying to keep private.
+
+## Run it
 
 ```sh
 offloader roi report --input examples/roi/sample-query-history.csv \

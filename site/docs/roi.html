@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ROI diagnostic — Offloader docs</title>
-<meta name="description" content="The first paid offer is a diagnostic: ingest a customer&amp;#39;s query
-history, cluster the repeated bounded reads, and estimate the reducible…">
+<meta name="description" content="Before you offload anything, this answers one question: how much of your warehouse bill is
+actually reducible by moving repeated reads to Offloader — as a…">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -76,9 +76,22 @@ history, cluster the repeated bounded reads, and estimate the reducible…">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
 <h1 id="roi-diagnostic">ROI diagnostic</h1>
-<p>The first paid offer is a diagnostic: ingest a customer&#39;s query
-history, cluster the repeated bounded reads, and estimate the <strong>reducible</strong> warehouse
-spend — honestly, with confidence levels, never an inflated bill-reduction promise.</p>
+<p>Before you offload anything, this answers one question: <strong>how much of your warehouse bill is
+actually reducible</strong> by moving repeated reads to Offloader — as a number with a confidence
+level, not a sales promise. It clusters your repeated bounded reads, maps them to serving
+endpoints, and estimates the reducible spend.</p>
+<h2 id="who-runs-it-and-when">Who runs it, and when</h2>
+<p>It&#39;s the first step of the paid diagnostic — run while you&#39;re deciding whether offloading is
+even worth it, against your own warehouse&#39;s query history. You run it (or we do, from an export
+you provide); either way the output is a report you keep and can hand to whoever signs off on
+the spend.</p>
+<h2 id="why-it39s-a-local-tool-not-an-online-calculator">Why it&#39;s a local tool, not an online calculator</h2>
+<p>Because the input is your <strong>private</strong> query history and cost data — the last thing you&#39;d paste
+into a public web form. The diagnostic reads a CSV you export from your warehouse, runs entirely
+on your machine, and writes a file; none of it leaves your environment. That&#39;s the same boundary
+as the product itself. A generic web calculator would either guess your numbers (untrustworthy)
+or ask you to upload exactly the data you&#39;re trying to keep private.</p>
+<h2 id="run-it">Run it</h2>
 <pre tabindex="0"><code class="language-sh">offloader roi report --input examples/roi/sample-query-history.csv \
   --gateway-cost 800 --migration-labor 20000 [--committed-capacity] [--shared-warehouse] \
   --out roi.md
