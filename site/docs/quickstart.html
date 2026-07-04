@@ -197,8 +197,11 @@ query:
     - { column: day, op: lte, param: to }
 columns: [day, hits]
 </code></pre>
-<p>Point <code>manifest:</code> at a snapshot of your data, then run the container against <code>my-project/</code>
-exactly as in step 1. The <a href="developer-experience.html">config guide</a> walks through every file; the
+<p>Point <code>manifest:</code> at a snapshot of your data, then serve it locally in one command:</p>
+<pre tabindex="0"><code class="language-sh">offloader serve my-project/   # validates the config, pulls the image, runs it against your project
+</code></pre>
+<p>That&#39;s the shortcut for the full <code>docker run</code> in step 1 — handy for a POC. The
+<a href="developer-experience.html">config guide</a> walks through every file; the
 <a href="config-reference.html">config reference</a> lists every field.</p>
 <details>
 <summary>Let an AI agent migrate your existing endpoints</summary>

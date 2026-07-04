@@ -229,6 +229,7 @@ Each is `offloader <command> --help` for full flags:
 - `offloader init` — scaffold a new, valid project
 - `offloader scaffold-dataset` — draft a dataset schema from a manifest or CSV
 - `offloader validate` — check a whole project the way the container does (run it in CI)
+- `offloader serve` — pull and run the container locally against a project, for a POC
 - `offloader manifest validate` — check one manifest file against its dataset contract
 - `offloader endpoint test` — call an endpoint on a running instance and assert the response
 - `offloader snapshot status` — per-dataset active / last-good snapshot, freshness, source health

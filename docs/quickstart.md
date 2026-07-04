@@ -167,8 +167,14 @@ query:
 columns: [day, hits]
 ```
 
-Point `manifest:` at a snapshot of your data, then run the container against `my-project/`
-exactly as in step 1. The [config guide](developer-experience.md) walks through every file; the
+Point `manifest:` at a snapshot of your data, then serve it locally in one command:
+
+```sh
+offloader serve my-project/   # validates the config, pulls the image, runs it against your project
+```
+
+That's the shortcut for the full `docker run` in step 1 — handy for a POC. The
+[config guide](developer-experience.md) walks through every file; the
 [config reference](config-reference.md) lists every field.
 
 <details>
