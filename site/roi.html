@@ -54,7 +54,7 @@
       .field { display: grid; gap: 0.4rem; }
       .field label { font-size: 0.94rem; font-weight: 550; color: var(--ink); }
       .field .hint { font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
-      .field input[type="number"] {
+      .field input[type="number"], .field input[type="text"] {
         font-family: var(--sans); font-size: 1rem; color: var(--ink); background: var(--paper-2);
         border: 1px solid var(--line); border-radius: 9px; padding: 0.6rem 0.75rem; width: 100%;
       }
@@ -153,13 +153,13 @@
             <div class="calc-body">
               <div class="field">
                 <label for="requests">Requests served per month</label>
-                <div class="unit"><input type="number" id="requests" min="0" step="1000000" value="50000000" /><span>/mo</span></div>
+                <div class="unit"><input type="text" inputmode="numeric" id="requests" value="50000000" /><span>/mo</span></div>
                 <span class="hint">Total product reads you serve for these dashboards / stats.</span>
               </div>
 
               <div class="field">
                 <label for="warehouse">Current warehouse cost for those reads, per month</label>
-                <div class="unit"><input type="number" id="warehouse" min="0" step="100" value="6000" /><span>$/mo</span></div>
+                <div class="unit"><input type="text" inputmode="numeric" id="warehouse" value="6000" /><span>$/mo</span></div>
                 <span class="hint">What the warehouse bills you today to answer them.</span>
               </div>
 
@@ -381,6 +381,25 @@
           if (committed) cav.push("Committed / flat-rate capacity: moving the reads off doesn't lower the warehouse bill until you downsize the tier — until then these savings are potential, not realized.");
           $("caveats").innerHTML = cav.map(function (c) { return "<li>" + c + "</li>"; }).join("");
         }
+
+        // Group the big number inputs with commas as you type (fnum strips them back out).
+        function group(el) {
+          var raw = el.value.replace(/\D/g, "");
+          var caret = el.selectionStart == null ? el.value.length : el.selectionStart;
+          var digitsLeft = el.value.slice(0, caret).replace(/\D/g, "").length;
+          el.value = raw === "" ? "" : Number(raw).toLocaleString("en-US");
+          var pos = 0, seen = 0;
+          while (pos < el.value.length && seen < digitsLeft) {
+            if (el.value.charCodeAt(pos) >= 48 && el.value.charCodeAt(pos) <= 57) seen++;
+            pos++;
+          }
+          try { el.setSelectionRange(pos, pos); } catch (e) {}
+        }
+        ["requests", "warehouse"].forEach(function (id) {
+          var el = $(id);
+          el.addEventListener("input", function () { group(el); });
+          group(el); // format the initial value
+        });
 
         var form = document.getElementById("calc-form");
         form.addEventListener("input", render);
