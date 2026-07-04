@@ -4,8 +4,8 @@
 # cosign / grype when present and prints exactly what to run when they're absent, so a
 # release is reproducible on a laptop or in CI. See docs/release.md.
 #
-#   ./dev/scripts/release.sh <version>          # e.g. 1.0.0
-#   SKIP_IMAGE=1 ./dev/scripts/release.sh 1.0.0 # skip the container image
+#   ./dev/scripts/release.sh <version>          # e.g. 0.1.0
+#   SKIP_IMAGE=1 ./dev/scripts/release.sh 0.1.0 # skip the container image
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

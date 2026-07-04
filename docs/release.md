@@ -7,7 +7,7 @@ Offloader doesn't claim SOC2 — it ships concrete artifacts instead.
 ## Run it
 
 ```sh
-./dev/scripts/release.sh 1.0.0
+./dev/scripts/release.sh 0.1.0
 ```
 
 It writes `dist/` with:
@@ -45,11 +45,11 @@ skipped.
 cd dist && sha256sum -c SHA256SUMS
 # signature (once signed)
 cosign verify-blob --key <pubkey> --signature SHA256SUMS.sig SHA256SUMS
-cosign verify --key <pubkey> ghcr.io/andrewdryga/offloader:1.0.0
+cosign verify --key <pubkey> ghcr.io/andrewdryga/offloader:0.1.0
 ```
 
 ## Publishing
 
-Pin image tags (`ghcr.io/andrewdryga/offloader:1.0.0`, never `:latest`), and publish
+Pin image tags (`ghcr.io/andrewdryga/offloader:0.1.0`, never `:latest`), and publish
 `SHA256SUMS` (+ signature) and the SBOM alongside the release so downstream consumers
 can verify provenance.
