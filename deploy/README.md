@@ -21,7 +21,7 @@ provider-neutral and show the container's shape, not your production network.
 | **Config** | `OFFLOADER_CONFIG` — a mounted directory (`offloader.yml` + `datasets/`, `endpoints/`, `keys/`) **or** a `gs://…` bucket prefix, fetched at boot (fully stateless, nothing mounted). |
 | **Cache** | A persistent volume at `/var/lib/offloader/cache` (warm restarts). |
 | **Secrets** | `OFFLOADER_SECRET_KEY_BASE` (required), `OFFLOADER_ADMIN_TOKEN` (gates diagnostics) — from env vars or your secret store, never baked into the image. |
-| **Image** | **Pull from GHCR** and pin a released tag (`ghcr.io/andrewdryga/offloader:0.1.0`); never `:latest`. The rolling `:edge` tag tracks `main`. Upgrade = new tag; rollback = old tag. |
+| **Image** | **Pull from GHCR** and pin a released tag (`ghcr.io/andrewdryga/offloader:0.1.1`); never `:latest`. The rolling `:edge` tag tracks `main`. Upgrade = new tag; rollback = old tag. |
 
 Deploy the **published, signed image**, then verify the running instance — see
 [rollout verification and rollback](../docs/deployment.md) for the exact checks.

@@ -54,7 +54,7 @@ spec:
         fsGroup: 10001
       containers:
         - name: offloader
-          image: ghcr.io/andrewdryga/offloader:0.1.0 # pin a version; never :latest
+          image: ghcr.io/andrewdryga/offloader:0.1.1 # pin a version; never :latest
           envFrom:
             - secretRef: { name: offloader-secrets }
           env:

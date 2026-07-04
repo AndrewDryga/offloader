@@ -174,7 +174,7 @@ docker run \
   -v offloader-cache:/var/lib/offloader/cache \
   -p 4000:4000 \
   -p 127.0.0.1:4001:4001 \
-  ghcr.io/andrewdryga/offloader:edge   # or pin a release, e.g. :0.1.0
+  ghcr.io/andrewdryga/offloader:edge   # or pin a release, e.g. :0.1.1
 ```
 
 On GKE/GCE the bearer token comes from the metadata server (no credential env needed); on a
