@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,21 @@ func TestDockerRunArgs(t *testing.T) {
 	}
 	if strings.Contains(rjoined, "/etc/offloader:ro") {
 		t.Errorf("remote run must NOT mount a config dir: %s", rjoined)
+	}
+}
+
+func TestFirstFreePortSkipsBusyPort(t *testing.T) {
+	// Hold a loopback port, then confirm firstFreePort probes past it rather than returning it —
+	// this is what keeps `serve` from dying when its default port is already taken.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	busy := ln.Addr().(*net.TCPAddr).Port
+
+	if got := firstFreePort(busy); got <= busy {
+		t.Fatalf("firstFreePort(%d) = %d, want a higher free port (the busy one must be skipped)", busy, got)
 	}
 }
 

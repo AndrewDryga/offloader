@@ -181,8 +181,8 @@ CI before you ship a config change.</p>
 project</strong> (validated first, mounted read-only) <strong>or a <code>gs://</code>/<code>s3://</code> config bucket</strong> (served
 directly via <code>OFFLOADER_CONFIG</code>, nothing mounted). A <code>gs://</code> bucket defaults to anonymous access,
 so a public sample just works; set the <code>OFFLOADER_GCS_*</code>/<code>OFFLOADER_S3_*</code> credentials in your
-environment for a private one and <code>serve</code> forwards them. Publishes the API on <code>:4000</code> and binds
-the admin port to loopback.</p>
+environment for a private one and <code>serve</code> forwards them. Publishes the API on <code>:8088</code> and binds
+the admin port to loopback, each bumped to the next free port if it's already taken.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -199,13 +199,13 @@ the admin port to loopback.</p>
 </tr>
 <tr>
 <td><code>--api-port</code></td>
-<td><code>4000</code></td>
-<td>host port for the product API</td>
+<td><code>8088</code></td>
+<td>host port for the product API (next free port if taken)</td>
 </tr>
 <tr>
 <td><code>--admin-port</code></td>
-<td><code>4001</code></td>
-<td>host port for the admin surface (loopback)</td>
+<td><code>8089</code></td>
+<td>host port for the admin surface (loopback; next free port if taken)</td>
 </tr>
 <tr>
 <td><code>--cache-volume</code></td>

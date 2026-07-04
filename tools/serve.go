@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,8 +33,8 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 		fs.PrintDefaults()
 	}
 	image := fs.String("image", "ghcr.io/andrewdryga/offloader:edge", "container image to run")
-	apiPort := fs.Int("api-port", 4000, "host port for the product API")
-	adminPort := fs.Int("admin-port", 4001, "host port for the admin surface (bound to loopback)")
+	apiPort := fs.Int("api-port", 8088, "host port for the product API (auto-bumped if taken)")
+	adminPort := fs.Int("admin-port", 8089, "host port for the admin surface, loopback-bound (auto-bumped if taken)")
 	cacheVol := fs.String("cache-volume", "offloader-poc-cache", "Docker volume for the materialization cache")
 	noPull := fs.Bool("no-pull", false, "skip `docker pull` and use the local image as-is")
 	if err := fs.Parse(args); err != nil {
@@ -88,11 +89,20 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	// Pick the first free host ports at/above the requested ones, so serve doesn't die on a
+	// collision with whatever local dev already holds 8088/8089 — the printed URL shows what it got.
+	apiHost := firstFreePort(*apiPort)
+	adminStart := *adminPort
+	if adminStart <= apiHost {
+		adminStart = apiHost + 1
+	}
+	adminHost := firstFreePort(adminStart)
+
 	fmt.Fprintf(stdout, "offloader serve: %s → http://localhost:%d  (admin on 127.0.0.1:%d)\n",
-		target, *apiPort, *adminPort)
-	fmt.Fprintf(stdout, "  ready:  curl -fsS http://127.0.0.1:%d/ready\n  stop:   Ctrl-C\n", *adminPort)
+		target, apiHost, adminHost)
+	fmt.Fprintf(stdout, "  ready:  curl -fsS http://127.0.0.1:%d/ready\n  stop:   Ctrl-C\n", adminHost)
 	return runDocker(stdout, stderr,
-		dockerRunArgs(*image, configValue, mountDir, *apiPort, *adminPort, *cacheVol, secret, extraEnv)...)
+		dockerRunArgs(*image, configValue, mountDir, apiHost, adminHost, *cacheVol, secret, extraEnv)...)
 }
 
 // dockerRunArgs builds the `docker run …` argument list. Pure and unit-tested. `mountDir`
@@ -115,6 +125,22 @@ func dockerRunArgs(image, configValue, mountDir string, apiPort, adminPort int, 
 		args = append(args, "-v", mountDir+":/etc/offloader:ro")
 	}
 	return append(args, "-v", cacheVol+":/var/lib/offloader/cache", image)
+}
+
+// firstFreePort returns the first port >= start that nothing is already listening on. It probes
+// loopback (which also catches 0.0.0.0 binds and avoids a macOS firewall prompt) and only holds
+// the port momentarily, so there's a small TOCTOU window before docker binds — fine for a local
+// POC. Falls back to start after a bounded scan so docker surfaces the real bind error.
+func firstFreePort(start int) int {
+	for p := start; p <= 65535 && p < start+64; p++ {
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+		if err != nil {
+			continue
+		}
+		_ = ln.Close()
+		return p
+	}
+	return start
 }
 
 // isRemoteConfig reports whether path is an object-store config URL to serve directly

@@ -80,14 +80,14 @@ Pull the published image and run it locally — the one-command POC path. Point 
 project** (validated first, mounted read-only) **or a `gs://`/`s3://` config bucket** (served
 directly via `OFFLOADER_CONFIG`, nothing mounted). A `gs://` bucket defaults to anonymous access,
 so a public sample just works; set the `OFFLOADER_GCS_*`/`OFFLOADER_S3_*` credentials in your
-environment for a private one and `serve` forwards them. Publishes the API on `:4000` and binds
-the admin port to loopback.
+environment for a private one and `serve` forwards them. Publishes the API on `:8088` and binds
+the admin port to loopback, each bumped to the next free port if it's already taken.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--image` | `ghcr.io/andrewdryga/offloader:edge` | container image to run |
-| `--api-port` | `4000` | host port for the product API |
-| `--admin-port` | `4001` | host port for the admin surface (loopback) |
+| `--api-port` | `8088` | host port for the product API (next free port if taken) |
+| `--admin-port` | `8089` | host port for the admin surface (loopback; next free port if taken) |
 | `--cache-volume` | `offloader-poc-cache` | Docker volume for the materialization cache |
 | `--no-pull` | off | skip `docker pull` and use the local image as-is |
 
