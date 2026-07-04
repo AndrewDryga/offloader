@@ -17,20 +17,20 @@ jobs:
   release:
     needs: ci
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Image name (GHCR requires lowercase)
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: Image name + version (GHCR is lowercase; image tag is bare semver — strip the tag's v)
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: tools/go.mod
 
       - name: Artifacts — helper binary, SBOM, checksums (release.sh, no image)
-        run: SKIP_IMAGE=1 DIST=dist ./dev/scripts/release.sh "${VERSION#v}"
+        run: SKIP_IMAGE=1 DIST=dist ./dev/scripts/release.sh "$VERSION"
 
       # QEMU registers binfmt handlers so buildx can cross-build the linux/arm64 image
       # on this amd64 runner (Apple Silicon can then pull it natively).
