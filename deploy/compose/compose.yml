@@ -17,10 +17,10 @@ services:
       OFFLOADER_ADMIN_TOKEN: ${OFFLOADER_ADMIN_TOKEN:?set OFFLOADER_ADMIN_TOKEN}
       OFFLOADER_LOG_LEVEL: info
     ports:
-      - "4000:4000" # API port — product traffic
+      - "4000:4000"           # API port — product traffic
       - "127.0.0.1:4001:4001" # ADMIN port — keep private
     volumes:
-      - ./offloader:/etc/offloader:ro # config directory (read-only)
+      - ./offloader:/etc/offloader:ro            # config directory (read-only)
       - offloader-cache:/var/lib/offloader/cache # persistent materialization cache
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4001/live"]
