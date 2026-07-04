@@ -76,9 +76,12 @@ offloader manifest validate my-project/data/events/manifest.json
 
 ### `offloader serve`
 
-Pull the published image and run it locally against a project — the one-command POC path. It
-validates the config first, mounts it read-only, publishes the API on `:4000`, and binds the
-admin port to loopback.
+Pull the published image and run it locally — the one-command POC path. Point it at a **local
+project** (validated first, mounted read-only) **or a `gs://`/`s3://` config bucket** (served
+directly via `OFFLOADER_CONFIG`, nothing mounted). A `gs://` bucket defaults to anonymous access,
+so a public sample just works; set the `OFFLOADER_GCS_*`/`OFFLOADER_S3_*` credentials in your
+environment for a private one and `serve` forwards them. Publishes the API on `:4000` and binds
+the admin port to loopback.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
@@ -90,6 +93,7 @@ admin port to loopback.
 
 ```sh
 offloader serve my-project/
+offloader serve gs://offloader-public-samples/offloader/   # the public demo, no credentials
 ```
 
 ### `offloader keys create`

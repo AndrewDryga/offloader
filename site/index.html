@@ -900,14 +900,13 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             Run it in fifteen minutes.
                         </h2>
                         <p>
-                            It’s a container. Pull it from the registry and
-                            point it at our <b>public sample bucket</b> — config
-                            and data load from <code>gs://…</code> with
-                            <b>no credentials</b>, nothing to clone or build.
-                            Ready for your own data? Point
-                            <code>OFFLOADER_CONFIG</code>
-                            at your bucket, or run the 15-minute quickstart
-                            locally.
+                            Install the CLI, then point
+                            <code>offloader serve</code> at our
+                            <b>public sample bucket</b> — config and data load
+                            from <code>gs://…</code> with <b>no credentials</b>,
+                            nothing to clone or build. Ready for your own data?
+                            Point it at your own bucket, or run the 15-minute
+                            quickstart locally.
                         </p>
                         <div class="cta-row">
                             <a
@@ -936,16 +935,12 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                         <div class="run-head">
                             <span class="dot"></span><span class="dot"></span
                             ><span class="dot"></span>
-                            <span class="run-title">docker</span>
+                            <span class="run-title">terminal</span>
                         </div>
-                        <pre class="run-code">$ docker run \
-    -e OFFLOADER_CONFIG=gs://offloader-public-samples/offloader/ \
-    -e OFFLOADER_GCS_AUTH=none \
-    -e OFFLOADER_SECRET_KEY_BASE=$(openssl rand -hex 24) \
-    -e OFFLOADER_CACHE_DIR=/cache \
-    -v offloader-cache:/cache \
-    -p 4000:4000 \
-    ghcr.io/andrewdryga/offloader:edge
+                        <pre class="run-code">$ curl -fsSL https://offloader.dryga.com/install.sh | sh
+
+$ offloader serve gs://offloader-public-samples/offloader/
+  pulling image · serving the public sample on :4000 …
 
 $ curl "localhost:4000/v1/endpoints/champion?champion_id=1"
 <span class="run-ok">→ 200</span>  served from a snapshot, not your warehouse</pre>

@@ -316,12 +316,10 @@ strong { font-weight: 600; }
 .run-head { display: flex; align-items: center; gap: 0.45rem; padding: 0.75rem 1.1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.09); }
 .run-head .dot { width: 0.62rem; height: 0.62rem; border-radius: 50%; background: rgba(255, 255, 255, 0.2); }
 .run-title { margin-left: 0.5rem; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
-.run-code { background: transparent; border: 0; border-radius: 0; color: #C9C7C7; font-size: 0.76rem; line-height: 1.7; }
+.run-code { background: transparent; border: 0; border-radius: 0; color: #C9C7C7; font-size: 0.76rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: hidden; }
 .run-code .run-ok { color: #74C79C; font-weight: 500; }
-/* Stack while the terminal's longest line (~59ch mono) can't fit its half — a
-   side-by-side terminal with scrollbars is worse than a stacked one. */
 @media (max-width: 1200px) { .start-inner { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .run-code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.72rem; } }
+@media (max-width: 560px) { .run-code { font-size: 0.72rem; } }
 
 /* ── faq (native <details>, no JS) ──────────────────────────────────── */
 .faq-list { max-width: 52rem; border-top: 1px solid var(--line); }

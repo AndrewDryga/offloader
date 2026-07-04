@@ -177,9 +177,12 @@ CI before you ship a config change.</p>
 </code></pre>
 <h2 id="run-it">Run it</h2>
 <h3 id="offloader-serve"><code>offloader serve</code></h3>
-<p>Pull the published image and run it locally against a project — the one-command POC path. It
-validates the config first, mounts it read-only, publishes the API on <code>:4000</code>, and binds the
-admin port to loopback.</p>
+<p>Pull the published image and run it locally — the one-command POC path. Point it at a <strong>local
+project</strong> (validated first, mounted read-only) <strong>or a <code>gs://</code>/<code>s3://</code> config bucket</strong> (served
+directly via <code>OFFLOADER_CONFIG</code>, nothing mounted). A <code>gs://</code> bucket defaults to anonymous access,
+so a public sample just works; set the <code>OFFLOADER_GCS_*</code>/<code>OFFLOADER_S3_*</code> credentials in your
+environment for a private one and <code>serve</code> forwards them. Publishes the API on <code>:4000</code> and binds
+the admin port to loopback.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -217,6 +220,7 @@ admin port to loopback.</p>
 </tbody></table>
 </div>
 <pre tabindex="0"><code class="language-sh">offloader serve my-project/
+offloader serve gs://offloader-public-samples/offloader/   # the public demo, no credentials
 </code></pre>
 <h3 id="offloader-keys-create"><code>offloader keys create</code></h3>
 <p>Mint an API key: prints the bearer token <strong>once</strong> and the SHA-256 hash to paste into <code>keys.yml</code>

@@ -8,11 +8,11 @@ import (
 )
 
 func TestDockerRunArgs(t *testing.T) {
-	args := dockerRunArgs("ghcr.io/x/offloader:edge", "/abs/proj", 8080, 9090, "poc-cache", "s3cr3t")
-	joined := strings.Join(args, " ")
-
-	if args[0] != "run" || args[len(args)-1] != "ghcr.io/x/offloader:edge" {
-		t.Fatalf("expected run … <image> last; got %v", args)
+	// Local project: mounted, OFFLOADER_CONFIG points at the mounted file.
+	local := dockerRunArgs("ghcr.io/x/offloader:edge", "/etc/offloader/offloader.yml", "/abs/proj", 8080, 9090, "poc-cache", "s3cr3t", nil)
+	joined := strings.Join(local, " ")
+	if local[0] != "run" || local[len(local)-1] != "ghcr.io/x/offloader:edge" {
+		t.Fatalf("expected run … <image> last; got %v", local)
 	}
 	for _, want := range []string{
 		"OFFLOADER_CONFIG=/etc/offloader/offloader.yml",
@@ -23,9 +23,56 @@ func TestDockerRunArgs(t *testing.T) {
 		"poc-cache:/var/lib/offloader/cache",
 	} {
 		if !strings.Contains(joined, want) {
-			t.Errorf("docker run args missing %q\n  got: %s", want, joined)
+			t.Errorf("local run args missing %q\n  got: %s", want, joined)
 		}
 	}
+
+	// Remote bucket: no mount, OFFLOADER_CONFIG is the URL, creds carried in extraEnv.
+	remote := dockerRunArgs("img", "gs://b/p/", "", 4000, 4001, "cache", "sec", []string{"OFFLOADER_GCS_AUTH=none"})
+	rjoined := strings.Join(remote, " ")
+	if !strings.Contains(rjoined, "OFFLOADER_CONFIG=gs://b/p/") || !strings.Contains(rjoined, "OFFLOADER_GCS_AUTH=none") {
+		t.Errorf("remote run args missing config URL or auth: %s", rjoined)
+	}
+	if strings.Contains(rjoined, "/etc/offloader:ro") {
+		t.Errorf("remote run must NOT mount a config dir: %s", rjoined)
+	}
+}
+
+func TestIsRemoteConfig(t *testing.T) {
+	for _, p := range []string{"gs://b/p/", "s3://b/p/"} {
+		if !isRemoteConfig(p) {
+			t.Errorf("%q should be a remote config", p)
+		}
+	}
+	for _, p := range []string{".", "/abs/proj", "offloader.yml", "https://x/y"} {
+		if isRemoteConfig(p) {
+			t.Errorf("%q should NOT be a remote config", p)
+		}
+	}
+}
+
+func TestRemoteConfigEnvDefaultsGcsAnonymous(t *testing.T) {
+	// With no OFFLOADER_GCS_AUTH set, a gs:// bucket defaults to anonymous/public.
+	os.Unsetenv("OFFLOADER_GCS_AUTH")
+	env := remoteConfigEnv("gs://offloader-public-samples/offloader/")
+	if !containsStr(env, "OFFLOADER_GCS_AUTH=none") {
+		t.Errorf("gs:// with no auth should default to OFFLOADER_GCS_AUTH=none; got %v", env)
+	}
+	// An explicit auth is forwarded, not overridden.
+	t.Setenv("OFFLOADER_GCS_AUTH", "bearer")
+	env = remoteConfigEnv("gs://private/proj/")
+	if !containsStr(env, "OFFLOADER_GCS_AUTH=bearer") || containsStr(env, "OFFLOADER_GCS_AUTH=none") {
+		t.Errorf("explicit OFFLOADER_GCS_AUTH must be forwarded verbatim; got %v", env)
+	}
+}
+
+func containsStr(ss []string, want string) bool {
+	for _, s := range ss {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestResolveProjectDir(t *testing.T) {

@@ -10,12 +10,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func init() {
 	register(command{
 		name:    "serve",
-		summary: "pull and run the container locally against a config path (for POCs)",
+		summary: "pull and run the container against a local project or a gs://|s3:// bucket (for POCs)",
 		run:     runServe,
 	})
 }
@@ -27,7 +28,7 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "usage: offloader serve [flags] <project-dir | offloader.yml>")
+		fmt.Fprintln(stderr, "usage: offloader serve [flags] <project-dir | offloader.yml | gs://…/ | s3://…/>")
 		fs.PrintDefaults()
 	}
 	image := fs.String("image", "ghcr.io/andrewdryga/offloader:edge", "container image to run")
@@ -43,18 +44,29 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 	if fs.NArg() > 0 {
 		path = fs.Arg(0)
 	}
-	projectDir, err := resolveProjectDir(path)
-	if err != nil {
-		fmt.Fprintf(stderr, "offloader serve: %v\n", err)
-		return 1
-	}
 
-	// Fail fast on a broken config — don't boot a container that can't serve.
-	if problems := validateProject(filepath.Join(projectDir, "offloader.yml")); len(problems) > 0 {
-		fmt.Fprintf(stderr,
-			"offloader serve: %d config problem(s) — run: offloader validate --config %s\n",
-			len(problems), filepath.Join(projectDir, "offloader.yml"))
-		return 1
+	// A gs://|s3:// path is served as a remote config (no mount); a local path is mounted.
+	var configValue, mountDir, target string
+	var extraEnv []string
+	if isRemoteConfig(path) {
+		configValue, target = path, path
+		extraEnv = remoteConfigEnv(path)
+		// A remote config can't be checked locally — the container validates it on boot.
+	} else {
+		projectDir, err := resolveProjectDir(path)
+		if err != nil {
+			fmt.Fprintf(stderr, "offloader serve: %v\n", err)
+			return 1
+		}
+		// Fail fast on a broken config — don't boot a container that can't serve.
+		if problems := validateProject(filepath.Join(projectDir, "offloader.yml")); len(problems) > 0 {
+			fmt.Fprintf(stderr,
+				"offloader serve: %d config problem(s) — run: offloader validate --config %s\n",
+				len(problems), filepath.Join(projectDir, "offloader.yml"))
+			return 1
+		}
+		configValue = "/etc/offloader/offloader.yml"
+		mountDir, target = projectDir, projectDir
 	}
 
 	if _, err := exec.LookPath("docker"); err != nil {
@@ -77,24 +89,63 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 	}
 
 	fmt.Fprintf(stdout, "offloader serve: %s → http://localhost:%d  (admin on 127.0.0.1:%d)\n",
-		projectDir, *apiPort, *adminPort)
+		target, *apiPort, *adminPort)
 	fmt.Fprintf(stdout, "  ready:  curl -fsS http://127.0.0.1:%d/ready\n  stop:   Ctrl-C\n", *adminPort)
-	return runDocker(stdout, stderr, dockerRunArgs(*image, projectDir, *apiPort, *adminPort, *cacheVol, secret)...)
+	return runDocker(stdout, stderr,
+		dockerRunArgs(*image, configValue, mountDir, *apiPort, *adminPort, *cacheVol, secret, extraEnv)...)
 }
 
-// dockerRunArgs builds the `docker run …` argument list. Pure and unit-tested; the mount,
-// port publishing, and env must match the documented quickstart run command.
-func dockerRunArgs(image, projectDir string, apiPort, adminPort int, cacheVol, secret string) []string {
-	return []string{
+// dockerRunArgs builds the `docker run …` argument list. Pure and unit-tested. `mountDir`
+// is empty for a remote (gs://|s3://) config — then OFFLOADER_CONFIG is the URL and nothing is
+// mounted; `extraEnv` carries any object-store credentials.
+func dockerRunArgs(image, configValue, mountDir string, apiPort, adminPort int, cacheVol, secret string, extraEnv []string) []string {
+	args := []string{
 		"run", "--rm",
-		"-e", "OFFLOADER_CONFIG=/etc/offloader/offloader.yml",
+		"-e", "OFFLOADER_CONFIG=" + configValue,
 		"-e", "OFFLOADER_SECRET_KEY_BASE=" + secret,
+	}
+	for _, e := range extraEnv {
+		args = append(args, "-e", e)
+	}
+	args = append(args,
 		"-p", fmt.Sprintf("%d:4000", apiPort),
 		"-p", fmt.Sprintf("127.0.0.1:%d:4001", adminPort),
-		"-v", projectDir + ":/etc/offloader:ro",
-		"-v", cacheVol + ":/var/lib/offloader/cache",
-		image,
+	)
+	if mountDir != "" {
+		args = append(args, "-v", mountDir+":/etc/offloader:ro")
 	}
+	return append(args, "-v", cacheVol+":/var/lib/offloader/cache", image)
+}
+
+// isRemoteConfig reports whether path is an object-store config URL to serve directly
+// (OFFLOADER_CONFIG=<url>) rather than a local directory to mount.
+func isRemoteConfig(path string) bool {
+	return strings.HasPrefix(path, "gs://") || strings.HasPrefix(path, "s3://")
+}
+
+// remoteConfigEnv forwards any object-store credentials set in the environment, and defaults a
+// gs:// bucket to anonymous (public) access when no GCS auth is configured — so
+// `offloader serve gs://<public-bucket>/` just works with nothing else to set.
+func remoteConfigEnv(configURL string) []string {
+	var env []string
+	gcsAuthSet := false
+	for _, k := range []string{
+		"OFFLOADER_GCS_AUTH", "OFFLOADER_GCS_TOKEN",
+		"OFFLOADER_S3_AUTH", "OFFLOADER_S3_TYPE", "OFFLOADER_S3_KEY_ID", "OFFLOADER_S3_SECRET",
+		"OFFLOADER_S3_REGION", "OFFLOADER_S3_ENDPOINT", "OFFLOADER_S3_URL_STYLE",
+		"OFFLOADER_S3_USE_SSL", "OFFLOADER_S3_SESSION_TOKEN",
+	} {
+		if v, ok := os.LookupEnv(k); ok {
+			env = append(env, k+"="+v)
+			if k == "OFFLOADER_GCS_AUTH" {
+				gcsAuthSet = true
+			}
+		}
+	}
+	if strings.HasPrefix(configURL, "gs://") && !gcsAuthSet {
+		env = append(env, "OFFLOADER_GCS_AUTH=none")
+	}
+	return env
 }
 
 // runDocker runs `docker <args>` with the container's output streamed through, returning
