@@ -16,7 +16,7 @@ keys/keys.yml       # API keys (stored as hashes) — omit entirely for a public
 ```
 
 Offloader loads this at startup from `OFFLOADER_CONFIG` — either a **mounted directory**
-(point it at `.../offloader.yml`) or, fully stateless, a **`gs://…` bucket prefix**
+(point it at `.../offloader.yml`) or, fully stateless, a **`gs://…` or `s3://…` bucket prefix**
 (fetched at boot — see [Config from object storage](#config-from-object-storage-optional)).
 Nothing is baked into the image.
 
@@ -24,19 +24,31 @@ To see a complete, working project, run the **[Quickstart](quickstart.md)** agai
 `examples/customer-analytics/` — it boots a container and serves a real endpoint in about
 15 minutes. Copy that example and edit it.
 
-## Start a new project (scaffold)
+## The `offloader` CLI (optional)
 
-Authoring the YAML by hand is the slow part, so the CLI scaffolds it for you.
+The `offloader …` commands in this guide are an **optional Go helper**, not part of the
+container — the container itself needs only the files above plus env vars. Build it once, then
+use it for the scaffolding and checks below:
 
 ```sh
-# A complete, VALID, fully-commented starter project (offloader.yml + one dataset,
-# endpoint, and a working demo key). --public for a no-auth project.
-offloader init --out my-project          # then edit it; every field is commented
+cd tools && go build -o offloader .     # then ./offloader <command>   (or: go run . <command>)
+```
+
+## Start a new project (scaffold)
+
+Authoring the YAML by hand is the slow part, so the CLI (above) scaffolds it for you.
+
+```sh
+# A complete, valid, fully-commented starter project — every field is commented
+offloader init --out my-project
+
+# …the same, but a public (no-auth) project
 offloader init --out my-project --public
 
-# Draft a dataset's schema from something you already have, instead of hand-listing
-# columns: reuse a snapshot manifest's schema, or infer types from a CSV.
+# Draft a dataset schema by reusing a snapshot manifest's schema
 offloader scaffold-dataset --from data/events/manifest.json --tenant-column tenant_id
+
+# …or infer the column types from a CSV sample
 offloader scaffold-dataset --from sample.csv --id events --out my-project/datasets/events.yml
 ```
 
@@ -44,20 +56,11 @@ offloader scaffold-dataset --from sample.csv --id events --out my-project/datase
 `manifest:` at your snapshot and adjust the endpoint. The full field reference is
 [config-reference.md](config-reference.md).
 
-## The `offloader` CLI (optional)
-
-The `offloader …` commands in this guide are an **optional Go helper**, not part of the
-container. The container needs only the files above plus env vars. Build the helper once:
-
-```sh
-cd tools && go build -o offloader .     # then ./offloader <command>   (or: go run . <command>)
-```
-
 ## Container env vars
 
 You only have to set **two**:
 
-- `OFFLOADER_CONFIG` — path to `offloader.yml`, or a `gs://…` bucket prefix.
+- `OFFLOADER_CONFIG` — path to `offloader.yml`, or a `gs://…`/`s3://…` bucket prefix.
 - `OFFLOADER_SECRET_KEY_BASE` — any random string (`openssl rand -base64 48`).
 
 Everything else has a sensible default:
@@ -76,37 +79,34 @@ Everything else has a sensible default:
 Object-store credentials are needed only when your config reads from a remote source (below);
 the local example needs no cloud vars and makes no outbound calls.
 
-Source-specific object-store credentials are configured only when the mounted
-config references that source. Offloader should not require cloud-provider env
-vars or outbound telemetry for the local golden path.
-
 ### Remote snapshot credentials (optional)
 
-A manifest whose `files[].path` is an `s3://`, `gs://`, or `https://` URL is read
-directly by DuckDB (httpfs). Two credential modes:
+Needed only when a snapshot's `files[].path` is an `s3://`, `gs://`, or `https://` URL
+(DuckDB reads it directly). Pick the mode that matches where the data lives.
 
-- **S3-compatible / GCS HMAC** — `OFFLOADER_S3_TYPE=s3|gcs` plus
-  `OFFLOADER_S3_KEY_ID`, `OFFLOADER_S3_SECRET` (and for S3: `OFFLOADER_S3_REGION`,
-  `OFFLOADER_S3_ENDPOINT`, `OFFLOADER_S3_URL_STYLE`, `OFFLOADER_S3_SESSION_TOKEN`,
-  `OFFLOADER_S3_USE_SSL`). Covers `s3://` and `gs://` paths.
-- **AWS instance role (no static keys)** — `OFFLOADER_S3_TYPE=s3` + `OFFLOADER_S3_AUTH=chain`.
-  DuckDB uses its credential chain (env, `~/.aws`, and the **EC2/EKS instance profile via IMDS**),
-  so a container on AWS reads `s3://` data with an IAM role and no baked-in keys. The non-secret
-  knobs (`OFFLOADER_S3_REGION`, `OFFLOADER_S3_ENDPOINT`, …) still apply.
-- **GCS OAuth bearer** — `OFFLOADER_GCS_AUTH=bearer`. Tokens come from, in order:
-  `OFFLOADER_GCS_TOKEN` (explicit), the GCE metadata server (the GKE/GCE production
-  path), or the `gcloud` CLI (developer laptops). The token is registered as a
-  DuckDB HTTP secret covering `https://storage.googleapis.com/...` reads and is
-  rotated automatically before expiry. The Databricks GCS source
-  (`Offloader.Source.Databricks`) uses the same tokens for listings and commit reads.
-- **Anonymous (public bucket)** — `OFFLOADER_GCS_AUTH=none` (also `anonymous`/`public`).
-  The config loader reads a **public** `gs://` bucket with **no credentials** — the zero-setup
-  path for a hosted demo. A `401/403` then means the bucket isn't actually public and is
-  surfaced, not retried. (Public snapshot *data* already reads unauthenticated via DuckDB's
-  HTTPS form, so a fully-public deployment needs no object-store creds at all.)
+**AWS S3 / S3-compatible.**
 
-Explicit HMAC credentials win when both are set. Credentials never appear in logs,
-error bodies, or support bundles (values are scrubbed; bundles are redacted).
+- *Static keys:* `OFFLOADER_S3_TYPE=s3`, `OFFLOADER_S3_KEY_ID`, `OFFLOADER_S3_SECRET` (plus
+  `OFFLOADER_S3_REGION`; for a non-AWS store also `OFFLOADER_S3_ENDPOINT` /
+  `OFFLOADER_S3_URL_STYLE` / `OFFLOADER_S3_USE_SSL`).
+- *No static keys on AWS:* `OFFLOADER_S3_AUTH=chain` uses DuckDB's credential chain — env,
+  `~/.aws`, and the **EC2/EKS instance role via IMDS** — so a pod reads `s3://` under its IAM
+  role with nothing baked in.
+
+**Google Cloud Storage.**
+
+- *OAuth (recommended):* `OFFLOADER_GCS_AUTH=bearer`. Offloader finds a token in order —
+  `OFFLOADER_GCS_TOKEN` if set, else the **GCE/GKE metadata server** (the production path, no
+  config at all), else the `gcloud` CLI (dev laptops) — and refreshes it before it expires.
+- *HMAC:* `OFFLOADER_S3_TYPE=gcs` with `OFFLOADER_S3_KEY_ID` / `OFFLOADER_S3_SECRET` (GCS's
+  S3-interoperability keys).
+
+**Public bucket — no credentials.** `OFFLOADER_GCS_AUTH=none` (or `anonymous` / `public`) reads
+a public `gs://` bucket unauthenticated; a `401/403` is then surfaced, not retried. Public data
+served over `https://` needs no credential vars at all.
+
+Explicit HMAC keys win when both are set. Credentials never appear in logs, error bodies, or
+support bundles — values are scrubbed and bundles are redacted.
 
 ## Sources & refresh
 
@@ -154,10 +154,12 @@ low-QPS endpoints; keep `local_table` (the default) for the hot ones.
 
 ## Config from object storage (optional)
 
-`OFFLOADER_CONFIG` may be a **`gs://bucket/prefix/` URL** instead of a mounted path. At boot
-Offloader fetches the whole project tree (`offloader.yml`, `datasets/`, `endpoints/`, the keys
-file) from GCS into `<cache_dir>/config/` and loads it from there — so the container is fully
-stateless: env vars in, config and data both in the bucket, nothing mounted.
+`OFFLOADER_CONFIG` may be a **`gs://bucket/prefix/` or `s3://bucket/prefix/` URL** instead of a
+mounted path. At boot Offloader fetches the whole project tree (`offloader.yml`, `datasets/`,
+`endpoints/`, the keys file) into `<cache_dir>/config/` and loads it from there — so the container
+is fully stateless: env vars in, config and data both in the bucket, nothing mounted. With
+`OFFLOADER_CONFIG_SYNC_INTERVAL` set it keeps watching the prefix and **hot-reloads any change
+with no restart** (see [Hot config auto-sync](#hot-config-auto-sync) below).
 
 Host your `offloader.yml` (and its `datasets/`/`endpoints/`/`keys/` tree) under a `gs://…` prefix
 and boot the published image straight against it — the only volume is the optional
@@ -222,26 +224,17 @@ the first try.
 
 ## Useful helper commands
 
+Each is `offloader <command> --help` for full flags:
+
 - `offloader init` — scaffold a new, valid project
 - `offloader scaffold-dataset` — draft a dataset schema from a manifest or CSV
-- `offloader validate`
-- `offloader manifest validate`
-- `offloader endpoint test`
-- `offloader snapshot status`
-- `offloader keys create`
-- `offloader doctor`
-- `offloader support-bundle`
+- `offloader validate` — check a whole project the way the container does (run it in CI)
+- `offloader manifest validate` — check one manifest file against its dataset contract
+- `offloader endpoint test` — call an endpoint on a running instance and assert the response
+- `offloader snapshot status` — per-dataset active / last-good snapshot, freshness, source health
+- `offloader keys create` — mint an API key (prints the token once; stores only its hash)
+- `offloader doctor` — check env vars and source connectivity before you deploy
+- `offloader support-bundle` — write a redacted config + diagnostics bundle for support
 
-## Config layout
-
-The project directory `OFFLOADER_CONFIG` points at:
-
-```text
-offloader.yml       # top-level project file (version, dirs, auth mode, keys path)
-datasets/           # one *.yml per dataset (the table contract)
-endpoints/          # one *.yml per endpoint (the REST contract)
-keys/keys.yml       # API keys, as hashes — omit for a public (auth: none) API
-```
-
-`offloader validate` checks the whole tree the same way the container does — run it in CI
-before you ship a change. See `examples/customer-analytics/` for a complete, working project.
+The full field reference for every file is [config-reference.md](config-reference.md); a
+complete working project to copy is `examples/customer-analytics/`.

@@ -85,10 +85,10 @@ project, and <code>offloader scaffold-dataset --from &lt;manifest.json|data.csv&
 dataset&#39;s schema for you. See <a href="developer-experience.html#start-a-new-project-scaffold">Start a new project</a>.</p>
 </blockquote>
 <p>A project is four kinds of file:</p>
-<pre tabindex="0"><code class="language-text">offloader.yml       project file — which dirs to load, auth mode, keys path
-datasets/*.yml      one per dataset — the table + the columns you expect
-endpoints/*.yml     one per endpoint — the REST contract over a dataset
-keys/keys.yml       API keys (hashes only) — omit for a public (auth: none) API
+<pre tabindex="0"><code class="language-text">offloader.yml       # project file — which dirs to load, auth mode, keys path
+datasets/*.yml      # one per dataset — the table + the columns you expect
+endpoints/*.yml     # one per endpoint — the REST contract over a dataset
+keys/keys.yml       # API keys (hashes only) — omit for a public (auth: none) API
 </code></pre>
 <p>Run <code>offloader validate --config &lt;path&gt;/offloader.yml</code> to check the whole tree; it reports
 every problem at once.</p>
@@ -189,20 +189,51 @@ keys: keys/keys.yml
 <td><code>manifest</code></td>
 <td>string</td>
 <td>one of <code>manifest</code>/<code>source</code></td>
-<td>Path (relative to the project) to a snapshot manifest — for local/static snapshots.</td>
+<td>A <strong>static</strong> snapshot — a path to a manifest file. See <code>manifest:</code> below.</td>
 </tr>
 <tr>
 <td><code>source</code></td>
 <td>object</td>
 <td>one of <code>manifest</code>/<code>source</code></td>
-<td>A remote source that discovers the latest snapshot itself (see below).</td>
+<td>A <strong>self-updating</strong> source that finds the latest snapshot on each refresh. See <code>source:</code> below.</td>
 </tr>
 </tbody></table>
 </div>
 <p><strong>Column types</strong> (<code>schema[].type</code>): <code>DATE</code>, <code>TIMESTAMP</code>, <code>VARCHAR</code>, <code>INTEGER</code>, <code>BIGINT</code>,
 <code>DOUBLE</code>, <code>BOOLEAN</code>, <code>JSON</code>. Use <strong><code>JSON</code></strong> for a nested column (<code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> in the
 snapshot); the endpoint serves it as a nested JSON object.</p>
-<p><strong><code>source:</code> (a self-updating remote snapshot):</strong></p>
+<p>A dataset gets its snapshots from <strong>exactly one</strong> origin — a static <code>manifest:</code> <strong>or</strong> a
+self-updating <code>source:</code>, never both.</p>
+<h3 id="manifest-a-static-snapshot"><code>manifest:</code> — a static snapshot</h3>
+<p>Point at a manifest file: a small JSON that lists one snapshot&#39;s files and its schema (see
+the <a href="https://github.com/AndrewDryga/offloader/blob/main/docs/architecture.md#snapshot-manifest-contract">manifest contract</a>).</p>
+<pre tabindex="0"><code class="language-yaml">id: customer_usage
+description: Daily product-usage rollup, one row per (usage_date, tenant_id, account_id).
+tenant_column: tenant_id
+manifest: data/customer_usage/manifest.json   # path within this project
+schema:
+  - { name: usage_date,  type: DATE }
+  - { name: tenant_id,   type: VARCHAR }
+  - { name: account_id,  type: VARCHAR }
+  - { name: api_calls,   type: BIGINT }
+  - { name: storage_gb,  type: DOUBLE }
+  - { name: stats,       type: JSON }         # nested column → served as a JSON object
+</code></pre>
+<p>The <code>manifest:</code> path is resolved <strong>within the project</strong> — but nothing here has to sit on the
+box:</p>
+<ul>
+<li>The snapshot&#39;s <strong>data files</strong> can be remote: a manifest entry&#39;s <code>path</code> may be a <code>gs://</code>,
+<code>s3://</code>, or <code>https://</code> URL, fetched under the <a href="developer-experience.html#remote-snapshot-credentials-optional">snapshot credentials</a>.</li>
+<li>The <strong>project itself</strong> can be bucket-hosted: set <code>OFFLOADER_CONFIG=gs://…</code> (or <code>s3://…</code>) and
+Offloader fetches the whole tree — <code>manifest.json</code> included — at boot and on every sync. So a
+&quot;remote manifest&quot; is simply a project served from a bucket; you don&#39;t put a bucket URL in the
+<code>manifest:</code> field itself.</li>
+</ul>
+<p>To publish a new snapshot, write a new manifest (or overwrite the file) — Offloader picks it up
+on the next refresh.</p>
+<h3 id="source-a-self-updating-remote-source"><code>source:</code> — a self-updating remote source</h3>
+<p>Instead of a manifest you maintain, a <code>source:</code> <strong>discovers</strong> the latest snapshot itself on each
+refresh — nothing to hand-write.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -215,7 +246,7 @@ snapshot); the endpoint serves it as a nested JSON object.</p>
 <tbody><tr>
 <td><code>type</code></td>
 <td><code>databricks</code></td>
-<td>The commit-protocol resolver: finds the latest <code>_committed_&lt;tid&gt;</code> in the bucket.</td>
+<td>The commit-protocol resolver (below).</td>
 </tr>
 <tr>
 <td><code>bucket</code></td>
@@ -237,15 +268,22 @@ snapshot); the endpoint serves it as a nested JSON object.</p>
 <pre tabindex="0"><code class="language-yaml">id: customer_usage
 description: Daily product-usage rollup, one row per (usage_date, tenant_id, account_id).
 tenant_column: tenant_id
-manifest: data/customer_usage/manifest.json      # or use `source:` for a remote bucket
+source:
+  type: databricks
+  bucket: your-export-bucket
+  prefix: prod/customer_usage/   # must end with /
+  interval_seconds: 300
 schema:
-  - { name: usage_date,  type: DATE }
-  - { name: tenant_id,   type: VARCHAR }
-  - { name: account_id,  type: VARCHAR }
-  - { name: api_calls,   type: BIGINT }
-  - { name: storage_gb,  type: DOUBLE }
-  - { name: stats,       type: JSON }            # nested column → served as a JSON object
+  - { name: usage_date, type: DATE }
+  # … same column list as the manifest example above
 </code></pre>
+<p><strong><code>type: databricks</code></strong> reads a Databricks/Delta export written transactionally per prefix.
+Databricks lands <code>part-*.parquet</code> files next to a <code>_committed_&lt;tid&gt;</code> JSON that lists the files
+belonging to that transaction; parts from <em>earlier</em> transactions linger until a vacuum, so the
+only consistent snapshot is the file set named by the <strong>newest</strong> <code>_committed_&lt;tid&gt;</code> — and that
+is exactly what Offloader serves. Cleanup markers (<code>_committed_vacuum…</code>) are <strong>skipped</strong>: they
+carry no data and never win, so a vacuum can&#39;t swap empty or partial data in front of a good
+snapshot.</p>
 <hr>
 <h2 id="endpointsyml"><code>endpoints/*.yml</code></h2>
 <p>An endpoint is the REST contract over a dataset — its URL, params, query, and limits. There is

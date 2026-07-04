@@ -11,10 +11,10 @@ working project to copy, see `examples/customer-analytics/`.
 A project is four kinds of file:
 
 ```text
-offloader.yml       project file — which dirs to load, auth mode, keys path
-datasets/*.yml      one per dataset — the table + the columns you expect
-endpoints/*.yml     one per endpoint — the REST contract over a dataset
-keys/keys.yml       API keys (hashes only) — omit for a public (auth: none) API
+offloader.yml       # project file — which dirs to load, auth mode, keys path
+datasets/*.yml      # one per dataset — the table + the columns you expect
+endpoints/*.yml     # one per endpoint — the REST contract over a dataset
+keys/keys.yml       # API keys (hashes only) — omit for a public (auth: none) API
 ```
 
 Run `offloader validate --config <path>/offloader.yml` to check the whole tree; it reports
@@ -54,18 +54,56 @@ A dataset is a named table Offloader serves, plus the schema it expects. One fil
 | `description` | string | no | Free text. |
 | `schema` | list of `{name, type}` | yes | The columns the gateway expects. See types below. |
 | `tenant_column` | string | no | The column that identifies a tenant. If set, every endpoint on this dataset is tenant-scoped and the value is bound from the caller's key — never a request param. |
-| `manifest` | string | one of `manifest`/`source` | Path (relative to the project) to a snapshot manifest — for local/static snapshots. |
-| `source` | object | one of `manifest`/`source` | A remote source that discovers the latest snapshot itself (see below). |
+| `manifest` | string | one of `manifest`/`source` | A **static** snapshot — a path to a manifest file. See `manifest:` below. |
+| `source` | object | one of `manifest`/`source` | A **self-updating** source that finds the latest snapshot on each refresh. See `source:` below. |
 
 **Column types** (`schema[].type`): `DATE`, `TIMESTAMP`, `VARCHAR`, `INTEGER`, `BIGINT`,
 `DOUBLE`, `BOOLEAN`, `JSON`. Use **`JSON`** for a nested column (`STRUCT`/`MAP`/`LIST` in the
 snapshot); the endpoint serves it as a nested JSON object.
 
-**`source:` (a self-updating remote snapshot):**
+A dataset gets its snapshots from **exactly one** origin — a static `manifest:` **or** a
+self-updating `source:`, never both.
+
+### `manifest:` — a static snapshot
+
+Point at a manifest file: a small JSON that lists one snapshot's files and its schema (see
+the [manifest contract](architecture.md#snapshot-manifest-contract)).
+
+```yaml
+id: customer_usage
+description: Daily product-usage rollup, one row per (usage_date, tenant_id, account_id).
+tenant_column: tenant_id
+manifest: data/customer_usage/manifest.json   # path within this project
+schema:
+  - { name: usage_date,  type: DATE }
+  - { name: tenant_id,   type: VARCHAR }
+  - { name: account_id,  type: VARCHAR }
+  - { name: api_calls,   type: BIGINT }
+  - { name: storage_gb,  type: DOUBLE }
+  - { name: stats,       type: JSON }         # nested column → served as a JSON object
+```
+
+The `manifest:` path is resolved **within the project** — but nothing here has to sit on the
+box:
+
+- The snapshot's **data files** can be remote: a manifest entry's `path` may be a `gs://`,
+  `s3://`, or `https://` URL, fetched under the [snapshot credentials](developer-experience.md#remote-snapshot-credentials-optional).
+- The **project itself** can be bucket-hosted: set `OFFLOADER_CONFIG=gs://…` (or `s3://…`) and
+  Offloader fetches the whole tree — `manifest.json` included — at boot and on every sync. So a
+  "remote manifest" is simply a project served from a bucket; you don't put a bucket URL in the
+  `manifest:` field itself.
+
+To publish a new snapshot, write a new manifest (or overwrite the file) — Offloader picks it up
+on the next refresh.
+
+### `source:` — a self-updating remote source
+
+Instead of a manifest you maintain, a `source:` **discovers** the latest snapshot itself on each
+refresh — nothing to hand-write.
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `type` | `databricks` | The commit-protocol resolver: finds the latest `_committed_<tid>` in the bucket. |
+| `type` | `databricks` | The commit-protocol resolver (below). |
 | `bucket` | string | Object-storage bucket. |
 | `prefix` | string | Path prefix within the bucket (ends with `/`). |
 | `interval_seconds` | integer | How often to re-check for a newer snapshot. |
@@ -74,15 +112,23 @@ snapshot); the endpoint serves it as a nested JSON object.
 id: customer_usage
 description: Daily product-usage rollup, one row per (usage_date, tenant_id, account_id).
 tenant_column: tenant_id
-manifest: data/customer_usage/manifest.json      # or use `source:` for a remote bucket
+source:
+  type: databricks
+  bucket: your-export-bucket
+  prefix: prod/customer_usage/   # must end with /
+  interval_seconds: 300
 schema:
-  - { name: usage_date,  type: DATE }
-  - { name: tenant_id,   type: VARCHAR }
-  - { name: account_id,  type: VARCHAR }
-  - { name: api_calls,   type: BIGINT }
-  - { name: storage_gb,  type: DOUBLE }
-  - { name: stats,       type: JSON }            # nested column → served as a JSON object
+  - { name: usage_date, type: DATE }
+  # … same column list as the manifest example above
 ```
+
+**`type: databricks`** reads a Databricks/Delta export written transactionally per prefix.
+Databricks lands `part-*.parquet` files next to a `_committed_<tid>` JSON that lists the files
+belonging to that transaction; parts from *earlier* transactions linger until a vacuum, so the
+only consistent snapshot is the file set named by the **newest** `_committed_<tid>` — and that
+is exactly what Offloader serves. Cleanup markers (`_committed_vacuum…`) are **skipped**: they
+carry no data and never win, so a vacuum can't swap empty or partial data in front of a good
+snapshot.
 
 ---
 
