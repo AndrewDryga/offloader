@@ -105,8 +105,8 @@ restart — see the <a href="developer-experience.html#config-from-object-storag
 </ul>
 <h2 id="rollout-verification-and-rollback">Rollout verification and rollback</h2>
 <p>Deploy the <strong>published, signed image</strong> (<code>ghcr.io/andrewdryga/offloader:&lt;version&gt;</code>), then verify
-the running instance. <code>dev/scripts/deploy-check.sh</code> is a reusable shape your deployment system
-can wrap around a freshly-deployed instance:</p>
+the running instance. Wrap these four checks in your own deploy-verification step, run against a
+freshly-deployed instance before it takes traffic:</p>
 <ol>
 <li>Wait for the admin <code>/ready</code> to return 200 (it stays 503 until a snapshot is
 materialized, so traffic is held until the instance can actually serve).</li>

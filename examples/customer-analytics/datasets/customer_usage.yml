@@ -1,5 +1,5 @@
 # Dataset contract: the schema the server EXPECTS. The manifest declares what a
-# snapshot actually SHIPPED; refresh (G08) compares the two against
+# snapshot actually SHIPPED; refresh compares the two against
 # compatibility_policy, so a breaking producer change is rejected before it serves.
 id: customer_usage
 description: >-

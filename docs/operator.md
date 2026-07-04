@@ -21,9 +21,9 @@ diagnostics fields. It links to the deep docs rather than repeating them.
 
 ## Upgrade check and rollback
 
-- **Before rollout:** deploy the **published, signed image** and verify the instance with
-  `dev/scripts/deploy-check.sh` (both ports, health, diagnostics/metrics, a manifest→HTTP
-  smoke). A broken image or config fails here, not in front of a customer.
+- **Before rollout:** deploy the **published, signed image** and verify the instance — both
+  ports, health, diagnostics/metrics, and a manifest→HTTP smoke — before it takes traffic. A
+  broken image or config fails here, not in front of a customer.
 - **Upgrade:** deploy the new pinned image tag (never `:latest`). There is no schema
   migration; the cache rematerializes from the manifest on boot.
 - **Roll back the image:** redeploy the previous tag (`kubectl rollout undo` /
@@ -59,8 +59,8 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
   revocable, scoped to endpoints, and tenant-bound; the compiler inserts the tenant
   filter and it cannot be overridden. Mint keys with `offloader keys create` (the token
   is shown once; only its hash is stored).
-- The adversarial proof of these invariants is the security suite
-  (`server/test/offloader/security_suite_test.exs`).
+- These invariants are covered by an adversarial security test suite that runs on every build
+  (cross-tenant reads, key-scope escapes, injection, and more).
 
 ## Port exposure
 

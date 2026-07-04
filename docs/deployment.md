@@ -35,8 +35,8 @@ Provider-neutral, ready-to-adapt examples live in [`deploy/`](../deploy/README.m
 ## Rollout verification and rollback
 
 Deploy the **published, signed image** (`ghcr.io/andrewdryga/offloader:<version>`), then verify
-the running instance. `dev/scripts/deploy-check.sh` is a reusable shape your deployment system
-can wrap around a freshly-deployed instance:
+the running instance. Wrap these four checks in your own deploy-verification step, run against a
+freshly-deployed instance before it takes traffic:
 
 1. Wait for the admin `/ready` to return 200 (it stays 503 until a snapshot is
    materialized, so traffic is held until the instance can actually serve).

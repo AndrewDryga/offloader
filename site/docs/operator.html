@@ -97,9 +97,9 @@ diagnostics, docs). Keep the admin port private — see &quot;Port exposure&quot
 </ul>
 <h2 id="upgrade-check-and-rollback">Upgrade check and rollback</h2>
 <ul>
-<li><strong>Before rollout:</strong> deploy the <strong>published, signed image</strong> and verify the instance with
-<code>dev/scripts/deploy-check.sh</code> (both ports, health, diagnostics/metrics, a manifest→HTTP
-smoke). A broken image or config fails here, not in front of a customer.</li>
+<li><strong>Before rollout:</strong> deploy the <strong>published, signed image</strong> and verify the instance — both
+ports, health, diagnostics/metrics, and a manifest→HTTP smoke — before it takes traffic. A
+broken image or config fails here, not in front of a customer.</li>
 <li><strong>Upgrade:</strong> deploy the new pinned image tag (never <code>:latest</code>). There is no schema
 migration; the cache rematerializes from the manifest on boot.</li>
 <li><strong>Roll back the image:</strong> redeploy the previous tag (<code>kubectl rollout undo</code> /
@@ -133,8 +133,8 @@ that under load. Watch p95 (95th-percentile latency) with the <a href="benchmark
 revocable, scoped to endpoints, and tenant-bound; the compiler inserts the tenant
 filter and it cannot be overridden. Mint keys with <code>offloader keys create</code> (the token
 is shown once; only its hash is stored).</li>
-<li>The adversarial proof of these invariants is the security suite
-(<code>server/test/offloader/security_suite_test.exs</code>).</li>
+<li>These invariants are covered by an adversarial security test suite that runs on every build
+(cross-tenant reads, key-scope escapes, injection, and more).</li>
 </ul>
 <h2 id="port-exposure">Port exposure</h2>
 <p>Offloader ships two ports and redaction; <strong>you</strong> own how the admin port is exposed.

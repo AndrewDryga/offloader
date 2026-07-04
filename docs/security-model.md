@@ -61,9 +61,9 @@ the endpoint/tenant access map, not usable credentials. A **public** deployment 
 has no keys file at all. For an authed deployment, put the config under a **tighter-ACL
 bucket/prefix** than the bulk data if you want to limit who can read the hashes.
 
-## How we prove it
+## How it's proven
 
-An adversarial test suite (`server/test/offloader/security_suite_test.exs`) exercises the
-invariants above on every build: API-key bypass attempts, tenant-override attempts, column
+An adversarial security test suite exercises the invariants above on every build: API-key
+bypass attempts, tenant-override attempts, column
 selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
 port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.

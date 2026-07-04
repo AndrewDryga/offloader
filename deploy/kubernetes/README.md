@@ -16,9 +16,9 @@ kubectl rollout status deploy/offloader
   secrets operator). `OFFLOADER_SECRET_KEY_BASE` is required; `OFFLOADER_ADMIN_TOKEN`
   gates `/diagnostics`.
 - **Config** — the example ships only `offloader.yml` in the ConfigMap. Supply
-  `datasets/`, `endpoints/`, and `keys/` the way that fits you: more ConfigMap keys,
-  a git-sync sidecar, a config image, or (later) remote object-store mode. Mount the
-  full config directory at `/etc/offloader`.
+  `datasets/`, `endpoints/`, and `keys/` the way that fits you — more ConfigMap keys,
+  a git-sync sidecar, or a config image mounted at `/etc/offloader` — or skip the mount
+  entirely and point `OFFLOADER_CONFIG` at a `gs://`/`s3://` bucket.
 - **Exposure** — front `offloader-api` with your own Ingress/Gateway + TLS. Keep
   `offloader-admin` internal (ClusterIP); **never** put it behind a public Ingress —
   it serves diagnostics/metrics/docs and is not an identity product.
@@ -29,8 +29,3 @@ kubectl rollout status deploy/offloader
 - Rollback: `kubectl rollout undo deploy/offloader`.
 - Cache rebuild: delete the PVC (or `kubectl delete pod` with a fresh PVC) — the
   server rematerializes from the manifest on boot.
-
-## Non-goals
-
-No provider-specific Terraform, hosted control plane, RBAC, or SSO. Customers own
-their cluster, network, IAM, and ingress story.

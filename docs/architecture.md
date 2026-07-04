@@ -1,8 +1,8 @@
 # Offloader Architecture
 
-## Decision
+## Design
 
-Use a small, boring, customer-run data plane:
+Offloader is a small, boring, customer-run data plane:
 
 - Phoenix/Elixir self-hostable container for REST contracts, consumer API keys,
   tenancy, refresh supervision, and operational endpoints.
@@ -17,8 +17,9 @@ Use a small, boring, customer-run data plane:
 - Optional helper tooling for validation, diagnostics, endpoint tests, and
   support bundles.
 
-Do not rewrite to a distributed query engine for V1. Keep ClickHouse, DataFusion,
-hosted cloud, RBAC/SSO, and a SaaS control plane out of the product.
+Offloader is a single-node embedded engine, not a distributed query engine and not a hosted
+control plane — there's no ClickHouse/DataFusion cluster, no SaaS control plane, and no built-in
+RBAC/SSO.
 
 ## Runtime pipeline
 
@@ -40,21 +41,20 @@ Endpoint compiler -> REST JSON response
 
 ## Runtime ports
 
-| Port | Purpose | Product stance |
+| Port | Purpose | Access control |
 | --- | --- | --- |
-| API port | Customer-facing endpoint traffic. | Uses endpoint API keys, endpoint allowlists, tenant filters, and column allowlists. |
-| Admin port | `/live`, `/ready`, `/status`, `/metrics`, `/diagnostics`, generated docs/schema, support-bundle export. | Not a user-management surface. Customers restrict access with their own network, proxy, IAM, SSO, or firewall controls. |
+| API port | Product endpoint traffic. | Endpoint API keys, endpoint allowlists, tenant filters, and column allowlists. |
+| Admin port | `/live`, `/ready`, `/status`, `/metrics`, `/diagnostics`, generated docs/schema, support-bundle export. | Not a user-management surface. You restrict access with your own network, proxy, IAM, SSO, or firewall. |
 
-Do not add RBAC, SSO, organization management, teams, invitations, or hosted
-fleet management to V1. If a customer wants enterprise access controls, they run
-the admin port behind the controls they already use.
+Offloader has no built-in RBAC, SSO, org/team management, or hosted fleet management. If you want
+enterprise access controls, run the admin port behind the controls you already use.
 
 ## Serving modes
 
-| Mode | Use for | V1 posture |
+| Mode | Use for | Notes |
 | --- | --- | --- |
 | `local_table` | High-QPS, tight p95/p99, repeated product APIs. | Default production hot path. |
-| `remote_scan` | Cold endpoints, huge datasets, selective filters, proof/debug. | First-class mode, not default. |
+| `remote_scan` | Cold endpoints, huge datasets, selective filters, evaluation/debug. | First-class mode, not default. |
 | `response_cache` | Same params repeated against same snapshot. | Add when endpoint semantics are stable. |
 
 ### Choosing a serving mode
@@ -67,8 +67,8 @@ Set `serving_mode` per endpoint (`local_table` is the default if omitted):
 - **Use `remote_scan` only with benchmark evidence.** It reads the snapshot's
   source files directly on every request (no materialization), trading per-query
   latency for zero materialization cost and memory. It fits cold, low-QPS, or
-  oversized endpoints. Do not put a p95-sensitive endpoint on `remote_scan`
-  without measuring it (`dev/scripts/bench-modes.exs`).
+  oversized endpoints. Don't put a p95-sensitive endpoint on `remote_scan` without measuring it
+  first with the [benchmark harness](benchmarks.md).
 - Both modes run the identical compiled plan and return identical results — the
   only difference is where DuckDB reads from.
 
@@ -107,9 +107,8 @@ Rules:
 - Failed validation preserves the previous good snapshot.
 - Additive columns are allowed when endpoint contracts tolerate them.
 - Type narrowing, dropped required columns, and renamed columns are breaking.
-- Governance is not inherited automatically after copying into DuckDB; V1 serves
-  only approved serving datasets with pre-authorized columns and simple tenant
-  filters.
+- Governance is not inherited automatically after copying into DuckDB; Offloader serves only
+  approved serving datasets with pre-authorized columns and simple tenant filters.
 
 ## Security invariant
 
@@ -117,17 +116,11 @@ Rules:
 > tenants bound to that key, selecting only allowed columns, with tenant filters
 > inserted by the compiler and impossible to override.
 
-## Pre-pilot technical gates
+## Guarantees
 
-- One representative dataset family, 3 endpoints, generic public routes, and generated
-  docs/schema on the admin port.
-- Manifest validator rejects missing files, schema mismatch, duplicate columns,
+- The manifest validator rejects missing files, schema mismatch, duplicate columns,
   unsupported types, and bad snapshot IDs.
-- Failed refresh preserves previous good snapshot.
-- Responses include `snapshot_id` and freshness metadata.
-- API key required on the API port; admin port exposure is customer-controlled.
-- Tenant filter cannot be overridden by caller.
-- Cold load, warm restart, memory, disk, p95, and p99 measured at concurrency 1,
-  10, and 50.
-- Standalone image starts from empty cache and warm cache.
-- Integration test covers manifest to DuckDB materialization to HTTP response.
+- A failed refresh preserves the previous good snapshot — a bad revision never swaps in.
+- Every response includes its `snapshot_id` and freshness metadata.
+- The API port requires an API key; admin-port exposure is yours to control.
+- The tenant filter is inserted by the compiler and cannot be overridden by a caller.

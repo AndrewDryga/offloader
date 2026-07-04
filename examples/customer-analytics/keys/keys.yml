@@ -7,7 +7,7 @@
 #   demo_revoked  bearer: offl_demo_revoked_key   (status: revoked -> always denied)
 #
 # A key is scoped to an endpoint allowlist and bound to exactly one tenant. The
-# server (G06) inserts that tenant into every query; the caller cannot change it.
+# server inserts that tenant into every query; the caller cannot change it.
 keys:
   - id: demo_acme
     hash: "745ce437a64ab1f020c303be50aa3785e742b72e61533d692f7aa024ff16b121"

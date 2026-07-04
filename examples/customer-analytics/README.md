@@ -1,15 +1,14 @@
 # Example: customer usage analytics
 
 A tiny, deterministic **B2B SaaS product-usage** dataset with three endpoints and a
-failure lab — the worked example the [quickstart](../../docs/quickstart.md), the e2e
-smoke test, the security suite, and the benchmark harness all run on. Copy it and edit
-it to shape your own project.
+failure lab — the worked example the [quickstart](../../docs/quickstart.md), the tests,
+and the benchmarks all run on. Copy it and edit it to shape your own project.
 
 ## The domain
 
 A SaaS company serves each of *its* customers a view of *their own* usage. Every
 row belongs to a tenant (`tenant_id`), and a tenant must never see another
-tenant's data — the reason tenant isolation is a P0 invariant here.
+tenant's data — the reason tenant isolation is the core invariant here.
 
 ## Layout
 

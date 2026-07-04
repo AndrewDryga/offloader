@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Benchmarking — Offloader docs</title>
-<meta name="description" content="The harness measures the pre-pilot performance gate: cold/warm load, memory, disk,
-and p50/p95/p99 latency at concurrency 1, 10, and 50.">
+<meta name="description" content="The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
+1, 10, and 50 — so you can size and tune Offloader on your own…">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -77,17 +77,16 @@ and p50/p95/p99 latency at concurrency 1, 10, and 50.">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
 <h1 id="benchmarking">Benchmarking</h1>
-<p>The harness measures the pre-pilot performance gate: cold/warm load, memory, disk,
-and p50/p95/p99 latency at concurrency 1, 10, and 50.</p>
+<p>The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
+1, 10, and 50 — so you can size and tune Offloader on your own data before a pilot.</p>
 <h2 id="run-it">Run it</h2>
 <pre tabindex="0"><code class="language-sh">./dev/scripts/benchmark.sh [out_dir]
-# short CI run (default 300 req/scenario); deeper manual run:
+# quick run (default 300 req/scenario); deeper run:
 BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
 </code></pre>
-<p>It boots the server in <code>MIX_ENV=prod</code> against <code>examples/customer-analytics</code> with a
-temp cache, times the cold boot to <code>/ready</code>, runs the load, restarts to time a warm
-boot, and writes <code>summary.json</code> + <code>summary.md</code>. Mode comparison (local_table vs
-remote_scan) is in <code>dev/scripts/bench-modes.exs</code>.</p>
+<p>It boots the server in production mode against the bundled example with a temp cache, times the
+cold boot to <code>/ready</code>, runs the load, restarts to time a warm boot, and writes <code>summary.json</code> +
+<code>summary.md</code>. It can also compare serving modes (<code>local_table</code> vs <code>remote_scan</code>).</p>
 <h2 id="what-each-number-means">What each number means</h2>
 <ul>
 <li><strong>cold_load_ms / warm_load_ms</strong> — process start until <code>/ready</code> returns 200 (the
@@ -108,11 +107,11 @@ keep for repeated params.</li>
 <li>Reads run through the DuckDB connection pool (<code>OFFLOADER_POOL_SIZE</code>) in the caller
 process, so throughput scales with the pool rather than a single connection.</li>
 </ul>
-<h2 id="honesty">Honesty</h2>
-<p>The <strong>latency and throughput</strong> numbers here come from a fixed nested-JSON payload on a
-single machine — <strong>relative only</strong>, not the prod-scale cold-boot validation above. Don&#39;t
-quote them as a production SLA: real latency and savings require a pilot benchmark on the
-customer&#39;s own data and hardware.</p>
+<h2 id="what-these-numbers-are-and-aren39t">What these numbers are (and aren&#39;t)</h2>
+<p>These latency and throughput figures come from a fixed nested-JSON payload on a single
+machine, so treat them as <strong>relative</strong> — good for comparing modes and settings, not as a
+production SLA. Your real latency and savings depend on your own data, payloads, and hardware:
+measure them with a pilot benchmark before you commit.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="ownership.html"><span>Previous</span><b>Ownership & support</b></a>

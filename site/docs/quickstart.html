@@ -138,7 +138,7 @@ materialized):</p>
 you&#39;re reading. (<code>stale:true</code> here just means the demo data is older than its 120-minute
 tolerance.)</p>
 <h2 id="3-read-the-generated-docs">3. Read the generated docs</h2>
-<p>The endpoint catalog and OpenAPI spec are generated from the enforced contracts and served on
+<p>The endpoint catalog and OpenAPI spec are generated from your endpoint definitions and served on
 the <strong>admin</strong> port (never the API port):</p>
 <pre tabindex="0"><code class="language-sh">curl -s http://127.0.0.1:4001/docs | jq &#39;.endpoints[].name&#39;
 curl -s http://127.0.0.1:4001/openapi.json | jq &#39;.paths | keys&#39;
@@ -153,7 +153,7 @@ curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Authorization: Beare
 # 422
 </code></pre>
 <p>The <a href="https://github.com/AndrewDryga/offloader/blob/main/examples/customer-analytics/failure-lab/README.md">failure lab</a> has the full set (bad
-manifest, stale dataset, forbidden tenant, …) and what each must produce.</p>
+manifest, stale dataset, forbidden tenant, …) and the exact error each returns.</p>
 <h2 id="5-start-your-own-project">5. Start your own project</h2>
 <p>The bundled example proves the path; to serve <strong>your</strong> data, scaffold a fresh project with the
 <code>offloader</code> CLI (an optional helper — not part of the container). Install or update it:</p>

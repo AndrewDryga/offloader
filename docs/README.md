@@ -4,9 +4,6 @@ Start with **[What Offloader is, in plain language](concepts.md)**, then pick by
 you want to do. Docs are versioned with the code, so a claim and the behavior that
 backs it move together.
 
-> These customer docs are also rendered into a browsable, on-brand site under `site/docs/`
-> (built by `dev/docs-site` — see its README). The Markdown here stays the source of truth.
-
 ## For customers
 
 | Doc | What it covers |
@@ -31,13 +28,3 @@ backs it move together.
 | [release.md](release.md) | Release packaging, SBOM, and provenance. |
 
 Operational procedures live under [`operations/`](operations/) (runbooks, dashboards, alerts).
-
-## Rules
-
-- Docs are committed and must stay true to shipped behavior — never a promise the code
-  does not keep.
-- One page per concern; **link, don't duplicate** (point at a runbook instead of
-  restating it).
-- No stale broad claims: not "works with every lakehouse", not hosted cloud, not
-  RBAC/SSO in V1. If the product boundary changes, change the boundary docs in the same
-  commit.

@@ -23,12 +23,5 @@ provider-neutral and show the container's shape, not your production network.
 | **Secrets** | `OFFLOADER_SECRET_KEY_BASE` (required), `OFFLOADER_ADMIN_TOKEN` (gates diagnostics) — from env vars or your secret store, never baked into the image. |
 | **Image** | **Pull from GHCR** and pin a released tag (`ghcr.io/andrewdryga/offloader:1.0.0`); never `:latest`. The rolling `:edge` tag tracks `main`. Upgrade = new tag; rollback = old tag. |
 
-Deploy the **published, signed image** (pull it — don't build it), then verify the running
-instance with `dev/scripts/deploy-check.sh`. See
-[`../docs/deployment.md`](../docs/deployment.md) for rollout verification and rollback.
-(`make deploy-check` is the contributor build-and-verify shortcut.)
-
-## Non-goals
-
-No hosted cloud control plane, no provider-specific Terraform baseline, no RBAC/SSO
-implementation. Customers own their cloud, network, IAM, and firewall story.
+Deploy the **published, signed image**, then verify the running instance — see
+[rollout verification and rollback](../docs/deployment.md) for the exact checks.

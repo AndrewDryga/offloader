@@ -1,9 +1,8 @@
 # Release packaging, SBOM, and provenance
 
-V1 buyers ask for supply-chain basics — pinned artifacts, an SBOM, a vulnerability
-scan, signed/attested images, and checksums. This is the documented local release
-process; it maps 1:1 to a CI job when CI is chosen. We do **not** claim SOC2 — we
-provide concrete artifacts instead.
+Buyers ask for supply-chain basics — pinned artifacts, an SBOM, a vulnerability scan,
+signed/attested images, and checksums. This is the release process; run it locally or in CI.
+Offloader doesn't claim SOC2 — it ships concrete artifacts instead.
 
 ## Run it
 

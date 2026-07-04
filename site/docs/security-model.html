@@ -151,9 +151,9 @@ file — but keys are stored as <strong>hashes, never tokens</strong>, so bucket
 the endpoint/tenant access map, not usable credentials. A <strong>public</strong> deployment (<code>auth: none</code>)
 has no keys file at all. For an authed deployment, put the config under a <strong>tighter-ACL
 bucket/prefix</strong> than the bulk data if you want to limit who can read the hashes.</p>
-<h2 id="how-we-prove-it">How we prove it</h2>
-<p>An adversarial test suite (<code>server/test/offloader/security_suite_test.exs</code>) exercises the
-invariants above on every build: API-key bypass attempts, tenant-override attempts, column
+<h2 id="how-it39s-proven">How it&#39;s proven</h2>
+<p>An adversarial security test suite exercises the invariants above on every build: API-key
+bypass attempts, tenant-override attempts, column
 selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
 port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.</p>
 </article>

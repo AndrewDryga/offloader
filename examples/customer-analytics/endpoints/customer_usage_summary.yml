@@ -1,5 +1,5 @@
 # Endpoint contract: aggregated usage totals per account over a date range.
-# The contract is the public surface; the compiler (G05) turns it into a safe,
+# The contract is the public surface; the compiler turns it into a safe,
 # parameterized DuckDB query. Consumers never send SQL.
 name: customer_usage_summary
 version: 1

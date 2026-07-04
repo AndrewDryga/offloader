@@ -85,7 +85,7 @@ tolerance.)
 
 ## 3. Read the generated docs
 
-The endpoint catalog and OpenAPI spec are generated from the enforced contracts and served on
+The endpoint catalog and OpenAPI spec are generated from your endpoint definitions and served on
 the **admin** port (never the API port):
 
 ```sh
@@ -108,7 +108,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer offl_demo_acm
 ```
 
 The [failure lab](../examples/customer-analytics/failure-lab/README.md) has the full set (bad
-manifest, stale dataset, forbidden tenant, …) and what each must produce.
+manifest, stale dataset, forbidden tenant, …) and the exact error each returns.
 
 ## 5. Start your own project
 

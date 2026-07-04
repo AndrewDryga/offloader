@@ -1,20 +1,19 @@
 # Benchmarking
 
-The harness measures the pre-pilot performance gate: cold/warm load, memory, disk,
-and p50/p95/p99 latency at concurrency 1, 10, and 50.
+The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
+1, 10, and 50 — so you can size and tune Offloader on your own data before a pilot.
 
 ## Run it
 
 ```sh
 ./dev/scripts/benchmark.sh [out_dir]
-# short CI run (default 300 req/scenario); deeper manual run:
+# quick run (default 300 req/scenario); deeper run:
 BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
 ```
 
-It boots the server in `MIX_ENV=prod` against `examples/customer-analytics` with a
-temp cache, times the cold boot to `/ready`, runs the load, restarts to time a warm
-boot, and writes `summary.json` + `summary.md`. Mode comparison (local_table vs
-remote_scan) is in `dev/scripts/bench-modes.exs`.
+It boots the server in production mode against the bundled example with a temp cache, times the
+cold boot to `/ready`, runs the load, restarts to time a warm boot, and writes `summary.json` +
+`summary.md`. It can also compare serving modes (`local_table` vs `remote_scan`).
 
 ## What each number means
 
@@ -36,9 +35,9 @@ remote_scan) is in `dev/scripts/bench-modes.exs`.
 - Reads run through the DuckDB connection pool (`OFFLOADER_POOL_SIZE`) in the caller
   process, so throughput scales with the pool rather than a single connection.
 
-## Honesty
+## What these numbers are (and aren't)
 
-The **latency and throughput** numbers here come from a fixed nested-JSON payload on a
-single machine — **relative only**, not the prod-scale cold-boot validation above. Don't
-quote them as a production SLA: real latency and savings require a pilot benchmark on the
-customer's own data and hardware.
+These latency and throughput figures come from a fixed nested-JSON payload on a single
+machine, so treat them as **relative** — good for comparing modes and settings, not as a
+production SLA. Your real latency and savings depend on your own data, payloads, and hardware:
+measure them with a pilot benchmark before you commit.

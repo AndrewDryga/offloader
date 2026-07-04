@@ -1,8 +1,7 @@
 # Examples
 
-Examples let a buyer complete the first-hour golden path locally, and give the
-server, tooling, docs, e2e, security, and benchmark tasks one shared, tiny,
-deterministic dataset to run against.
+Examples let you try Offloader locally in your first hour, and give the docs, tests, and
+benchmarks one shared, tiny, deterministic dataset to run against.
 
 ## [`customer-analytics/`](customer-analytics/README.md)
 
