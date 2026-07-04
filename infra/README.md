@@ -19,11 +19,21 @@ there is nothing to clone, build, or authenticate.
 
 ## Apply with Terraform Cloud (VCS-driven)
 
-1. Create a **VCS-connected workspace** on this repo with **working directory `infra/`**.
-2. Set `cloud.organization` in [`versions.tf`](versions.tf) to your TFC org.
-3. Give the workspace GCP credentials for `warehouse-offloader` — a service-account key in the
-   `GOOGLE_CREDENTIALS` env var (mark it sensitive), or Workload Identity Federation.
-4. Push: TFC plans on PR and applies on merge.
+1. Create a **VCS-connected workspace** on this repo with **working directory `infra/`**. The
+   `cloud {}` block in [`versions.tf`](versions.tf) already targets `Dryga/offloader`.
+2. Give the workspace GCP access via **Workload Identity Federation** — keyless, no service-account
+   key to store. Run the one-time bootstrap as a project admin, then set the vars it prints:
+
+   ```sh
+   gcloud auth login
+   ./setup-wif.sh   # creates the WIF pool + OIDC provider + service account, scoped to this workspace
+   ```
+
+   Set the three **environment** variables from the output on the workspace —
+   `TFC_GCP_PROVIDER_AUTH=true`, `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL`, and
+   `TFC_GCP_WORKLOAD_PROVIDER_NAME`. The `google` provider then authenticates per run with a
+   short-lived token. (A static `GOOGLE_CREDENTIALS` key still works if you prefer it.)
+3. Push: TFC plans on push and applies on merge/confirm.
 
 ## Notes
 

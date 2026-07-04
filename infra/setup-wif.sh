@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# One-time bootstrap: let Terraform Cloud (Dryga/offloader) authenticate to the
+# warehouse-offloader GCP project via Workload Identity Federation — no service-account key
+# to store or rotate. TFC mints a short-lived OIDC token per run and impersonates the SA below.
+#
+# Run once with an account that administers the project (Owner, or IAM Admin + Storage Admin):
+#
+#   gcloud auth login
+#   ./infra/setup-wif.sh
+#
+# Idempotent — safe to re-run. Prints the TFC workspace environment variables at the end.
+set -euo pipefail
+
+PROJECT="${PROJECT:-warehouse-offloader}"
+TFC_ORG="${TFC_ORG:-Dryga}"
+TFC_WORKSPACE="${TFC_WORKSPACE:-offloader}"
+POOL_ID="${POOL_ID:-tfc-pool}"
+PROVIDER_ID="${PROVIDER_ID:-tfc-oidc}"
+SA_ID="${SA_ID:-tfc-offloader}"
+SA_EMAIL="${SA_ID}@${PROJECT}.iam.gserviceaccount.com"
+
+echo "→ project ${PROJECT} · workspace ${TFC_ORG}/${TFC_WORKSPACE}"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
+echo "→ project number ${PROJECT_NUMBER}"
+
+echo "→ enabling required APIs"
+gcloud services enable \
+  iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
+  cloudresourcemanager.googleapis.com storage.googleapis.com \
+  --project="$PROJECT"
+
+echo "→ workload identity pool ${POOL_ID}"
+gcloud iam workload-identity-pools describe "$POOL_ID" \
+  --project="$PROJECT" --location=global >/dev/null 2>&1 ||
+  gcloud iam workload-identity-pools create "$POOL_ID" \
+    --project="$PROJECT" --location=global --display-name="Terraform Cloud"
+
+echo "→ OIDC provider ${PROVIDER_ID} (trusts app.terraform.io, only ${TFC_ORG}/${TFC_WORKSPACE})"
+gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
+  --project="$PROJECT" --location=global --workload-identity-pool="$POOL_ID" >/dev/null 2>&1 ||
+  gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
+    --project="$PROJECT" --location=global --workload-identity-pool="$POOL_ID" \
+    --display-name="HCP Terraform" \
+    --issuer-uri="https://app.terraform.io" \
+    --attribute-mapping="google.subject=assertion.sub,attribute.terraform_workspace_name=assertion.terraform_workspace_name,attribute.terraform_organization_name=assertion.terraform_organization_name" \
+    --attribute-condition="assertion.terraform_organization_name == '${TFC_ORG}' && assertion.terraform_workspace_name == '${TFC_WORKSPACE}'"
+
+echo "→ service account ${SA_EMAIL}"
+gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT" >/dev/null 2>&1 ||
+  gcloud iam service-accounts create "$SA_ID" \
+    --project="$PROJECT" --display-name="Terraform Cloud — offloader"
+
+echo "→ grant the SA storage-admin (create the demo bucket + set its allUsers IAM)"
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${SA_EMAIL}" --role="roles/storage.admin" --condition=None >/dev/null
+
+echo "→ let ONLY the ${TFC_WORKSPACE} workspace's federated identity impersonate the SA"
+gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" --project="$PROJECT" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.terraform_workspace_name/${TFC_WORKSPACE}" >/dev/null
+
+PROVIDER_NAME="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
+cat <<EOF
+
+✅ Workload Identity Federation is ready.
+
+Set these on the TFC workspace ${TFC_ORG}/${TFC_WORKSPACE}
+(Variables → + → Environment variable), then remove any GOOGLE_CREDENTIALS variable
+and queue a new run:
+
+  TFC_GCP_PROVIDER_AUTH               true
+  TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL   ${SA_EMAIL}
+  TFC_GCP_WORKLOAD_PROVIDER_NAME      ${PROVIDER_NAME}
+EOF
