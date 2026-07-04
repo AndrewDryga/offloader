@@ -93,12 +93,27 @@ be <strong>a few minutes or hours fresh</strong> — not up-to-the-second.</p>
 <h2 id="what-offloader-does">What Offloader does</h2>
 <p>Offloader serves those repeated questions from <strong>cheap, pre-computed copies of the
 data</strong> instead of hitting the warehouse every time.</p>
-<pre tabindex="0"><code class="language-text">BEFORE:  every request  -&gt;  data warehouse   ($$$ per query, too slow for a live screen)
+<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a live screen. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
+  <div class="flow-lane">
+    <span class="lane-tag lane-before">Before</span>
+    <div class="flow-track">
+      <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
+      <div class="hop"><span class="hop-l">live query</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
+    </div>
+  </div>
+  <div class="flow-lane">
+    <span class="lane-tag lane-after">After</span>
+    <div class="flow-track">
+      <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
+      <div class="hop"><span class="hop-l">cached REST</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
+      <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
+    </div>
+  </div>
+</figure>
 
-AFTER:   every request  -&gt;  Offloader        (cheap, fast) -&gt; reads a pre-computed
-                                              snapshot you publish to object storage
-                                              (S3 / GCS), running on YOUR servers
-</code></pre>
 <p>You publish periodic <strong>snapshots</strong> of the data to object storage. Offloader loads a
 snapshot into a fast local engine and answers your product&#39;s REST calls from it. When
 a newer snapshot appears, it swaps over — with no downtime. The warehouse is only
@@ -199,14 +214,19 @@ cloud, and your private data never leaves your environment.</p>
 <li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the fast default) or straight from the snapshot files (<code>remote_scan</code>, for big/cold data). Most endpoints use the default.</li>
 </ul>
 <h2 id="how-the-pieces-fit">How the pieces fit</h2>
-<pre tabindex="0"><code class="language-text">  Your pipeline            Object storage (S3/GCS)       Offloader container        Your app
-  (on your schedule)                                     (on your servers)
-  ----------------         -----------------------       ------------------         --------
-  warehouse --export--&gt;  snapshot Parquet + manifest  --&gt;  loads the latest    --&gt;  GET /v1/endpoints/...
-                                    ^                       snapshot into DuckDB,    (fast, cheap)
-                                    |                       serves REST
-                         (a newer snapshot appears)  ----&gt;  auto-refresh, zero-downtime swap
-</code></pre>
+<figure class="flow" aria-label="Your pipeline exports a snapshot (Parquet + manifest) to object storage on your schedule; Offloader loads the latest snapshot into DuckDB and serves REST; a newer snapshot triggers an automatic, zero-downtime swap.">
+  <div class="flow-track">
+    <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
+    <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
+    <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
+    <div class="hop"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
+  </div>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>
+</figure>
+
 <h2 id="the-two-ports">The two ports</h2>
 <p>Offloader listens on two ports, on purpose:</p>
 <ul>

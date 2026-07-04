@@ -166,3 +166,18 @@
   .docs-nav > nav { padding: 0.35rem 1.1rem 1rem; }
   .docs-home { margin-top: 0.6rem; }
 }
+
+/* ── concepts diagrams — reuse the marketing .flow (styles.css); add a before/after
+      contrast lane and a "warn" node for the costly path. ────────────────────────── */
+.flow-contrast { display: grid; gap: 1.4rem; }
+.flow-lane { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.9rem; }
+.lane-tag {
+  align-self: start; margin-top: 0.35rem; font-family: var(--mono); font-size: var(--fs-label);
+  font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase;
+  padding: 0.22rem 0.6rem; border-radius: 6px;
+}
+.lane-before { color: var(--muted); background: var(--paper-2); }
+.lane-after { color: var(--accent-2); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.flow .node-warn { border-style: dashed; border-color: var(--muted); }
+.flow .node-warn strong { color: var(--muted); }
+@media (max-width: 720px) { .flow-lane { grid-template-columns: 1fr; } }
