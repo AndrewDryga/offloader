@@ -1095,6 +1095,9 @@ defmodule Offloader.Runtime do
         endpoint: endpoint.name,
         version: endpoint.version,
         snapshot_id: snapshot.snapshot_id,
+        # When this response body was built. Behind a CDN a cached body keeps its original
+        # generated_at, so a client comparing it to wall-clock "now" can tell it got a cached hit.
+        generated_at: DateTime.to_iso8601(DateTime.utc_now()),
         row_count: length(data),
         serving_mode: endpoint.serving_mode,
         cache: cache_status,

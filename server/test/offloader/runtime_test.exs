@@ -50,6 +50,9 @@ defmodule Offloader.RuntimeTest do
       assert resp.meta.request_id == "req-1"
       assert resp.meta.endpoint == "customer_usage_summary"
       assert resp.meta.snapshot_id == "2026-06-01T00:00:00Z_r0007"
+
+      # generated_at is the response build time (ISO8601) — lets a client behind a CDN spot a cached hit
+      assert {:ok, %DateTime{}, _} = DateTime.from_iso8601(resp.meta.generated_at)
       assert %{watermark: _, age_seconds: _, stale: _} = resp.meta.freshness
       assert is_list(resp.data)
       assert %{"account_id" => _, "api_calls_total" => calls} = hd(resp.data)

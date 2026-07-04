@@ -35,6 +35,7 @@ Always the same envelope: `data` (the rows) + `meta` (what you're reading).
     "endpoint":     "customer_usage_summary",
     "version":      1,
     "snapshot_id":  "2026-06-01T00:00:00Z_r0007",
+    "generated_at": "2026-07-01T18:21:10Z",
     "row_count":    1,
     "serving_mode": "local_table",
     "cache":        "hit",

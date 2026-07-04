@@ -140,7 +140,7 @@ defmodule Offloader.Docs do
       response: %{
         columns: ep.columns,
         snapshot_metadata:
-          "meta includes request_id, snapshot_id, and freshness (watermark, age_seconds, stale)",
+          "meta includes request_id, snapshot_id, generated_at (server time — detect a cached CDN hit), and freshness (watermark, age_seconds, stale)",
         example: example_response(ep)
       },
       freshness_minutes: ep.freshness_minutes,
@@ -189,6 +189,7 @@ defmodule Offloader.Docs do
       meta: %{
         request_id: "b1a2c3d4",
         snapshot_id: "2026-06-01T00:00:00Z_r0007",
+        generated_at: "2026-06-01T01:00:00Z",
         row_count: 1,
         freshness: %{watermark: "2026-06-01T00:00:00Z", age_seconds: 3600, stale: false}
       }
