@@ -153,6 +153,11 @@ path), or the <code>gcloud</code> CLI (developer laptops). The token is register
 DuckDB HTTP secret covering <code>https://storage.googleapis.com/...</code> reads and is
 rotated automatically before expiry. The Databricks GCS source
 (<code>Offloader.Source.Databricks</code>) uses the same tokens for listings and commit reads.</li>
+<li><strong>Anonymous (public bucket)</strong> — <code>OFFLOADER_GCS_AUTH=none</code> (also <code>anonymous</code>/<code>public</code>).
+The config loader reads a <strong>public</strong> <code>gs://</code> bucket with <strong>no credentials</strong> — the zero-setup
+path for a hosted demo. A <code>401/403</code> then means the bucket isn&#39;t actually public and is
+surfaced, not retried. (Public snapshot <em>data</em> already reads unauthenticated via DuckDB&#39;s
+HTTPS form, so a fully-public deployment needs no object-store creds at all.)</li>
 </ul>
 <p>Explicit HMAC credentials win when both are set. Credentials never appear in logs,
 error bodies, or support bundles (values are scrubbed; bundles are redacted).</p>

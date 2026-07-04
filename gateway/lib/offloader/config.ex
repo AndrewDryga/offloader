@@ -65,6 +65,15 @@ defmodule Offloader.Config do
   def gcs_token, do: Application.get_env(:offloader, :gcs_token)
 
   @doc """
+  True when config reads should be UNAUTHENTICATED (`OFFLOADER_GCS_AUTH=none|anonymous|public`)
+  — for loading a project from a PUBLIC `gs://` bucket with no credentials (the zero-setup
+  run-box). The GCS client then omits the Authorization header; a 401/403 means the bucket
+  isn't actually public and is surfaced, not retried.
+  """
+  @spec gcs_anonymous?() :: boolean()
+  def gcs_anonymous?, do: Application.get_env(:offloader, :gcs_anonymous, false) == true
+
+  @doc """
   DuckDB per-database thread cap (`OFFLOADER_DUCKDB_THREADS`), or nil for the DuckDB
   default (all host cores). Set this in a container: DuckDB sees host cores, not the
   cgroup limit, so with the read pool it can oversubscribe and thrash.

@@ -23,6 +23,23 @@ defmodule Offloader.GcsTest do
       send_json(conn, 200, %{access_token: "meta-token", expires_in: 600, token_type: "Bearer"})
     end
 
+    # A PUBLIC bucket: served with NO Authorization header (anonymous mode).
+    defp handle(["storage", "v1", "b", "public-bucket", "o"], conn) do
+      case conn |> get_req_header("authorization") |> List.first() do
+        nil ->
+          send_json(conn, 200, %{
+            items: [%{name: "offloader.yml", updated: "2026-07-01T00:00:00Z"}]
+          })
+
+        _ ->
+          send_json(conn, 400, %{error: "anonymous requests must send no auth header"})
+      end
+    end
+
+    defp handle(["storage", "v1", "b", "public-bucket", "o", name], conn) do
+      send_resp(conn, 200, "public-media:" <> name)
+    end
+
     # GCS JSON API: list objects (two pages via pageToken)
     defp handle(["storage", "v1", "b", _bucket, "o"], conn) do
       case auth(conn) do
@@ -131,6 +148,21 @@ defmodule Offloader.GcsTest do
       with_env(:gcs_token, nil, fn ->
         with_env(:gcs_metadata_token_url, base <> "/token-noexpiry", fn ->
           assert {:ok, "meta-token", nil} = Token.fetch()
+        end)
+      end)
+    end
+  end
+
+  describe "anonymous config reads (OFFLOADER_GCS_AUTH=none)" do
+    test "lists and gets from a public bucket with no token, cache, or auth header", %{base: base} do
+      # No gcs_token, no metadata URL, no gcloud — purely anonymous against a public bucket.
+      with_env(:gcs_base_url, base, fn ->
+        with_env(:gcs_anonymous, true, fn ->
+          assert {:ok, [%{"name" => "offloader.yml"}]} =
+                   Client.list_objects("public-bucket", "")
+
+          assert {:ok, "public-media:offloader.yml"} =
+                   Client.get_object("public-bucket", "offloader.yml")
         end)
       end)
     end

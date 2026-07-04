@@ -75,15 +75,21 @@ defmodule Offloader.Gcs.Client do
   # ── auth + transport ────────────────────────────────────────────────────────────
 
   defp with_auth_retry(fun) do
-    cache = token_cache()
+    if Offloader.Config.gcs_anonymous?() do
+      # Public bucket, no credentials: issue the request unauthenticated. A 401/403 here
+      # means the bucket isn't actually public — surfaced to the caller, not token-refreshed.
+      fun.(nil)
+    else
+      cache = token_cache()
 
-    with {:ok, token} <- Offloader.Gcs.TokenCache.get(cache) do
-      case fun.(token) do
-        {:error, :unauthorized} ->
-          with {:ok, fresh} <- Offloader.Gcs.TokenCache.refresh(cache), do: fun.(fresh)
+      with {:ok, token} <- Offloader.Gcs.TokenCache.get(cache) do
+        case fun.(token) do
+          {:error, :unauthorized} ->
+            with {:ok, fresh} <- Offloader.Gcs.TokenCache.refresh(cache), do: fun.(fresh)
 
-        other ->
-          other
+          other ->
+            other
+        end
       end
     end
   end
@@ -96,7 +102,11 @@ defmodule Offloader.Gcs.Client do
   defp request(url, token) do
     :ok = ensure_started()
 
-    headers = [{~c"authorization", String.to_charlist("Bearer " <> token)}]
+    headers =
+      case token do
+        nil -> []
+        t -> [{~c"authorization", String.to_charlist("Bearer " <> t)}]
+      end
 
     http_opts = [
       timeout: @timeout_ms,

@@ -95,6 +95,11 @@ directly by DuckDB (httpfs). Two credential modes:
   DuckDB HTTP secret covering `https://storage.googleapis.com/...` reads and is
   rotated automatically before expiry. The Databricks GCS source
   (`Offloader.Source.Databricks`) uses the same tokens for listings and commit reads.
+- **Anonymous (public bucket)** — `OFFLOADER_GCS_AUTH=none` (also `anonymous`/`public`).
+  The config loader reads a **public** `gs://` bucket with **no credentials** — the zero-setup
+  path for a hosted demo. A `401/403` then means the bucket isn't actually public and is
+  surfaced, not retried. (Public snapshot *data* already reads unauthenticated via DuckDB's
+  HTTPS form, so a fully-public deployment needs no object-store creds at all.)
 
 Explicit HMAC credentials win when both are set. Credentials never appear in logs,
 error bodies, or support bundles (values are scrubbed; bundles are redacted).

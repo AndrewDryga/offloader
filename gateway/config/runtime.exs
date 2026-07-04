@@ -61,6 +61,10 @@ object_store =
       nil
   end
 
+# Anonymous config reads: OFFLOADER_GCS_AUTH=none|anonymous|public lets the config loader
+# read a PUBLIC gs:// bucket with no credentials (the zero-setup run-box / sample datasets).
+gcs_anonymous = System.get_env("OFFLOADER_GCS_AUTH") in ["none", "anonymous", "public"]
+
 # The env-var contract, read in all environments so tests can assert the defaults.
 config :offloader,
   config_path: System.get_env("OFFLOADER_CONFIG"),
@@ -82,6 +86,7 @@ config :offloader,
   cache_max_entries: cache_max_entries,
   object_store: object_store,
   gcs_token: System.get_env("OFFLOADER_GCS_TOKEN"),
+  gcs_anonymous: gcs_anonymous,
   duckdb_threads:
     (case System.get_env("OFFLOADER_DUCKDB_THREADS") do
        nil ->
