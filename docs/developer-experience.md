@@ -26,12 +26,12 @@ To see a complete, working project, run the **[Quickstart](quickstart.md)** agai
 
 ## The `offloader` CLI (optional)
 
-The `offloader …` commands in this guide are an **optional Go helper**, not part of the
-container — the container itself needs only the files above plus env vars. Build it once, then
-use it for the scaffolding and checks below:
+The `offloader …` commands in this guide are an **optional helper**, not part of the container —
+the container itself needs only the files above plus env vars. Install it once (every command,
+with flags, is in the **[CLI reference](cli.md)**):
 
 ```sh
-cd tools && go build -o offloader .     # then ./offloader <command>   (or: go run . <command>)
+curl -fsSL https://offloader.dryga.com/install.sh | sh   # or from source: cd tools && go build -o offloader .
 ```
 
 ## Start a new project (scaffold)
@@ -222,10 +222,8 @@ Push a new revision the boring way: update the objects under the config prefix a
 them up. Sequence a schema change as **data first, then config**, so the new-schema build succeeds on
 the first try.
 
-## The `offloader` CLI
+## Where to go next
 
-The `offloader …` commands in this guide are part of the optional helper. Its full reference —
-every command, its flags, and an example — is on its own page: **[CLI reference](cli.md)**.
-
-The full field reference for every config file is [config-reference.md](config-reference.md); a
-complete working project to copy is `examples/customer-analytics/`.
+- The **[CLI reference](cli.md)** — every `offloader` command, its flags, and an example.
+- The **[config reference](config-reference.md)** — every field of every config file.
+- A complete working project to copy: `examples/customer-analytics/`.

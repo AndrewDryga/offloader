@@ -96,10 +96,10 @@ Nothing is baked into the image.</p>
 <code>examples/customer-analytics/</code> — it boots a container and serves a real endpoint in about
 15 minutes. Copy that example and edit it.</p>
 <h2 id="the-offloader-cli-optional">The <code>offloader</code> CLI (optional)</h2>
-<p>The <code>offloader …</code> commands in this guide are an <strong>optional Go helper</strong>, not part of the
-container — the container itself needs only the files above plus env vars. Build it once, then
-use it for the scaffolding and checks below:</p>
-<pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .     # then ./offloader &lt;command&gt;   (or: go run . &lt;command&gt;)
+<p>The <code>offloader …</code> commands in this guide are an <strong>optional helper</strong>, not part of the container —
+the container itself needs only the files above plus env vars. Install it once (every command,
+with flags, is in the <strong><a href="cli.html">CLI reference</a></strong>):</p>
+<pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh   # or from source: cd tools &amp;&amp; go build -o offloader .
 </code></pre>
 <h2 id="start-a-new-project-scaffold">Start a new project (scaffold)</h2>
 <p>Authoring the YAML by hand is the slow part, so the CLI (above) scaffolds it for you.</p>
@@ -266,11 +266,12 @@ latter == 0); admin <code>/diagnostics</code> shows the last sync result + times
 <p>Push a new revision the boring way: update the objects under the config prefix and the next tick picks
 them up. Sequence a schema change as <strong>data first, then config</strong>, so the new-schema build succeeds on
 the first try.</p>
-<h2 id="the-offloader-cli">The <code>offloader</code> CLI</h2>
-<p>The <code>offloader …</code> commands in this guide are part of the optional helper. Its full reference —
-every command, its flags, and an example — is on its own page: <strong><a href="cli.html">CLI reference</a></strong>.</p>
-<p>The full field reference for every config file is <a href="config-reference.html">config-reference.md</a>; a
-complete working project to copy is <code>examples/customer-analytics/</code>.</p>
+<h2 id="where-to-go-next">Where to go next</h2>
+<ul>
+<li>The <strong><a href="cli.html">CLI reference</a></strong> — every <code>offloader</code> command, its flags, and an example.</li>
+<li>The <strong><a href="config-reference.html">config reference</a></strong> — every field of every config file.</li>
+<li>A complete working project to copy: <code>examples/customer-analytics/</code>.</li>
+</ul>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="quickstart.html"><span>Previous</span><b>Quickstart</b></a>
