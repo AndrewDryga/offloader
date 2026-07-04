@@ -64,11 +64,14 @@ cat <<EOF
 
 ✅ Workload Identity Federation is ready.
 
-Set these on the TFC workspace ${TFC_ORG}/${TFC_WORKSPACE}
-(Variables → + → Environment variable), then remove any GOOGLE_CREDENTIALS variable
-and queue a new run:
+On the TFC workspace ${TFC_ORG}/${TFC_WORKSPACE}, add these three as ENVIRONMENT variables —
+category "Environment variable", NOT "Terraform variable". Dynamic credentials only reads the
+environment; as Terraform variables they're ignored (and Terraform warns "undeclared variable").
+The provider name is the bare projects/… form (TFC adds the //iam.googleapis.com/ prefix itself).
 
   TFC_GCP_PROVIDER_AUTH               true
   TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL   ${SA_EMAIL}
   TFC_GCP_WORKLOAD_PROVIDER_NAME      ${PROVIDER_NAME}
+
+Then remove any GOOGLE_CREDENTIALS variable and queue a new run.
 EOF

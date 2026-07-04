@@ -29,10 +29,13 @@ there is nothing to clone, build, or authenticate.
    ./setup-wif.sh   # creates the WIF pool + OIDC provider + service account, scoped to this workspace
    ```
 
-   Set the three **environment** variables from the output on the workspace —
-   `TFC_GCP_PROVIDER_AUTH=true`, `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL`, and
-   `TFC_GCP_WORKLOAD_PROVIDER_NAME`. The `google` provider then authenticates per run with a
-   short-lived token. (A static `GOOGLE_CREDENTIALS` key still works if you prefer it.)
+   Set the three variables from the output as **Environment variables** on the workspace —
+   category **"Environment variable", not "Terraform variable"** (dynamic credentials only reads
+   the environment; as Terraform variables they're ignored and you get an
+   `Invalid value for "audience"` error): `TFC_GCP_PROVIDER_AUTH=true`,
+   `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL`, and `TFC_GCP_WORKLOAD_PROVIDER_NAME` (the bare
+   `projects/…` form). The `google` provider then authenticates per run with a short-lived token.
+   (A static `GOOGLE_CREDENTIALS` key still works if you prefer it.)
 3. Push: TFC plans on push and applies on merge/confirm.
 
 ## Notes
