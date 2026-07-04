@@ -8,13 +8,13 @@ terraform {
     }
   }
 
-  # Terraform Cloud, VCS-driven. Set the workspace's working directory to `infra/`, and
-  # fill in your TFC org below. Remove this block to run with a local/other backend.
+  # Terraform Cloud, VCS-driven. The workspace's working directory must be `infra/`.
+  # Remove this block to run with a local/other backend.
   cloud {
-    organization = "REPLACE_WITH_YOUR_TFC_ORG"
+    organization = "Dryga"
 
     workspaces {
-      name = "offloader-infra"
+      name = "offloader"
     }
   }
 }
