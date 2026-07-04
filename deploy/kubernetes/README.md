@@ -28,7 +28,7 @@ kubectl rollout status deploy/offloader
 - Upgrade: bump the pinned image tag and `kubectl apply` — a normal rolling update.
 - Rollback: `kubectl rollout undo deploy/offloader`.
 - Cache rebuild: delete the PVC (or `kubectl delete pod` with a fresh PVC) — the
-  gateway rematerializes from the manifest on boot.
+  server rematerializes from the manifest on boot.
 
 ## Non-goals
 

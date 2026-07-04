@@ -17,7 +17,7 @@ already operate. There is no Offloader cloud, and your private data never leaves
 environment. (An optional managed CDN edge can serve already-public data — public only,
 opt-in; see [serving public data](docs/public-serving.md).)
 
-Status: the gateway is **feature-complete and validated against real production
+Status: the server is **feature-complete and validated against real production
 data**. The commercial offer is a paid diagnostic plus offload pilot, not a broad data
 platform.
 
@@ -112,7 +112,7 @@ The full env-var reference is in the [config guide](docs/developer-experience.md
 ## Repository layout
 
 ```text
-gateway/          Elixir/Phoenix self-hostable container: REST APIs, auth,
+server/          Elixir/Phoenix self-hostable container: REST APIs, auth,
                   tenant enforcement, env-driven config, manifest refresh,
                   DuckDB materialization, admin/metrics port
 tools/            Optional helper CLI (docs/cli.md): project scaffolding, config/

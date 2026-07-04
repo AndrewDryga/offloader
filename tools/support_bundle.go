@@ -101,7 +101,7 @@ func buildBundle(configPath, outPath, url, token, at string) ([]artifact, error)
 
 	if url != "" {
 		if diag, derr := fetchDiagnostics(url, token); derr == nil {
-			_ = add("diagnostics.json", []byte(redact(diag)), "gateway (redacted)")
+			_ = add("diagnostics.json", []byte(redact(diag)), "server (redacted)")
 		}
 	}
 

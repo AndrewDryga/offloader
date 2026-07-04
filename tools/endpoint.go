@@ -23,7 +23,7 @@ func runEndpoint(args []string, stdout, stderr io.Writer) int {
 	}
 	fs := flag.NewFlagSet("endpoint test", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	url := fs.String("url", "http://localhost:4000", "gateway API base URL")
+	url := fs.String("url", "http://localhost:4000", "server API base URL")
 	key := fs.String("key", "", "bearer API key")
 	name := fs.String("endpoint", "", "endpoint name")
 	params := fs.String("params", "", "query string, e.g. 'from=2026-05-30&to=2026-06-01'")

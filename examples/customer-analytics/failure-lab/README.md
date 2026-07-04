@@ -1,6 +1,6 @@
 # Failure lab
 
-Deliberately broken fixtures. Each one proves the gateway fails *safely* — it
+Deliberately broken fixtures. Each one proves the server fails *safely* — it
 refuses bad input, keeps serving the last good snapshot, and never leaks whether a
 forbidden thing exists. These drive the manifest validator (G03), the endpoint
 runtime (G05), auth/tenant enforcement (G06), refresh/rollback (G08), the

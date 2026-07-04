@@ -19,7 +19,7 @@ func init() {
 func runDocs(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("docs", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	url := fs.String("admin-url", "http://localhost:4001", "gateway admin base URL")
+	url := fs.String("admin-url", "http://localhost:4001", "server admin base URL")
 	open := fs.Bool("open", false, "open the endpoint catalog in a browser")
 	if err := fs.Parse(args); err != nil {
 		return 2

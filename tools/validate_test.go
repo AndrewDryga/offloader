@@ -236,7 +236,7 @@ combinations: [[rank], [rank, map_code]]
 	}
 }
 
-func TestValidateMirrorsGatewayRules(t *testing.T) {
+func TestValidateMirrorsServerRules(t *testing.T) {
 	base := `name: e
 dataset: customer_usage
 tenant:

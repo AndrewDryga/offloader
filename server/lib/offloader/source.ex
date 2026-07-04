@@ -5,7 +5,7 @@ defmodule Offloader.Source do
 
   The static default (a mounted `manifest.json`) needs no resolver — `Offloader.Manifest.load/1`
   reads it from disk. A dynamic source (e.g. `Offloader.Source.Databricks`) discovers the
-  current snapshot remotely on every refresh, so the gateway follows a producer that
+  current snapshot remotely on every refresh, so the server follows a producer that
   publishes on its own schedule.
 
   `{:ok, :none}` means the source is reachable but has no committed snapshot yet — the

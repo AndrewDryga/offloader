@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-// finding is a stable config/manifest validation error, matching the gateway's
+// finding is a stable config/manifest validation error, matching the server's
 // Offloader.Catalog.Error shape: which file, the field path inside it, a
 // machine-stable code, a human message, and an operator hint. Operators see the same
 // error whether they run the container or this helper.

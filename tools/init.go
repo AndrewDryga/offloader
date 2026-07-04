@@ -231,7 +231,7 @@ func keysTemplate(hash string) string {
 	return `# API keys. A key is matched by the SHA-256 hash of its bearer token; the plaintext
 # token is NEVER stored. Mint more with: offloader keys create.
 #
-# A key is scoped to an endpoint allowlist and bound to exactly one tenant; the gateway
+# A key is scoped to an endpoint allowlist and bound to exactly one tenant; the server
 # inserts that tenant into every query.
 keys:
   - id: demo

@@ -1,4 +1,4 @@
-# Compare serving modes on the fixture dataset. Run from gateway/:
+# Compare serving modes on the fixture dataset. Run from server/:
 #
 #     mix run ../dev/scripts/bench-modes.exs
 #

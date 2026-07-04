@@ -1,6 +1,6 @@
 defmodule Offloader.Catalog.Dataset do
   @moduledoc """
-  A dataset contract: the schema the gateway EXPECTS, plus the tenant column and
+  A dataset contract: the schema the server EXPECTS, plus the tenant column and
   where the current manifest lives. This is pure config — no DuckDB, no I/O beyond
   the file it was parsed from. The manifest validator (G03) and refresh (G08) compare
   a shipped snapshot against this contract.

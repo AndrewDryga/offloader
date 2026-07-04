@@ -1,6 +1,6 @@
 defmodule Offloader do
   @moduledoc """
-  Offloader gateway: the customer-run data plane.
+  Offloader server: the customer-run data plane.
 
   Serves bounded production analytics endpoints over a governed REST contract,
   backed by approved object-storage snapshots materialized into DuckDB. This

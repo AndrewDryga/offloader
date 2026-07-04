@@ -16,7 +16,7 @@ It writes `dist/` with:
 | Artifact | What it is |
 | --- | --- |
 | `offloader-<ver>-<os>-<arch>` | version-stamped helper binaries, one per install target (linux/darwin × amd64/arm64; `-trimpath`, `-X main.version`) — what [`install.sh`](../site/install.sh) downloads. |
-| `sbom-tools.*` / `sbom-gateway.*` | SBOM — syft SPDX if installed, else `go list -m all` + the pinned `mix.lock`. |
+| `sbom-tools.*` / `sbom-server.*` | SBOM — syft SPDX if installed, else `go list -m all` + the pinned `mix.lock`. |
 | `govulncheck-tools.txt` | Go vulnerability scan output. |
 | `image-id.txt` | the built container image digest (tag pinned to `<ver>`). |
 | `grype-image.txt` | image vulnerability scan (when grype is installed). |

@@ -8,7 +8,7 @@ symptom → signals → likely owner → action → escalation.
 > Commands assume the admin port is reachable privately and `OFFLOADER_ADMIN_TOKEN`
 > is set. `DIAG` below means `curl -H "Authorization: Bearer $TOKEN" $ADMIN/diagnostics`.
 
-## Gateway does not start
+## Server does not start
 
 - **Signals:** container exits on boot; `docker logs` shows a config/secret error.
 - **Owner:** customer environment (config/secret) or Offloader (crash).
@@ -84,5 +84,5 @@ symptom → signals → likely owner → action → escalation.
 
 - **Owner:** customer.
 - **Action:** stop the container, remove the cache volume (one dataset: remove its
-  materialized files; all: the whole volume), restart. The gateway rematerializes
+  materialized files; all: the whole volume), restart. The server rematerializes
   from the current manifest on boot.

@@ -4,7 +4,7 @@ defmodule Offloader.Config do
 
   The primary V1 deployment interface is env vars + mounted config. `config/runtime.exs`
   parses the raw `OFFLOADER_*` env vars once at boot and places them in the `:offloader`
-  application env; this module is the one place the rest of the gateway reads them, so
+  application env; this module is the one place the rest of the server reads them, so
   env parsing and defaults never get duplicated. Documented in
   `docs/developer-experience.md` → "Required container env vars".
   """

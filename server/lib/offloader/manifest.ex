@@ -1,6 +1,6 @@
 defmodule Offloader.Manifest do
   @moduledoc """
-  A Parquet/CSV snapshot manifest and its validator. Pure — no DuckDB. The gateway
+  A Parquet/CSV snapshot manifest and its validator. Pure — no DuckDB. The server
   validates a manifest before materialization so it never serves partial, malformed,
   or unsafe data (`docs/architecture.md` → "Snapshot manifest contract").
 

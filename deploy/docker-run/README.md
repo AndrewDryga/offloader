@@ -42,4 +42,4 @@ curl -H "Authorization: Bearer <api-key>" \
   The cache volume rematerializes from the manifest on boot; there is no migration.
 - **Rollback:** start the previous tag again. Health returns immediately.
 - **Cache rebuild:** delete the cache volume (`docker volume rm offloader-cache`)
-  and restart — the gateway rematerializes from the current manifest.
+  and restart — the server rematerializes from the current manifest.

@@ -4,7 +4,7 @@ defmodule Offloader.Catalog do
   mounted config directory (`OFFLOADER_CONFIG` points at `offloader.yml`). Pure
   config — no DuckDB, no HTTP. `load/1` returns a fully validated catalog or the
   complete list of errors (every problem at once), so an operator can fix config
-  before the gateway ever serves. Docs (G07) and helper tooling (C02) consume the
+  before the server ever serves. Docs (G07) and helper tooling (C02) consume the
   same shape.
   """
 

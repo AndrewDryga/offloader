@@ -103,7 +103,7 @@ it, and `offloader manifest validate` checks it. Required fields:
 Rules:
 
 - Upstream pipeline publishes the manifest only after files are complete.
-- Gateway never serves a partial refresh.
+- Server never serves a partial refresh.
 - Failed validation preserves the previous good snapshot.
 - Additive columns are allowed when endpoint contracts tolerate them.
 - Type narrowing, dropped required columns, and renamed columns are breaking.

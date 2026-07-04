@@ -11,7 +11,7 @@ import (
 func init() {
 	register(command{
 		name:    "doctor",
-		summary: "check toolchain, config, and (optionally) a running gateway",
+		summary: "check toolchain, config, and (optionally) a running server",
 		run:     runDoctor,
 	})
 }
@@ -20,8 +20,8 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	config := fs.String("config", "", "validate this project config (optional)")
-	url := fs.String("admin-url", "", "ping this gateway admin URL (optional)")
-	token := fs.String("admin-token", "", "admin token for the gateway ping")
+	url := fs.String("admin-url", "", "ping this server admin URL (optional)")
+	token := fs.String("admin-token", "", "admin token for the server ping")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -51,7 +51,7 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 	if *url != "" {
 		code, _, err := httpGet(adminURL(*url, "/ready"), *token)
 		up := err == nil && code == http.StatusOK
-		check("gateway", up, choose(up, *url+" ready", "not ready (admin /ready did not return 200)"))
+		check("server", up, choose(up, *url+" ready", "not ready (admin /ready did not return 200)"))
 	}
 
 	if ok {

@@ -111,11 +111,11 @@ good one (see <a href="runbooks.html">runbooks</a> → &quot;Rollback to previou
 <h2 id="cache-quarantine-and-rebuild">Cache quarantine and rebuild</h2>
 <p>The materialization cache is a mounted volume. To rebuild: stop the container, remove
 the cache volume (one dataset: its materialized files; all: the whole volume), restart
-— the gateway rematerializes from the current manifest. Details:
+— the server rematerializes from the current manifest. Details:
 <a href="runbooks.html">runbooks</a> → &quot;Cache quarantine and rebuild&quot;.</p>
 <h2 id="sizing">Sizing</h2>
 <ul>
-<li><strong>Memory:</strong> the gateway materializes snapshots into DuckDB; RSS scales with active
+<li><strong>Memory:</strong> the server materializes snapshots into DuckDB; RSS scales with active
 snapshot size. The example runs at ~160 MB RSS; size for your largest dataset plus
 headroom. Measure with the <a href="benchmarks.html">benchmark harness</a>.</li>
 <li><strong>Disk:</strong> the cache volume holds the DuckDB file(s); size it for your largest
@@ -134,7 +134,7 @@ revocable, scoped to endpoints, and tenant-bound; the compiler inserts the tenan
 filter and it cannot be overridden. Mint keys with <code>offloader keys create</code> (the token
 is shown once; only its hash is stored).</li>
 <li>The adversarial proof of these invariants is the security suite
-(<code>gateway/test/offloader/security_suite_test.exs</code>).</li>
+(<code>server/test/offloader/security_suite_test.exs</code>).</li>
 </ul>
 <h2 id="port-exposure">Port exposure</h2>
 <p>Offloader ships two ports and redaction; <strong>you</strong> own how the admin port is exposed.

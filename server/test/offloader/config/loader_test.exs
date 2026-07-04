@@ -6,7 +6,7 @@ defmodule Offloader.Config.LoaderTest do
 
   alias Offloader.Config.Loader
 
-  # repo root: test/offloader/config → up 4 → gateway → repo
+  # repo root: test/offloader/config → up 4 → server → repo
   @example Path.expand("../../../../examples/customer-analytics", __DIR__)
 
   # An Agent-backed fake so the retry test can fail the first list then succeed.

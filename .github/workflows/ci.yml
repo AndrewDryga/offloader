@@ -15,13 +15,13 @@ permissions:
   contents: read
 
 jobs:
-  gateway:
-    name: gateway (Elixir gate)
+  server:
+    name: server (Elixir gate)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned to the toolchain the release image ships (gateway/Dockerfile).
+      # Pinned to the toolchain the release image ships (server/Dockerfile).
       - uses: erlef/setup-beam@v1
         with:
           otp-version: "29.0.1"
@@ -31,13 +31,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            gateway/deps
-            gateway/_build
-          key: mix-${{ runner.os }}-${{ hashFiles('gateway/mix.lock') }}
+            server/deps
+            server/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('server/mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
 
       - name: The gate — format, warnings-as-errors, tests + coverage floor
-        working-directory: gateway
+        working-directory: server
         run: |
           mix deps.get
           mix format --check-formatted
@@ -88,7 +88,7 @@ jobs:
   # releases (versioned + `latest`, signed) are handled by release.yml, not here.
   publish-edge:
     name: publish edge image (GHCR)
-    needs: [gateway, tools, docs]
+    needs: [server, tools, docs]
     # Real pushes to main only — not PRs, and not when release.yml calls this via workflow_call.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -114,8 +114,8 @@ jobs:
       - name: Build and push the rolling edge image
         uses: docker/build-push-action@v6
         with:
-          context: gateway
-          file: gateway/Dockerfile
+          context: server
+          file: server/Dockerfile
           push: true
           tags: |
             ${{ steps.img.outputs.name }}:edge

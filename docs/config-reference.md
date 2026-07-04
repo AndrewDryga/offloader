@@ -52,7 +52,7 @@ A dataset is a named table Offloader serves, plus the schema it expects. One fil
 | --- | --- | --- | --- |
 | `id` | string | yes | Lowercase identifier (`[a-z][a-z0-9_]*`). Used in endpoints and URLs. |
 | `description` | string | no | Free text. |
-| `schema` | list of `{name, type}` | yes | The columns the gateway expects. See types below. |
+| `schema` | list of `{name, type}` | yes | The columns the server expects. See types below. |
 | `tenant_column` | string | no | The column that identifies a tenant. If set, every endpoint on this dataset is tenant-scoped and the value is bound from the caller's key — never a request param. |
 | `manifest` | string | one of `manifest`/`source` | A **static** snapshot — a path to a manifest file. See `manifest:` below. |
 | `source` | object | one of `manifest`/`source` | A **self-updating** source that finds the latest snapshot on each refresh. See `source:` below. |

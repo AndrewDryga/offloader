@@ -33,7 +33,7 @@ code() {
 }
 
 echo "deploy-check: building $IMAGE"
-docker build -t "$IMAGE" -f "$REPO_ROOT/gateway/Dockerfile" "$REPO_ROOT/gateway"
+docker build -t "$IMAGE" -f "$REPO_ROOT/server/Dockerfile" "$REPO_ROOT/server"
 
 echo "deploy-check: booting production image (API :$API_PORT, admin :$ADMIN_PORT)"
 docker run -d --name "$NAME" \

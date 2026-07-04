@@ -1,12 +1,12 @@
-# gateway - how we build
+# server - how we build
 
-The gateway is the customer-run data plane: Phoenix REST API, endpoint contracts,
+The server is the customer-run data plane: Phoenix REST API, endpoint contracts,
 consumer API keys, tenant enforcement, manifest refresh supervision, DuckDB
 materialization, and operational endpoints.
 
 ## Gate
 
-Once the Phoenix app exists, run from `gateway/`:
+Once the Phoenix app exists, run from `server/`:
 
 ```sh
 mix compile --warnings-as-errors

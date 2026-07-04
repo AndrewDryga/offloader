@@ -1,4 +1,4 @@
-# Production image for the Offloader gateway. Multi-stage: build a self-contained
+# Production image for the Offloader server. Multi-stage: build a self-contained
 # release (bundled ERTS) in the Elixir image, then run it on a slim Debian with only
 # the C libraries the DuckDB NIF and crypto need. Config and secrets are NEVER baked
 # in — the container reads them from env vars + a mounted config at runtime.

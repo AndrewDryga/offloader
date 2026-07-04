@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CLI reference — the offloader helper — Offloader docs</title>
 <meta name="description" content="offloader is an optional command-line helper for authoring and operating a deployment. It
-is not part of the container — the gateway needs only its config…">
+is not part of the container — the server needs only its config…">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -78,7 +78,7 @@ is not part of the container — the gateway needs only its config…">
     <article class="prose">
 <h1 id="cli-reference-the-offloader-helper">CLI reference — the <code>offloader</code> helper</h1>
 <p><code>offloader</code> is an <strong>optional</strong> command-line helper for authoring and operating a deployment. It
-is <strong>not</strong> part of the container — the gateway needs only its config files and env vars — so you
+is <strong>not</strong> part of the container — the server needs only its config files and env vars — so you
 install it only for the scaffolding, validation, and diagnostics commands below.</p>
 <h2 id="install">Install</h2>
 <pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh
@@ -252,7 +252,7 @@ admin port to loopback.</p>
 <h2 id="verify-and-operate">Verify and operate</h2>
 <h3 id="offloader-doctor"><code>offloader doctor</code></h3>
 <p>Pre-flight check: the toolchain (<code>docker</code>, <code>curl</code>), optionally a project config, and optionally a
-running gateway&#39;s admin <code>/ready</code>.</p>
+running server&#39;s admin <code>/ready</code>.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -267,11 +267,11 @@ running gateway&#39;s admin <code>/ready</code>.</p>
 </tr>
 <tr>
 <td><code>--admin-url</code></td>
-<td>ping this gateway admin URL (optional)</td>
+<td>ping this server admin URL (optional)</td>
 </tr>
 <tr>
 <td><code>--admin-token</code></td>
-<td>admin token for the gateway ping</td>
+<td>admin token for the server ping</td>
 </tr>
 </tbody></table>
 </div>
@@ -290,7 +290,7 @@ post-deploy check.</p>
 <tbody><tr>
 <td><code>--url</code></td>
 <td><code>http://localhost:4000</code></td>
-<td>gateway API base URL</td>
+<td>server API base URL</td>
 </tr>
 <tr>
 <td><code>--endpoint</code></td>
@@ -315,7 +315,7 @@ post-deploy check.</p>
 </tbody></table>
 </div>
 <h3 id="offloader-snapshot-status"><code>offloader snapshot status</code></h3>
-<p>Print a per-dataset summary from a running gateway: active / last-good snapshot, freshness, and
+<p>Print a per-dataset summary from a running server: active / last-good snapshot, freshness, and
 source health.</p>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -327,7 +327,7 @@ source health.</p>
 </thead>
 <tbody><tr>
 <td><code>--admin-url</code></td>
-<td>gateway admin base URL</td>
+<td>server admin base URL</td>
 </tr>
 <tr>
 <td><code>--admin-token</code></td>
@@ -349,7 +349,7 @@ source health.</p>
 <tbody><tr>
 <td><code>--admin-url</code></td>
 <td><code>http://localhost:4001</code></td>
-<td>gateway admin base URL</td>
+<td>server admin base URL</td>
 </tr>
 <tr>
 <td><code>--open</code></td>

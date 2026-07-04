@@ -22,7 +22,7 @@ func runSnapshot(args []string, stdout, stderr io.Writer) int {
 	}
 	fs := flag.NewFlagSet("snapshot status", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	url := fs.String("admin-url", "", "gateway admin base URL")
+	url := fs.String("admin-url", "", "server admin base URL")
 	token := fs.String("admin-token", "", "admin token")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2

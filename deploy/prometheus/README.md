@@ -7,7 +7,7 @@ scraping on the private admin port — no auth, so keep that port internal).
 - `servicemonitor.yaml` — a Prometheus Operator `ServiceMonitor` targeting the
   private admin Service.
 
-Key gauges (see `gateway/lib/offloader/metrics.ex`): `offloader_up`,
+Key gauges (see `server/lib/offloader/metrics.ex`): `offloader_up`,
 `offloader_ready`, `offloader_duckdb_up`, `offloader_snapshot_age_seconds`,
 `offloader_snapshot_stale`, `offloader_refresh_ok`, `offloader_source_reachable`,
 `offloader_cache_disk_free_bytes`.

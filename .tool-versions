@@ -1,4 +1,4 @@
-# Pinned to the toolchain the release image ships (gateway/Dockerfile) and CI uses.
+# Pinned to the toolchain the release image ships (server/Dockerfile) and CI uses.
 erlang 29.0.1
 elixir 1.20.1
 golang 1.26.4

@@ -85,7 +85,7 @@ symptom → signals → likely owner → action → escalation.</p>
 <p>Commands assume the admin port is reachable privately and <code>OFFLOADER_ADMIN_TOKEN</code>
 is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer $TOKEN&quot; $ADMIN/diagnostics</code>.</p>
 </blockquote>
-<h2 id="gateway-does-not-start">Gateway does not start</h2>
+<h2 id="server-does-not-start">Server does not start</h2>
 <ul>
 <li><strong>Signals:</strong> container exits on boot; <code>docker logs</code> shows a config/secret error.</li>
 <li><strong>Owner:</strong> customer environment (config/secret) or Offloader (crash).</li>
@@ -161,7 +161,7 @@ revert a good-but-wrong snapshot, roll the dataset back to its previous good one
 <ul>
 <li><strong>Owner:</strong> customer.</li>
 <li><strong>Action:</strong> stop the container, remove the cache volume (one dataset: remove its
-materialized files; all: the whole volume), restart. The gateway rematerializes
+materialized files; all: the whole volume), restart. The server rematerializes
 from the current manifest on boot.</li>
 </ul>
 </article>

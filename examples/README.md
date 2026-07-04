@@ -1,7 +1,7 @@
 # Examples
 
 Examples let a buyer complete the first-hour golden path locally, and give the
-gateway, tooling, docs, e2e, security, and benchmark tasks one shared, tiny,
+server, tooling, docs, e2e, security, and benchmark tasks one shared, tiny,
 deterministic dataset to run against.
 
 ## [`customer-analytics/`](customer-analytics/README.md)

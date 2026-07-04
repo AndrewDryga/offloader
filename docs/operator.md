@@ -36,12 +36,12 @@ diagnostics fields. It links to the deep docs rather than repeating them.
 
 The materialization cache is a mounted volume. To rebuild: stop the container, remove
 the cache volume (one dataset: its materialized files; all: the whole volume), restart
-— the gateway rematerializes from the current manifest. Details:
+— the server rematerializes from the current manifest. Details:
 [runbooks](operations/runbooks.md) → "Cache quarantine and rebuild".
 
 ## Sizing
 
-- **Memory:** the gateway materializes snapshots into DuckDB; RSS scales with active
+- **Memory:** the server materializes snapshots into DuckDB; RSS scales with active
   snapshot size. The example runs at ~160 MB RSS; size for your largest dataset plus
   headroom. Measure with the [benchmark harness](benchmarks.md).
 - **Disk:** the cache volume holds the DuckDB file(s); size it for your largest
@@ -60,7 +60,7 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
   filter and it cannot be overridden. Mint keys with `offloader keys create` (the token
   is shown once; only its hash is stored).
 - The adversarial proof of these invariants is the security suite
-  (`gateway/test/offloader/security_suite_test.exs`).
+  (`server/test/offloader/security_suite_test.exs`).
 
 ## Port exposure
 

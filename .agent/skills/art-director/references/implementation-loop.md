@@ -60,7 +60,7 @@ Check:
 Verification:
 
 - Run the project gate (currently `make check && make doctor && coop tasks lint`)
-  plus any `gateway-check` / component gate the touched code requires.
+  plus any `server-check` / component gate the touched code requires.
 - Use browser screenshots before calling the page done.
 - Check the initial HTML contains real content for crawlers.
 - Check title/meta/canonical/schema/internal links where the page requires them.

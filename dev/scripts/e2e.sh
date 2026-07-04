@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end smoke: manifest -> DuckDB materialization -> HTTP response.
 #
-# Boots the gateway (via mix) against the customer-analytics example with a temp
+# Boots the server (via mix) against the customer-analytics example with a temp
 # cache, waits until it is ready, calls all three endpoints with a demo API key,
 # asserts snapshot_id + freshness metadata, then proves the denial paths fail
 # closed. Local ports + temp dirs only; no cloud. Wired into `make e2e`.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-GATEWAY="$REPO_ROOT/gateway"
+SERVER="$REPO_ROOT/server"
 CONFIG="$REPO_ROOT/examples/customer-analytics/offloader.yml"
 API_PORT="${OFFLOADER_API_PORT:-4010}"
 ADMIN_PORT="${OFFLOADER_ADMIN_PORT:-4011}"
@@ -35,8 +35,8 @@ for p in "$API_PORT" "$ADMIN_PORT"; do
   lsof -ti:"$p" >/dev/null 2>&1 && fail "port $p is in use — free it or set OFFLOADER_API_PORT/OFFLOADER_ADMIN_PORT"
 done
 
-echo "e2e: booting gateway on :$API_PORT (admin :$ADMIN_PORT), cache $WORK/cache"
-cd "$GATEWAY"
+echo "e2e: booting server on :$API_PORT (admin :$ADMIN_PORT), cache $WORK/cache"
+cd "$SERVER"
 # Run in prod so the env-var container contract (ports, secret) is what's exercised.
 export MIX_ENV=prod
 mix deps.get >/dev/null
@@ -47,19 +47,19 @@ PHX_SERVER=1 \
   OFFLOADER_CACHE_DIR="$WORK/cache" \
   OFFLOADER_API_PORT="$API_PORT" \
   OFFLOADER_ADMIN_PORT="$ADMIN_PORT" \
-  mix run --no-halt >"$WORK/gateway.log" 2>&1 &
+  mix run --no-halt >"$WORK/server.log" 2>&1 &
 PID=$!
 
 # Wait for readiness (admin /ready flips to 200 once the snapshot is materialized).
 for _ in $(seq 1 60); do
-  kill -0 "$PID" 2>/dev/null || { cat "$WORK/gateway.log"; fail "gateway exited during boot"; }
+  kill -0 "$PID" 2>/dev/null || { cat "$WORK/server.log"; fail "server exited during boot"; }
   if [ "$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/ready" 2>/dev/null || true)" = "200" ]; then
     ready=1
     break
   fi
   sleep 0.5
 done
-[ "${ready:-0}" = "1" ] || { cat "$WORK/gateway.log"; fail "gateway did not become ready in time"; }
+[ "${ready:-0}" = "1" ] || { cat "$WORK/server.log"; fail "server did not become ready in time"; }
 
 # expect <status> <method-args...> — curls, checks the HTTP code, prints the body path
 expect() {

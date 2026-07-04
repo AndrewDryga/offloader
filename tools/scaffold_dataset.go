@@ -62,7 +62,7 @@ func runScaffoldDataset(args []string, stdout, stderr io.Writer) int {
 	}
 	for _, c := range cols {
 		if !safeColumn(c.Name) {
-			fmt.Fprintf(stderr, "scaffold-dataset: warning: column %q is not a safe identifier — rename it in your data, or the gateway will reject it\n", c.Name)
+			fmt.Fprintf(stderr, "scaffold-dataset: warning: column %q is not a safe identifier — rename it in your data, or the server will reject it\n", c.Name)
 		}
 	}
 

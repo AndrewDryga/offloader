@@ -1,5 +1,5 @@
 {
-  "description": "The globex key tries to read acme's data by smuggling a tenant_id param. The gateway binds tenant from the KEY (tenant_globex) and ignores the param, so acct_apollo (a tenant_acme account) returns zero rows — the tenant filter cannot be overridden.",
+  "description": "The globex key tries to read acme's data by smuggling a tenant_id param. The server binds tenant from the KEY (tenant_globex) and ignores the param, so acct_apollo (a tenant_acme account) returns zero rows — the tenant filter cannot be overridden.",
   "endpoint": "customer_usage_summary",
   "key_id": "demo_globex",
   "bearer": "offl_demo_globex_key",

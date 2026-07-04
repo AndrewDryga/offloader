@@ -1,7 +1,7 @@
 # Example Prometheus alerting rules for Offloader.
 #
 # These fire on the gauges the admin `/metrics` endpoint exposes (see
-# gateway/lib/offloader/metrics.ex). Copy into your Prometheus rule files and tune
+# server/lib/offloader/metrics.ex). Copy into your Prometheus rule files and tune
 # thresholds/`for` durations to your freshness tolerance and disk sizing. Each alert
 # names the likely owner so an operator can classify the incident quickly
 groups:
@@ -14,7 +14,7 @@ groups:
         annotations:
           summary: "Offloader is not serving"
           owner: "offloader"
-          action: "Check the container/process and admin /status; see 'Gateway does not start' runbook."
+          action: "Check the container/process and admin /status; see 'Server does not start' runbook."
 
       - alert: OffloaderNotReady
         expr: offloader_ready != 1

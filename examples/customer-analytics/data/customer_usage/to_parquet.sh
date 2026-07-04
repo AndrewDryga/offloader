@@ -5,7 +5,7 @@
 # snapshots are Parquet; use this to produce a Parquet copy for realism or for the
 # benchmark harness (B01). Best-effort: uses duckdb if present, else python+pyarrow.
 # It does NOT rewrite the manifest — point a manifest's file at the .parquet and set
-# "format": "parquet" if you want the gateway to serve it.
+# "format": "parquet" if you want the server to serve it.
 set -euo pipefail
 cd "$(dirname "$0")"
 IN="customer_usage.csv"

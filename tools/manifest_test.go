@@ -32,8 +32,8 @@ func TestManifestRejectsBadManifest(t *testing.T) {
 	assertCode(t, fs, "missing") // producer
 }
 
-func TestManifestRejectsFieldsTheGatewayRequires(t *testing.T) {
-	// The gateway requires partition_columns/sort_columns (referencing schema columns) and
+func TestManifestRejectsFieldsTheServerRequires(t *testing.T) {
+	// The server requires partition_columns/sort_columns (referencing schema columns) and
 	// non-empty created_at/watermark. This pre-check must reject what the container would,
 	// or "run this before you ship" is a false promise.
 	raw, _ := os.ReadFile(filepath.Join(exampleDir, "data/customer_usage/manifest.json"))

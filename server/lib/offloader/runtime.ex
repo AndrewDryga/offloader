@@ -230,7 +230,7 @@ defmodule Offloader.Runtime do
       # Warm-start from disk first (already-materialized datasets serve at once), then
       # a per-dataset initial refresh — fault-isolated: a slow/failing source records
       # an attempt and boot moves on (engine calls return {:error}, never raise), so
-      # one bad dataset can neither crash nor wedge the gateway. Workers own refresh
+      # one bad dataset can neither crash nor wedge the server. Workers own refresh
       # after boot.
       state =
         state

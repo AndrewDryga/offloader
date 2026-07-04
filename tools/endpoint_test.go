@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-// mockGateway returns a test server that mimics the gateway's API-port behavior:
+// mockServer returns a test server that mimics the server's API-port behavior:
 // good key + endpoint -> a well-formed response; anything else -> 401/404.
-func mockGateway() *httptest.Server {
+func mockServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Header.Get("Authorization") != "Bearer good-key" {
@@ -26,7 +26,7 @@ func mockGateway() *httptest.Server {
 }
 
 func TestEndpointTestPassesOnGoodResponse(t *testing.T) {
-	srv := mockGateway()
+	srv := mockServer()
 	defer srv.Close()
 	code := run([]string{"endpoint", "test", "--url", srv.URL, "--key", "good-key", "--endpoint", "customer_usage_summary", "--params", "from=x&to=y"}, discard{}, discard{})
 	if code != 0 {
@@ -35,7 +35,7 @@ func TestEndpointTestPassesOnGoodResponse(t *testing.T) {
 }
 
 func TestEndpointTestFailsOnUnexpectedStatus(t *testing.T) {
-	srv := mockGateway()
+	srv := mockServer()
 	defer srv.Close()
 	// no key -> 401, but we expect 200 by default -> failure
 	code := run([]string{"endpoint", "test", "--url", srv.URL, "--endpoint", "customer_usage_summary"}, discard{}, discard{})
@@ -45,7 +45,7 @@ func TestEndpointTestFailsOnUnexpectedStatus(t *testing.T) {
 }
 
 func TestEndpointTestVerifiesDenialStatus(t *testing.T) {
-	srv := mockGateway()
+	srv := mockServer()
 	defer srv.Close()
 	// expecting the 401 explicitly should pass
 	code := run([]string{"endpoint", "test", "--url", srv.URL, "--endpoint", "customer_usage_summary", "--expect-status", "401"}, discard{}, discard{})

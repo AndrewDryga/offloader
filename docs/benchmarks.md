@@ -11,7 +11,7 @@ and p50/p95/p99 latency at concurrency 1, 10, and 50.
 BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
 ```
 
-It boots the gateway in `MIX_ENV=prod` against `examples/customer-analytics` with a
+It boots the server in `MIX_ENV=prod` against `examples/customer-analytics` with a
 temp cache, times the cold boot to `/ready`, runs the load, restarts to time a warm
 boot, and writes `summary.json` + `summary.md`. Mode comparison (local_table vs
 remote_scan) is in `dev/scripts/bench-modes.exs`.

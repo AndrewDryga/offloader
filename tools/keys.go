@@ -19,7 +19,7 @@ func init() {
 
 // mintToken generates a bearer token and the one-way hash stored in keys.yml. The token
 // format (`offl_` + 24 random bytes as hex) and the hash (lowercase-hex SHA-256 of the
-// full token) are exactly what the gateway's Offloader.Auth verifies.
+// full token) are exactly what the server's Offloader.Auth verifies.
 func mintToken() (token, hash string, err error) {
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {

@@ -9,7 +9,7 @@ import (
 )
 
 // httpGet fetches a URL with an optional bearer token and a short timeout. Used by
-// doctor / snapshot / support-bundle to talk to a running gateway's admin port.
+// doctor / snapshot / support-bundle to talk to a running server's admin port.
 func httpGet(url, token string) (int, string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -32,7 +32,7 @@ func adminURL(base, path string) string {
 	return strings.TrimRight(base, "/") + path
 }
 
-// fetchDiagnostics returns the gateway's /diagnostics body (caller redacts it).
+// fetchDiagnostics returns the server's /diagnostics body (caller redacts it).
 func fetchDiagnostics(base, token string) (string, error) {
 	code, body, err := httpGet(adminURL(base, "/diagnostics"), token)
 	if err != nil {

@@ -48,7 +48,7 @@ If a check fails, roll back:
 
 - **Bad image or config** — redeploy the previous image tag (pin versions; never
   `:latest`). Health returns immediately; there is no schema migration to undo.
-- **Bad snapshot** — the gateway never swaps in a snapshot that fails validation or
+- **Bad snapshot** — the server never swaps in a snapshot that fails validation or
   compatibility, so serving is already protected. To revert a *good-but-wrong*
   snapshot, roll the dataset back to its previous good snapshot (see
   [runbooks](operations/runbooks.md) → "Rollback to previous snapshot").

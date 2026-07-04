@@ -1,7 +1,7 @@
 # CLI reference — the `offloader` helper
 
 `offloader` is an **optional** command-line helper for authoring and operating a deployment. It
-is **not** part of the container — the gateway needs only its config files and env vars — so you
+is **not** part of the container — the server needs only its config files and env vars — so you
 install it only for the scaffolding, validation, and diagnostics commands below.
 
 ## Install
@@ -112,13 +112,13 @@ offloader keys create --id acme_prod --tenant tenant_acme --endpoints customer_u
 ### `offloader doctor`
 
 Pre-flight check: the toolchain (`docker`, `curl`), optionally a project config, and optionally a
-running gateway's admin `/ready`.
+running server's admin `/ready`.
 
 | Flag | Meaning |
 | --- | --- |
 | `--config` | validate this project config (optional) |
-| `--admin-url` | ping this gateway admin URL (optional) |
-| `--admin-token` | admin token for the gateway ping |
+| `--admin-url` | ping this server admin URL (optional) |
+| `--admin-token` | admin token for the server ping |
 
 ### `offloader endpoint test`
 
@@ -127,7 +127,7 @@ post-deploy check.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--url` | `http://localhost:4000` | gateway API base URL |
+| `--url` | `http://localhost:4000` | server API base URL |
 | `--endpoint` | — | endpoint name |
 | `--key` | — | bearer API key |
 | `--params` | — | query string, e.g. `from=2026-05-30&to=2026-06-01` |
@@ -135,12 +135,12 @@ post-deploy check.
 
 ### `offloader snapshot status`
 
-Print a per-dataset summary from a running gateway: active / last-good snapshot, freshness, and
+Print a per-dataset summary from a running server: active / last-good snapshot, freshness, and
 source health.
 
 | Flag | Meaning |
 | --- | --- |
-| `--admin-url` | gateway admin base URL |
+| `--admin-url` | server admin base URL |
 | `--admin-token` | admin token |
 
 ### `offloader docs`
@@ -149,7 +149,7 @@ Print (or open) the admin-port docs URLs — the generated endpoint catalog and 
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--admin-url` | `http://localhost:4001` | gateway admin base URL |
+| `--admin-url` | `http://localhost:4001` | server admin base URL |
 | `--open` | off | open the endpoint catalog in a browser |
 
 ### `offloader support-bundle`

@@ -118,7 +118,7 @@ materialized, so traffic is held until the instance can actually serve).</li>
 <ul>
 <li><strong>Bad image or config</strong> — redeploy the previous image tag (pin versions; never
 <code>:latest</code>). Health returns immediately; there is no schema migration to undo.</li>
-<li><strong>Bad snapshot</strong> — the gateway never swaps in a snapshot that fails validation or
+<li><strong>Bad snapshot</strong> — the server never swaps in a snapshot that fails validation or
 compatibility, so serving is already protected. To revert a <em>good-but-wrong</em>
 snapshot, roll the dataset back to its previous good snapshot (see
 <a href="runbooks.html">runbooks</a> → &quot;Rollback to previous snapshot&quot;).</li>

@@ -14,7 +14,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS="$REPO_ROOT/dev/scripts"
-GATEWAY="$REPO_ROOT/gateway"
+SERVER="$REPO_ROOT/server"
 CONFIG="$REPO_ROOT/examples/customer-analytics/offloader.yml"
 API_PORT="${OFFLOADER_API_PORT:-4020}"
 ADMIN_PORT="${OFFLOADER_ADMIN_PORT:-4021}"
@@ -37,13 +37,13 @@ cleanup() {
 trap cleanup EXIT
 for p in "$API_PORT" "$ADMIN_PORT"; do lsof -ti:"$p" >/dev/null 2>&1 && fail "port $p in use"; done
 
-cd "$GATEWAY"
+cd "$SERVER"
 export MIX_ENV=prod
 mix deps.get >/dev/null
 mix compile >/dev/null 2>&1
 SECRET="$(openssl rand -base64 48)"
 
-boot() { # boots the gateway with the shared temp cache; sets PID
+boot() { # boots the server with the shared temp cache; sets PID
   PHX_SERVER=1 OFFLOADER_SECRET_KEY_BASE="$SECRET" OFFLOADER_CONFIG="$CONFIG" \
     OFFLOADER_CACHE_DIR="$WORK/cache" OFFLOADER_API_PORT="$API_PORT" OFFLOADER_ADMIN_PORT="$ADMIN_PORT" \
     mix run --no-halt >"$WORK/gw.log" 2>&1 &
@@ -84,7 +84,7 @@ jq -n \
   --slurpfile scen "$WORK/scenarios.jsonl" \
   '{generated_at: $at,
     note: "tiny fixture, machine-relative — NOT a production latency claim",
-    gateway: {cold_load_ms: $cold, warm_load_ms: $warm, rss_mb: $rss, cache_disk_bytes: $disk},
+    server: {cold_load_ms: $cold, warm_load_ms: $warm, rss_mb: $rss, cache_disk_bytes: $disk},
     scenarios: $scen}' >"$OUT_DIR/summary.json"
 
 {
@@ -92,7 +92,7 @@ jq -n \
   echo
   echo "_$(jq -r .note "$OUT_DIR/summary.json")_"
   echo
-  echo "Gateway: cold load ${cold_ms}ms · warm load ${warm_ms}ms · RSS ${rss_mb}MB · cache disk $((disk_bytes/1024))KB"
+  echo "Server: cold load ${cold_ms}ms · warm load ${warm_ms}ms · RSS ${rss_mb}MB · cache disk $((disk_bytes/1024))KB"
   echo
   echo "| scenario | conc | p50 ms | p95 ms | p99 ms | max ms | rps | errors |"
   echo "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"

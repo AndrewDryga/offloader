@@ -51,7 +51,7 @@ type fileJSON struct {
 
 var snapshotRe = regexp.MustCompile(`^[A-Za-z0-9:_.\-]{1,200}$`)
 
-// validateManifest mirrors the gateway's Offloader.Manifest.load checks: required
+// validateManifest mirrors the server's Offloader.Manifest.load checks: required
 // fields, snapshot-id format, ISO timestamps, schema, file existence, and value sets.
 func validateManifest(path string) findings {
 	var out findings
@@ -140,7 +140,7 @@ func checkFiles(rel, dir string, files []fileJSON, out *findings) {
 }
 
 func checkTimestamp(rel, field, value string, out *findings) {
-	// created_at/watermark are required by the gateway, so an absent/empty value is a
+	// created_at/watermark are required by the server, so an absent/empty value is a
 	// finding here too — not a silent pass the container then rejects at load.
 	if value == "" {
 		out.add(rel, field, "missing", "required field "+field+" is missing", "")
@@ -152,7 +152,7 @@ func checkTimestamp(rel, field, value string, out *findings) {
 }
 
 // partition_columns / sort_columns are required and must reference schema columns — the
-// gateway's Manifest.load enforces both; mirror it so this pre-check can't greenlight a
+// server's Manifest.load enforces both; mirror it so this pre-check can't greenlight a
 // manifest the container will reject at refresh.
 func checkColumnRefs(rel, field string, cols *[]string, schema []columnYML, out *findings) {
 	if cols == nil {

@@ -2,7 +2,7 @@ defmodule Offloader.Telemetry do
   @moduledoc """
   Telemetry supervisor and metric definitions.
 
-  `metrics/0` is the single source of truth for what the gateway measures; the
+  `metrics/0` is the single source of truth for what the server measures; the
   Prometheus exporter on the admin port (task G09) reports exactly this list, so
   metrics and docs never drift.
   """
@@ -23,7 +23,7 @@ defmodule Offloader.Telemetry do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  @doc "The metrics the gateway measures. Consumed by the admin-port exporter (G09)."
+  @doc "The metrics the server measures. Consumed by the admin-port exporter (G09)."
   @spec metrics() :: [Telemetry.Metrics.t()]
   def metrics do
     [

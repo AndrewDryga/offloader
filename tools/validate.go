@@ -45,7 +45,7 @@ type sourceYML struct {
 	Type   string `yaml:"type"`
 	Bucket string `yaml:"bucket"`
 	Prefix string `yaml:"prefix"`
-	// Pointer so an explicit `0` (which the gateway rejects) is distinguishable from
+	// Pointer so an explicit `0` (which the server rejects) is distinguishable from
 	// an omitted interval (which it allows).
 	IntervalSeconds *int `yaml:"interval_seconds"`
 }
@@ -84,7 +84,7 @@ type keyYML struct {
 	Status    string   `yaml:"status"`
 }
 
-// validateProject loads and structurally validates a project. It mirrors the gateway's
+// validateProject loads and structurally validates a project. It mirrors the server's
 // key checks (identifiers, references, required fields) as a fast local/CI pre-check;
 // the container remains the authority for the full contract.
 func validateProject(path string) findings {
@@ -130,7 +130,7 @@ func validateSnapshotOrigin(rel string, ds datasetYML, out *findings) {
 }
 
 // auth: required (default) needs a key per request; auth: none serves publicly and is
-// only safe when no endpoint is tenant-scoped — mirrors the gateway's cross-check.
+// only safe when no endpoint is tenant-scoped — mirrors the server's cross-check.
 func validateAuth(project projectYML, endpoints []endpointYML, datasets map[string]datasetYML, out *findings) {
 	switch project.Auth {
 	case "", "required", "none":

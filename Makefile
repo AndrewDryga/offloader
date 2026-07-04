@@ -2,20 +2,20 @@
 #
 #   check         fast local gate: run every component check that exists. Stays green on
 #                 the bare scaffold; each component task fills in its own sub-target.
-#   e2e           manifest -> materialize -> HTTP smoke. Fails until the gateway runs (G01, E02).
+#   e2e           manifest -> materialize -> HTTP smoke. Fails until the server runs (G01, E02).
 #   deploy-check  build + boot the production image locally. Fails until it exists (I01, I04).
 #   doctor        report the required toolchain.
 #
 # Component tasks REPLACE the stub sub-target body with a real check (e.g. G01 makes
-# gateway-check run the mix gate). Until then a stub prints "skip …" and exits 0, so the
+# server-check run the mix gate). Until then a stub prints "skip …" and exits 0, so the
 # fast gate is green on an empty scaffold. e2e and deploy-check fail loudly on purpose:
 # there is nothing to smoke yet.
 .DEFAULT_GOAL := help
 
-check: gateway-check tools-check docs-check ## Fast local gate: every component check that exists
+check: server-check tools-check docs-check ## Fast local gate: every component check that exists
 
-gateway-check: ## Gateway (Elixir/Phoenix) gate: deps, compile (warnings-as-errors), format, test
-	cd gateway && mix deps.get && mix compile --warnings-as-errors && mix format --check-formatted && mix test
+server-check: ## Server (Elixir/Phoenix) gate: deps, compile (warnings-as-errors), format, test
+	cd server && mix deps.get && mix compile --warnings-as-errors && mix format --check-formatted && mix test
 
 tools-check: ## Helper tooling (Go) gate: gofmt, vet, tidy, race tests
 	@test -z "$$(gofmt -l -s tools/)" || { echo "gofmt: run 'gofmt -s -w tools/'"; gofmt -l -s tools/; exit 1; }
@@ -43,4 +43,4 @@ doctor: ## Print required toolchain checks
 help: ## List targets
 	@grep -hE '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:.*## / - /' | sort
 
-.PHONY: check gateway-check tools-check docs-check e2e deploy-check doctor help
+.PHONY: check server-check tools-check docs-check e2e deploy-check doctor help

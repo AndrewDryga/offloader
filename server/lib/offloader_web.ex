@@ -2,7 +2,7 @@ defmodule OffloaderWeb do
   @moduledoc """
   Entrypoint macros for the web layer (`use OffloaderWeb, :router` /
   `use OffloaderWeb, :controller`). Keep this thin: no HTML, no LiveView, no
-  channels — the gateway is a JSON API with two endpoints (product + admin).
+  channels — the server is a JSON API with two endpoints (product + admin).
   """
 
   def router do

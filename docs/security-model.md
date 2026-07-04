@@ -63,7 +63,7 @@ bucket/prefix** than the bulk data if you want to limit who can read the hashes.
 
 ## How we prove it
 
-An adversarial test suite (`gateway/test/offloader/security_suite_test.exs`) exercises the
+An adversarial test suite (`server/test/offloader/security_suite_test.exs`) exercises the
 invariants above on every build: API-key bypass attempts, tenant-override attempts, column
 selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
 port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.

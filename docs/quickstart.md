@@ -27,7 +27,7 @@ time, which is exactly how you'll later mount your own project.
 <summary>Prefer to build the image yourself?</summary>
 
 ```sh
-docker build -t offloader:dev -f gateway/Dockerfile gateway
+docker build -t offloader:dev -f server/Dockerfile server
 ```
 
 Then use `offloader:dev` in place of the `ghcr.io/…` image in every command below.

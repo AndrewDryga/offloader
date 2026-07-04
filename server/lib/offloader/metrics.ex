@@ -10,7 +10,7 @@ defmodule Offloader.Metrics do
   @spec to_prometheus(map()) :: String.t()
   def to_prometheus(diag) do
     [
-      gauge("offloader_up", "1 if the gateway process is serving", "1"),
+      gauge("offloader_up", "1 if the server process is serving", "1"),
       gauge("offloader_ready", "1 if every dataset has an active snapshot", bool(diag[:ready])),
       gauge(
         "offloader_duckdb_up",

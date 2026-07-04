@@ -34,11 +34,11 @@ done
 echo "[2/6] SBOM"
 if have syft; then
   syft "dir:$REPO_ROOT/tools" -o spdx-json > "$DIST/sbom-tools.spdx.json"
-  syft "dir:$REPO_ROOT/gateway" -o spdx-json > "$DIST/sbom-gateway.spdx.json"
+  syft "dir:$REPO_ROOT/server" -o spdx-json > "$DIST/sbom-server.spdx.json"
   note "syft SBOMs written"
 else
   ( cd tools && go list -m all ) > "$DIST/sbom-tools.txt"
-  cp gateway/mix.lock "$DIST/sbom-gateway.mix.lock"
+  cp server/mix.lock "$DIST/sbom-server.mix.lock"
   note "syft absent — wrote go module list + pinned mix.lock as the dependency manifest"
 fi
 
@@ -55,7 +55,7 @@ note "Elixir deps: run 'mix deps.audit' (add {:mix_audit, ...} dev/test) and 'mi
 # 4. Container image (pinned tag) + its digest.
 echo "[4/6] container image"
 if [ "${SKIP_IMAGE:-0}" != 1 ]; then
-  docker build -t "$IMAGE" -f gateway/Dockerfile gateway
+  docker build -t "$IMAGE" -f server/Dockerfile server
   docker image inspect "$IMAGE" --format '{{.Id}}' > "$DIST/image-id.txt"
   note "built $IMAGE ($(cat "$DIST/image-id.txt"))"
   if have grype; then grype "$IMAGE" > "$DIST/grype-image.txt" 2>&1 || true; note "grype image scan -> grype-image.txt"; fi

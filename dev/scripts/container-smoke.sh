@@ -17,7 +17,7 @@ trap cleanup EXIT
 fail() { echo "container-smoke FAIL: $*" >&2; docker logs "$NAME" 2>&1 | tail -30 || true; exit 1; }
 
 echo "container-smoke: building $IMAGE"
-docker build -t "$IMAGE" -f "$REPO_ROOT/gateway/Dockerfile" "$REPO_ROOT/gateway"
+docker build -t "$IMAGE" -f "$REPO_ROOT/server/Dockerfile" "$REPO_ROOT/server"
 
 echo "container-smoke: running (API :$API_PORT, admin :$ADMIN_PORT)"
 docker run -d --name "$NAME" \
