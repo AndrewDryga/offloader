@@ -7,7 +7,9 @@ cd "$(dirname "$0")/../.."
 
 fail=0
 
-         docs/release.md docs/roi.md; do
+for f in README.md docs/concepts.md docs/quickstart.md docs/developer-experience.md \
+         docs/config-reference.md docs/cli.md docs/api.md docs/public-serving.md \
+         docs/security-model.md docs/operator.md docs/deployment.md docs/benchmarks.md \
   [ -f "$f" ] || { echo "docs-check: missing required doc $f" >&2; fail=1; }
 done
 

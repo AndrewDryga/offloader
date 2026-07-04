@@ -97,10 +97,9 @@ diagnostics, docs). Keep the admin port private — see &quot;Port exposure&quot
 </ul>
 <h2 id="upgrade-check-and-rollback">Upgrade check and rollback</h2>
 <ul>
-<li><strong>Before rollout:</strong> deploy the <strong>published, signed image</strong> (pull it — don&#39;t build it) and
-verify the instance with <code>dev/scripts/deploy-check.sh</code> (both ports, health, diagnostics/metrics,
-a manifest→HTTP smoke). Contributors can build-and-verify locally in one step with
-<code>make deploy-check</code>. A broken image or config fails here, not in front of a customer.</li>
+<li><strong>Before rollout:</strong> deploy the <strong>published, signed image</strong> and verify the instance with
+<code>dev/scripts/deploy-check.sh</code> (both ports, health, diagnostics/metrics, a manifest→HTTP
+smoke). A broken image or config fails here, not in front of a customer.</li>
 <li><strong>Upgrade:</strong> deploy the new pinned image tag (never <code>:latest</code>). There is no schema
 migration; the cache rematerializes from the manifest on boot.</li>
 <li><strong>Roll back the image:</strong> redeploy the previous tag (<code>kubectl rollout undo</code> /

@@ -137,34 +137,39 @@ offloader init --out my-project
 offloader validate --config my-project/offloader.yml
 ```
 
-The two files you edit are small and declarative — no SQL. The simplest possible pair:
+The two files you edit are small and declarative — no SQL. Abridged from what `init` just
+generated:
 
 ```yaml
 # my-project/datasets/events.yml — the table + the columns you serve
 id: events
-manifest: data/events/manifest.json     # point this at your snapshot (Parquet + a manifest.json)
+manifest: data/events/manifest.json   # point this at your snapshot (Parquet + a manifest.json)
+tenant_column: tenant_id
 schema:
-  - { name: day,    type: DATE }
-  - { name: tenant, type: VARCHAR }
-  - { name: hits,   type: BIGINT }
+  - { name: event_date,  type: DATE }
+  - { name: tenant_id,   type: VARCHAR }
+  - { name: account_id,  type: VARCHAR }
+  - { name: event_count, type: BIGINT }
 ```
 
 ```yaml
-# my-project/endpoints/events_daily.yml — the REST contract over that dataset
-name: events_daily
+# my-project/endpoints/events_by_day.yml — the REST contract over that dataset
+name: events_by_day
 version: 1
 dataset: events
+tenant: { column: tenant_id }
 params:
   - { name: from, type: date, required: true }
   - { name: to,   type: date, required: true }
 query:
+  group_by: [account_id]
   select:
-    - { as: day,  column: day }
-    - { as: hits, column: hits }
+    - { as: account_id,        column: account_id }
+    - { as: event_count_total, column: event_count, agg: sum }
   filters:
-    - { column: day, op: gte, param: from }
-    - { column: day, op: lte, param: to }
-columns: [day, hits]
+    - { column: event_date, op: gte, param: from }
+    - { column: event_date, op: lte, param: to }
+columns: [account_id, event_count_total]
 ```
 
 Point `manifest:` at a snapshot of your data, then serve it locally in one command:

@@ -17,7 +17,7 @@ already operate. There is no Offloader cloud, and your private data never leaves
 environment. (An optional managed CDN edge can serve already-public data — public only,
 opt-in; see [serving public data](docs/public-serving.md).)
 
-Status: the V1 gateway is **feature-complete and validated against real production
+Status: the gateway is **feature-complete and validated against real production
 data**. The commercial offer is a paid diagnostic plus offload pilot, not a broad data
 platform.
 
@@ -30,6 +30,7 @@ Then, by what you want to do:
 
 - **Try it** — [Quickstart](docs/quickstart.md): run it against a bundled example in ~15 minutes, no cloud needed.
 - **Define your endpoints** — [Config guide](docs/developer-experience.md): what the `offloader.yml` + `datasets/`/`endpoints/`/`keys/` files look like.
+- **Tooling** — [CLI reference](docs/cli.md): the optional `offloader` helper, every command and flag.
 - **Run it in production** — [Operator guide](docs/operator.md) · [Deployment](docs/deployment.md).
 - **Security** — [Security model](docs/security-model.md): what's protected, and what you own.
 - **Cost case** — [ROI diagnostic](docs/roi.md) · [Benchmarks](docs/benchmarks.md).
@@ -82,7 +83,8 @@ The engineer's-eye view (the plain-language version is in [concepts](docs/concep
   allowlist-bounded `?columns=` subset.
 - Scale: a DuckDB read-connection pool + per-request serving in the caller process
   (~5–6k req/s cached, p99 < 60ms on 50KB nested payloads; validated at 66
-  datasets / 67 endpoints against a real GCS bucket — see `docs/benchmarks.md`).
+  datasets / 67 endpoints against a real production GCS bucket). Measure on your own
+  data with the [benchmark harness](docs/benchmarks.md).
 - Expose generated docs/OpenAPI + a client `/schema`, Prometheus metrics (pool,
   refresh, per-endpoint latency), and redacted diagnostics on a separate admin port.
 - Preserve the previous good snapshot on refresh failure (`rollback`), and ship a
@@ -98,7 +100,7 @@ docker run \
   -e OFFLOADER_CONFIG=/etc/offloader/offloader.yml \
   -e OFFLOADER_CACHE_DIR=/var/lib/offloader/cache \
   -e OFFLOADER_SECRET_KEY_BASE="$(openssl rand -base64 48)" \
-  -v ./offloader.yml:/etc/offloader/offloader.yml:ro \
+  -v ./my-project:/etc/offloader:ro \
   -v offloader-cache:/var/lib/offloader/cache \
   -p 4000:4000 \
   -p 127.0.0.1:4001:4001 \
@@ -113,8 +115,9 @@ The full env-var reference is in the [config guide](docs/developer-experience.md
 gateway/          Elixir/Phoenix self-hostable container: REST APIs, auth,
                   tenant enforcement, env-driven config, manifest refresh,
                   DuckDB materialization, admin/metrics port
-tools/            Optional helper CLI: config/manifest validation,
-                  diagnostics, endpoint tests, support bundles
+tools/            Optional helper CLI (docs/cli.md): project scaffolding, config/
+                  manifest validation, local serve for POCs, key minting,
+                  diagnostics, endpoint tests, support bundles, ROI report
 deploy/           Container deployment notes and examples; no managed cloud scaffold
 docs/             Product, architecture, security, operations, and release docs
 examples/         Local demo manifests, endpoint configs, and sample datasets

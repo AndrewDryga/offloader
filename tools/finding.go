@@ -33,14 +33,6 @@ func (fs *findings) add(file, path, code, msg, hint string) {
 	*fs = append(*fs, finding{File: file, Path: path, Code: code, Message: msg, Hint: hint})
 }
 
-func (fs findings) codes() []string {
-	out := make([]string, len(fs))
-	for i, f := range fs {
-		out[i] = f.Code
-	}
-	return out
-}
-
 // report prints findings to stderr (or an OK line to stdout) and returns the exit code.
 func report(stdout, stderr io.Writer, fs findings, okMsg string) int {
 	if len(fs) == 0 {

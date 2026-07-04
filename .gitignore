@@ -33,3 +33,6 @@ dev/docs-site/node_modules/
 *.tfstate.*
 .terraform.tfstate.lock.info
 crash.log
+
+# Local release artifacts (dev/scripts/release.sh writes dist/; CI uploads it, never commits it)
+dist/

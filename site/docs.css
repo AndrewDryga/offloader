@@ -94,6 +94,21 @@
 .prose blockquote strong { color: var(--ink); }
 .prose hr { margin: 2.4rem 0; border: 0; border-top: 1px solid var(--line); }
 
+/* collapsibles (<details> in the markdown — optional / deep-dive paths) */
+.prose details { max-width: 46rem; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
+.prose details > summary {
+  cursor: pointer; list-style: none; padding: 0.7rem 1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  color: var(--ink-2); font-weight: 550;
+  transition: color 0.15s var(--ease);
+}
+.prose details > summary::-webkit-details-marker { display: none; }
+.prose details > summary::after { content: "+"; font-family: var(--mono); font-size: 1.15rem; line-height: 1; color: var(--accent-2); }
+.prose details[open] > summary::after { content: "\2212"; }   /* − */
+.prose details > summary:hover { color: var(--ink); }
+.prose details[open] > summary { border-bottom: 1px solid var(--line); }
+.prose details > :not(summary) { margin: 0.9rem 1rem; }
+
 /* inline + block code — same material as the marketing artifacts */
 .prose :not(pre) > code {
   font-family: var(--mono); font-size: 0.86em;
