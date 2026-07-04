@@ -14,7 +14,14 @@ defmodule Offloader.Config.LoaderTest do
     @behaviour Offloader.Source.GcsClient
 
     def start(opts), do: {:ok, _} = Agent.start_link(fn -> Map.new(opts) end, name: __MODULE__)
-    def stop, do: if(pid = Process.whereis(__MODULE__), do: Agent.stop(pid))
+    # start_link ties the Agent to the test process, so on_exit may run stop/0 once
+    # that process (and the link) has begun tearing the Agent down — whereis can still
+    # return a pid that exits before Agent.stop reaches it. Tolerate that race.
+    def stop do
+      if pid = Process.whereis(__MODULE__), do: Agent.stop(pid)
+    catch
+      :exit, _ -> :ok
+    end
 
     @impl true
     def list_objects(_bucket, prefix) do
