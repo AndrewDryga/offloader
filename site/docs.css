@@ -167,12 +167,21 @@
   .docs-home { margin-top: 0.6rem; }
 }
 
-/* ── concepts diagrams — reuse the marketing .flow (styles.css); add a before/after
-      contrast lane and a "warn" node for the costly path. ────────────────────────── */
-.flow-contrast { display: grid; gap: 1.4rem; }
-.flow-lane { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.9rem; }
+/* ── concepts diagrams — reuse the marketing .flow (styles.css), but always VERTICAL in the
+      narrower docs column: a horizontal 4-node row is a tight fit here. ───────────────── */
+.prose .flow-track { flex-direction: column; }
+.prose .flow .hop { flex-direction: row; min-width: 0; width: 100%; justify-content: flex-start; gap: 0.7rem; padding: 0.45rem 0 0.45rem 1.1rem; }
+.prose .flow .arw { width: 1px; height: 1.4rem; }
+.prose .flow .arw::after { right: auto; left: 50%; top: auto; bottom: 0; transform: translate(-50%, 1px) rotate(135deg); }
+.prose .flow .hop-batch .arw { background-image: repeating-linear-gradient(180deg, var(--line) 0 4px, transparent 4px 8px); }
+
+/* Before/after contrast: two clearly-separated lanes with a divider, so they don't read as
+   one diagram. Each lane's track is the vertical .flow above. */
+.flow-contrast { display: grid; gap: 0; }
+.flow-lane { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 1rem; }
+.flow-lane + .flow-lane { margin-top: 2.75rem; padding-top: 2.75rem; border-top: 1px dashed var(--line); }
 .lane-tag {
-  align-self: start; margin-top: 0.35rem; font-family: var(--mono); font-size: var(--fs-label);
+  margin-top: 0.15rem; font-family: var(--mono); font-size: var(--fs-label);
   font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase;
   padding: 0.22rem 0.6rem; border-radius: 6px;
 }
