@@ -80,62 +80,61 @@ diagnostics fields. It links to the deep docs rather than repeating…">
 <p>Everything an operator needs to run Offloader in production, with real commands and
 diagnostics fields. It links to the deep docs rather than repeating them.</p>
 <h2 id="deploy">Deploy</h2>
-<ul>
-<li>Examples for <code>docker run</code>, Compose, Kubernetes, and Prometheus:
-<a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/README.md"><code>../deploy/</code></a>.</li>
-<li>The container reads env vars + config; nothing is baked into the image. Required:
-<code>OFFLOADER_CONFIG</code>, <code>OFFLOADER_SECRET_KEY_BASE</code>. Recommended: <code>OFFLOADER_ADMIN_TOKEN</code>
-(gates <code>/diagnostics</code>), <code>OFFLOADER_LOG_LEVEL</code>.</li>
-<li><strong>Config source:</strong> <code>OFFLOADER_CONFIG</code> is either a <strong>mounted directory</strong> (a path to
-<code>offloader.yml</code>) or a <strong><code>gs://…</code> bucket prefix</strong>, fetched at boot so the container is fully
-stateless. Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> and Offloader re-checks the bucket
-on that interval and <strong>hot-reloads changes with no restart</strong> — even a dataset schema change
-cuts over with zero downtime, and a bad revision is ignored (the running config keeps serving).
-Full details: <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</li>
-<li>Two ports: <strong>API</strong> (product traffic, API-key auth) and <strong>ADMIN</strong> (health, metrics,
-diagnostics, docs). Keep the admin port private — see &quot;Port exposure&quot; below.</li>
-</ul>
+<p>The container reads env vars plus config; nothing is baked into the image. Two
+variables are required — <code>OFFLOADER_CONFIG</code> and <code>OFFLOADER_SECRET_KEY_BASE</code> —
+and two more are worth setting from day one: <code>OFFLOADER_ADMIN_TOKEN</code> (gates
+<code>/diagnostics</code>) and <code>OFFLOADER_LOG_LEVEL</code>. Ready-to-adapt examples for
+<code>docker run</code>, Compose, Kubernetes, and Prometheus live in
+<a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/README.md"><code>../deploy/</code></a>.</p>
+<p><code>OFFLOADER_CONFIG</code> points at either a <strong>mounted directory</strong> (a path to
+<code>offloader.yml</code>) or a <strong><code>gs://…</code> bucket prefix</strong>, fetched at boot so the
+container is fully stateless. Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> and
+Offloader re-checks the bucket on that interval and <strong>hot-reloads changes with
+no restart</strong> — even a dataset schema change cuts over with zero downtime, and a
+bad revision is ignored (the running config keeps serving). Full details:
+<a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</p>
+<p>The container listens on two ports: <strong>API</strong> (product traffic, API-key auth) and
+<strong>ADMIN</strong> (health, metrics, diagnostics, docs). Keep the admin port private —
+see &quot;Port exposure&quot; below.</p>
 <h2 id="upgrade-check-and-rollback">Upgrade check and rollback</h2>
-<ul>
-<li><strong>Before rollout:</strong> deploy the <strong>published, signed image</strong> and verify the instance — both
-ports, health, diagnostics/metrics, and a manifest→HTTP smoke — before it takes traffic. A
-broken image or config fails here, not in front of a customer.</li>
-<li><strong>Upgrade:</strong> deploy the new pinned image tag (never <code>:latest</code>). There is no schema
-migration; the cache rematerializes from the manifest on boot.</li>
-<li><strong>Roll back the image:</strong> redeploy the previous tag (<code>kubectl rollout undo</code> /
-<code>docker compose up</code> with the old tag). Health returns immediately.</li>
-<li><strong>Roll back a snapshot:</strong> a bad snapshot never swaps in (validation + compatibility
-gate it). To revert a <em>good-but-wrong</em> snapshot, roll the dataset back to its previous
-good one (see <a href="runbooks.html">runbooks</a> → &quot;Rollback to previous snapshot&quot;).</li>
-</ul>
+<p>Always deploy the <strong>published, signed image</strong>, pinned to a version tag — never
+<code>:latest</code>. Before an instance takes traffic, verify it: both ports up, health
+green, diagnostics and metrics responding, and one manifest→HTTP smoke call. A
+broken image or config fails here, not in front of a customer.</p>
+<p>Upgrades are uneventful by design: there is no schema migration, and the cache
+rematerializes from the manifest on boot. Rolling back an image is just
+redeploying the previous tag (<code>kubectl rollout undo</code>, or <code>docker compose up</code>
+with the old tag) — health returns immediately.</p>
+<p>Snapshots protect themselves: a bad one never swaps in, because validation and
+the compatibility gate reject it. To revert a <em>good-but-wrong</em> snapshot, roll
+the dataset back to its previous good one (see
+<a href="runbooks.html">runbooks</a> → &quot;Rollback to previous snapshot&quot;).</p>
 <h2 id="cache-quarantine-and-rebuild">Cache quarantine and rebuild</h2>
 <p>The materialization cache is a mounted volume. To rebuild: stop the container, remove
 the cache volume (one dataset: its materialized files; all: the whole volume), restart
 — the server rematerializes from the current manifest. Details:
 <a href="runbooks.html">runbooks</a> → &quot;Cache quarantine and rebuild&quot;.</p>
 <h2 id="sizing">Sizing</h2>
-<ul>
-<li><strong>Memory:</strong> the server materializes snapshots into DuckDB; RSS scales with active
-snapshot size. The example runs at ~160 MB RSS; size for your largest dataset plus
-headroom. Measure with the <a href="benchmarks.html">benchmark harness</a>.</li>
-<li><strong>Disk:</strong> the cache volume holds the DuckDB file(s); size it for your largest
-snapshot plus a retained previous snapshot, plus margin. <code>offloader_cache_disk_free_bytes</code>
-alerts before it fills.</li>
-<li><strong>CPU:</strong> reads are served from a materialized table across a pool of DuckDB read
-connections (<code>OFFLOADER_POOL_SIZE</code>, default 16); requests run concurrently, so throughput
-scales with the pool size, not a single queue. When every connection is busy a request is
-shed as <code>503</code> rather than queueing unboundedly; raise the pool size (and CPU) if you see
-that under load. Watch p95 (95th-percentile latency) with the <a href="benchmarks.html">benchmark harness</a>.</li>
-</ul>
+<p><strong>Memory</strong> scales with what&#39;s loaded: the server materializes snapshots into
+DuckDB, so RSS follows your active snapshot sizes. The bundled example runs at
+~160 MB RSS; size for your largest dataset plus headroom, and measure with the
+<a href="benchmarks.html">benchmark harness</a>.</p>
+<p><strong>Disk</strong> is the cache volume, which holds the DuckDB file(s). Size it for your
+largest snapshot plus a retained previous snapshot, plus margin —
+<code>offloader_cache_disk_free_bytes</code> alerts before it fills.</p>
+<p><strong>CPU</strong> buys concurrency. Reads are served from a materialized table across a
+pool of DuckDB read connections (<code>OFFLOADER_POOL_SIZE</code>, default 16), so requests
+run concurrently and throughput scales with the pool size, not a single queue.
+When every connection is busy, a request is shed as a <code>503</code> rather than queueing
+unboundedly — if you see that under load, raise the pool size (and CPU). Watch
+p95 (95th-percentile latency) with the <a href="benchmarks.html">benchmark harness</a>.</p>
 <h2 id="security-model">Security model</h2>
-<ul>
-<li>Full model: <a href="security-model.html"><code>security-model.md</code></a>. API keys are hashed at rest,
-revocable, scoped to endpoints, and tenant-bound; the compiler inserts the tenant
-filter and it cannot be overridden. Mint keys with <code>offloader keys create</code> (the token
-is shown once; only its hash is stored).</li>
-<li>These invariants are covered by an adversarial security test suite that runs on every build
-(cross-tenant reads, key-scope escapes, injection, and more).</li>
-</ul>
+<p>API keys are hashed at rest, revocable, scoped to endpoints, and tenant-bound;
+the compiler inserts the tenant filter and it cannot be overridden. Mint keys
+with <code>offloader keys create</code> — the token is shown once, and only its hash is
+stored. An adversarial security test suite exercises these invariants on every
+build (cross-tenant reads, key-scope escapes, injection, and more). The full
+model is in <a href="security-model.html"><code>security-model.md</code></a>.</p>
 <h2 id="port-exposure">Port exposure</h2>
 <p>Offloader ships two ports and redaction; <strong>you</strong> own how the admin port is exposed.
 Keep it private (loopback, an internal network, a proxy, or your IAM) — it serves
@@ -166,16 +165,15 @@ prints a concise per-dataset summary. Metrics for alerting are on <code>/metrics
 <li><code>offloader_cache_disk_free_bytes</code> low — the cache volume is filling.</li>
 </ul>
 <h2 id="scaling-availability">Scaling &amp; availability</h2>
-<p>Two independent axes:</p>
-<ul>
-<li><strong>Throughput (one instance)</strong> — reads run on a DuckDB connection pool; size it with
-<code>OFFLOADER_POOL_SIZE</code>, and bound memory with <code>OFFLOADER_DUCKDB_THREADS</code> /
-<code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>. A saturated pool sheds excess as a retryable <code>503</code>.</li>
-<li><strong>Availability (many instances)</strong> — an instance is <strong>stateless</strong>: it materializes each
-snapshot into its own local cache from the bucket and serves reads with no shared state or
-coordination. Run N behind your load balancer; each loads config and snapshots
-independently, and any instance can serve any request. Keep each instance&#39;s admin port private.</li>
-</ul>
+<p>These are two independent axes. For <strong>throughput</strong>, scale a single instance:
+reads run on a DuckDB connection pool sized with <code>OFFLOADER_POOL_SIZE</code>, and you
+bound memory with <code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>.
+A saturated pool sheds excess load as a retryable <code>503</code>.</p>
+<p>For <strong>availability</strong>, scale out: an instance is <strong>stateless</strong> — it materializes
+each snapshot into its own local cache from the bucket and serves reads with no
+shared state or coordination. Run N behind your load balancer; each loads config
+and snapshots independently, and any instance can serve any request. Keep each
+instance&#39;s admin port private.</p>
 <h2 id="support">Support</h2>
 <p>Support is a <strong>response-time commitment</strong>, not an uptime SLA — you run the container, so
 availability is yours, and you email a person, not a queue. The
@@ -196,7 +194,8 @@ classification (Offloader vs customer environment vs upstream data) from <code>/
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
       <div>
@@ -223,10 +222,6 @@ classification (Offloader vs customer environment vs upstream data) from <code>/
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>
-  </div>
-  <div class="wrap foot-legal">
-    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
-    <span>© 2026 Offloader</span>
   </div>
 </footer>
 <script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>

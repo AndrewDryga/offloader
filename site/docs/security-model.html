@@ -81,17 +81,15 @@ in plain terms, what it protects for you and what you remain responsible…">
 in plain terms, what it protects for you and what you remain responsible for. (Newer to the
 concepts? See <a href="concepts.html">What Offloader is</a>.)</p>
 <h2 id="the-short-version">The short version</h2>
-<ul>
-<li>Your data, config, logs, and metrics <strong>stay in your environment</strong>. Offloader makes no
-outbound telemetry calls.</li>
-<li>Consumers reach data only through <strong>named endpoints</strong> on the API port, using an <strong>API key</strong>
-you issue. There is no arbitrary SQL.</li>
-<li>Each key is scoped to <strong>specific endpoints</strong> and bound to <strong>one tenant</strong> (customer/account).
-Offloader inserts the tenant filter itself — a caller <strong>cannot</strong> widen it or read another
-tenant&#39;s rows.</li>
-<li>Operator surfaces (docs, metrics, diagnostics) are on a <strong>separate admin port</strong> that <strong>you</strong>
-keep private. Offloader is not a login/identity product.</li>
-</ul>
+<p>Everything stays in your environment — the data, the config, the logs, the
+metrics. Offloader makes no outbound telemetry calls.</p>
+<p>Consumers never get SQL access. They reach data only through the <strong>named
+endpoints</strong> you define, on the API port, with an <strong>API key</strong> you issue. Each key
+is scoped to specific endpoints and bound to <strong>one tenant</strong> (customer/account),
+and Offloader inserts the tenant filter itself — a caller cannot widen it or
+read another tenant&#39;s rows.</p>
+<p>Operator surfaces (docs, metrics, diagnostics) live on a <strong>separate admin port</strong>
+that <strong>you</strong> keep private. Offloader is not a login or identity product.</p>
 <h2 id="who-can-reach-what">Who can reach what</h2>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -121,28 +119,26 @@ keep private. Offloader is not a login/identity product.</li>
 is stored in config — never the token itself. Revoke a key by changing its status; it&#39;s denied
 immediately.</p>
 <h2 id="what-offloader-enforces-you-get-these-for-free">What Offloader enforces (you get these for free)</h2>
-<ul>
-<li><strong>No arbitrary SQL</strong> reaches consumers — only your declared endpoints.</li>
-<li><strong>Endpoint allowlist</strong> per key: a key can call only the endpoints granted to it.</li>
-<li><strong>Tenant isolation:</strong> the tenant filter is inserted server-side from the key and cannot be
-overridden by a request parameter.</li>
-<li><strong>Column allowlist:</strong> an endpoint can return only its declared columns — checked before the
-query runs.</li>
-<li><strong>Safe errors:</strong> a forbidden endpoint and a non-existent one return the <strong>same</strong> response, so
-probing can&#39;t discover what exists.</li>
-<li><strong>Secrets stay out of the open:</strong> logs, metrics, diagnostics, and support bundles never
-include API keys, tokens, credentialed URLs, or raw params by default; support bundles are
-redacted and list what&#39;s inside.</li>
-<li><strong>Read-only object-store credentials</strong> are the intended posture — Offloader only reads snapshots.</li>
-</ul>
+<p>A consumer can never send SQL — the only thing they can call is an endpoint you
+declared. Their key works only on the endpoints granted to it, and the tenant
+filter comes from the key itself, inserted server-side; no request parameter can
+override it. Columns are locked down the same way: an endpoint can return only
+its declared columns, and that allowlist is checked before the query ever runs.</p>
+<p>Errors don&#39;t leak information either. Calling a forbidden endpoint returns the
+<strong>same</strong> response as calling one that doesn&#39;t exist, so a probing caller can&#39;t
+map out what&#39;s there.</p>
+<p>Secrets stay out of the open. Logs, metrics, diagnostics, and support bundles
+never include API keys, tokens, credentialed URLs, or raw request params by
+default — bundles are redacted and list exactly what&#39;s inside. And the intended
+posture for object-store credentials is <strong>read-only</strong>: Offloader only ever reads
+snapshots, so that&#39;s all its credentials should allow.</p>
 <h2 id="what-you39re-responsible-for">What you&#39;re responsible for</h2>
-<ul>
-<li><strong>Exposing the admin port safely.</strong> Offloader ships the separation (two ports) and redaction;
-you decide how the admin port is reached — loopback, an internal network, a proxy, or your IAM.</li>
-<li><strong>TLS and ingress</strong> in front of the API port.</li>
-<li><strong>The snapshot pipeline</strong> that publishes data to object storage, and the object-store
-permissions themselves.</li>
-</ul>
+<p>Three things stay on your side. You decide how the <strong>admin port</strong> is reached —
+Offloader ships the two-port separation and the redaction, but whether that
+means loopback, an internal network, a proxy, or your IAM is your call. You put
+<strong>TLS and ingress</strong> in front of the API port. And you own the <strong>snapshot
+pipeline</strong> that publishes data to object storage, along with the object-store
+permissions themselves.</p>
 <p>Offloader does <strong>not</strong> provide RBAC, SSO, org/team management, or a hosted control plane. If you
 need enterprise access controls, run the admin port behind the ones you already use.</p>
 <h2 id="co-hosting-config-in-the-bucket">Co-hosting config in the bucket</h2>
@@ -167,7 +163,8 @@ port, secret redaction in logs and bundles, and safe rollback of a failed snapsh
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
       <div>
@@ -194,10 +191,6 @@ port, secret redaction in logs and bundles, and safe rollback of a failed snapsh
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>
-  </div>
-  <div class="wrap foot-legal">
-    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
-    <span>© 2026 Offloader</span>
   </div>
 </footer>
 <script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>

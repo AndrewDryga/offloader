@@ -122,14 +122,12 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
 </tbody></table>
 </div>
 <h2 id="support-exclusions">Support exclusions</h2>
-<p>These are the customer&#39;s, not covered by the Offloader support response-time target:</p>
-<ul>
-<li>Upstream pipeline failures; bad or incomplete manifests.</li>
-<li>Customer IAM/network changes; object-store outages.</li>
-<li>Insufficient disk, memory, or CPU.</li>
-<li>Unsupported config changes.</li>
-<li>Data modeling work; custom connector work outside a signed SOW.</li>
-</ul>
+<p>The support response-time target covers Offloader&#39;s own behavior, not the
+environment around it. Upstream pipeline failures and bad or incomplete
+manifests are the data producer&#39;s to fix. IAM and network changes, object-store
+outages, and insufficient disk, memory, or CPU belong to the team running the
+environment. Unsupported config changes, data-modeling work, and custom
+connector work outside a signed SOW aren&#39;t covered either.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="runbooks.html"><span>Previous</span><b>Runbooks</b></a>
@@ -141,7 +139,8 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
       <div>
@@ -168,10 +167,6 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>
-  </div>
-  <div class="wrap foot-legal">
-    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
-    <span>© 2026 Offloader</span>
   </div>
 </footer>
 <script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>

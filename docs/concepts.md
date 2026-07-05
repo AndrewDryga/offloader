@@ -94,7 +94,7 @@ Two more you'll see in operations:
     <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
     <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
-    <div class="hop"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
   </div>
   <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>

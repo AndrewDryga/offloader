@@ -121,7 +121,10 @@
   font-family: var(--mono); font-size: var(--fs-mono); line-height: 1.7;
   font-variant-numeric: tabular-nums; color: var(--ink-2);
 }
-.prose pre code { background: none; border: 0; padding: 0; font-size: inherit; color: inherit; white-space: pre; }
+/* font-family must be re-inherited: the UA stylesheet's `code { font-family: monospace }`
+   otherwise overrides the font set on `pre`, and the UA fallback font's `ff` ligature is
+   narrower than two columns — breaking vertical alignment of trailing comments. */
+.prose pre code { background: none; border: 0; padding: 0; font-family: inherit; font-size: inherit; color: inherit; white-space: pre; }
 
 /* tables — bordered, mono header labels, horizontal scroll on small screens */
 /* wrap the scroll on a container, NOT on the table (display:block would strip row/cell roles) */
@@ -188,6 +191,7 @@
 .prose .flow .hop { flex-direction: row; min-width: 0; width: 100%; justify-content: flex-start; gap: 0.7rem; padding: 0.45rem 0 0.45rem 1.1rem; }
 .prose .flow .arw { width: 1px; height: 1.4rem; }
 .prose .flow .arw::after { right: auto; left: 50%; top: auto; bottom: 0; transform: translate(-50%, 1px) rotate(135deg); }
+.prose .flow .hop-rev .arw::after { bottom: auto; top: 0; transform: translate(-50%, -1px) rotate(315deg); }
 .prose .flow .hop-batch .arw { background-image: repeating-linear-gradient(180deg, var(--line) 0 4px, transparent 4px 8px); }
 
 /* Before/after contrast: two clearly-separated lanes with a divider, so they don't read as

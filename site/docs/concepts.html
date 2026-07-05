@@ -221,7 +221,7 @@ cloud, and your private data never leaves your environment.</p>
     <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
     <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
-    <div class="hop"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
   </div>
   <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>
@@ -251,7 +251,8 @@ cloud, and your private data never leaves your environment.</p>
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
       <div>
@@ -278,10 +279,6 @@ cloud, and your private data never leaves your environment.</p>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>
-  </div>
-  <div class="wrap foot-legal">
-    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
-    <span>© 2026 Offloader</span>
   </div>
 </footer>
 <script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>

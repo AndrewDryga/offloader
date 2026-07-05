@@ -52,13 +52,31 @@ symptom → signals → likely owner → action → escalation.
 - **Owner:** customer environment.
 - **Action:** grow the cache volume or clear old snapshots, then restart.
 
-## Pool busy / endpoint latency regression
+## Pool busy / endpoint latency regression — sizing the read pool
 
-- **Signals:** rising p95/p99 (benchmark harness / your APM); `DIAG` `pool`.
-- **Owner:** Offloader (serving) or customer (load).
-- **Action:** compare against a benchmark baseline (`../benchmarks.md`). For a hot,
-  high-QPS endpoint on `remote_scan`, move it to `local_table`. Consider the response
-  cache for repeated params.
+- **Signals:** rising p95/p99 (benchmark harness / your APM); `offloader_pool_busy`
+  sustained near `offloader_pool_connections`; `DIAG` `pool`.
+- **Owner:** Offloader (serving) or customer (load / sizing).
+- **Action:** classify the bottleneck first, then size for it — the right pool size
+  depends on the workload and serving mode, not a single number. Baseline against
+  [`benchmarks.md`](../benchmarks.md).
+  - **Cache hits dominate** (stable params + `cache.policy: snapshot`): a hit serves a
+    precomputed, pre-encoded body and barely touches the pool, so pool size is a non-issue
+    — turn caching on. Latency here is CPU/payload, not the pool.
+  - **`local_table` misses, high concurrency:** a materialized read is a fast in-memory
+    query, so throughput scales cleanly with the pool — raise `OFFLOADER_POOL_SIZE` (and CPU
+    to match). Measured on a 4-vCPU box, a 128-connection pool served the whole suite with
+    zero errors where a 16-connection pool was shedding `503`s. This is the main throughput knob.
+  - **`remote_scan` misses:** each read waits on the object store, so a large pool of them
+    thrashes the box — a burst of fat-endpoint misses can push tail latency into seconds. Do
+    NOT chase it by raising the pool; `OFFLOADER_REMOTE_SCAN_CONCURRENCY` (default
+    `min(pool_size, 16)`) caps them for exactly this reason. Scale **out** (more replicas)
+    instead, move a hot endpoint to `local_table`, or make the source Parquet prunable
+    ([architecture](../architecture.md#getting-the-most-from-remote_scan)).
+  - **Multi-MB payloads:** bandwidth-bound on the response write, not the pool — paginate or
+    lower the endpoint's `limit`; more connections won't help.
+- **Rule of thumb:** start at the default 16; scale the pool up for `local_table` throughput,
+  scale replicas out for `remote_scan` and availability.
 
 ## Tenant/auth misconfiguration / key or auth failures
 

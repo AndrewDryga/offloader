@@ -182,7 +182,8 @@ const FOOT = `<footer class="site-foot">
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word">${BRAND_MARK} Offloader</p>
-      <p class="foot-tag">The serving layer for customer-facing analytics. Self-hosted; your private data never leaves your environment.</p>
+      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
       <div>
@@ -209,10 +210,6 @@ const FOOT = `<footer class="site-foot">
         <a href="${REPO}">GitHub</a>
       </div>
     </nav>
-  </div>
-  <div class="wrap foot-legal">
-    <span>Honest claims only. Freshness is minutes to hours, not real-time.</span>
-    <span>© 2026 Offloader</span>
   </div>
 </footer>`;
 
