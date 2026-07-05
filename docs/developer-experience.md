@@ -76,8 +76,9 @@ Everything else has a sensible default:
   `min(pool_size, 16)` — caps slow object-store reads so they can't starve the pool of fast
   `local_table` queries; see [architecture](architecture.md#getting-the-most-from-remote_scan)),
   `OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the container's
-  memory allocation), `OFFLOADER_CACHE_MAX_ENTRIES` (response-cache entry ceiling, default
-  10,000 — raise it for more distinct query shapes, lower it to cap cache memory).
+  memory allocation), `OFFLOADER_CACHE_MAX_ENTRIES` (response-cache entry ceiling, default 10,000 — it
+  bounds the **number** of cached responses, not bytes, so cache RAM ≈ entries × average
+  response size; raise it for more distinct query shapes, lower it for fat payloads to cap memory).
 
 Object-store credentials are needed only when your config reads from a remote source (below);
 the local example needs no cloud vars and makes no outbound calls.
