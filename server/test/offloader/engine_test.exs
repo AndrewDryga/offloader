@@ -215,12 +215,17 @@ defmodule Offloader.EngineTest do
     assert Enum.all?(results, &match?({:ok, %{rows: [[36]]}}, &1))
   end
 
-  test "execute decodes json_columns into nested terms", %{eng: eng} do
+  test "execute wraps json_columns as raw fragments that serialize to nested JSON", %{eng: eng} do
     sql = ~s|SELECT to_json({a: 1, b: [10, 20]})::VARCHAR AS payload|
 
-    assert {:ok, %{columns: ["payload"], rows: [[decoded]]}} =
+    assert {:ok, %{columns: ["payload"], rows: [[fragment]]}} =
              Engine.execute(eng, sql, [], ["payload"])
 
-    assert decoded == %{"a" => 1, "b" => [10, 20]}
+    # A `to_json` column is a pre-encoded fragment — embedded verbatim, never decoded + re-encoded.
+    assert %Offloader.RawJSON{} = fragment
+
+    assert JSON.decode!(JSON.encode!(%{payload: fragment})) == %{
+             "payload" => %{"a" => 1, "b" => [10, 20]}
+           }
   end
 end

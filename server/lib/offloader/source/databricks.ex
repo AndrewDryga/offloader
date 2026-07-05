@@ -73,15 +73,15 @@ defmodule Offloader.Source.Databricks do
 
   defp commit_added(client, bucket, %{"name" => name}) do
     with {:ok, body} <- client.get_object(bucket, name) do
-      case Jason.decode(body) do
+      case JSON.decode(body) do
         {:ok, %{"added" => added}} when is_list(added) ->
           {:ok, Enum.filter(added, &is_binary/1)}
 
         {:ok, _other} ->
           {:error, {:invalid_commit, name, "missing \"added\" list"}}
 
-        {:error, %Jason.DecodeError{} = e} ->
-          {:error, {:invalid_commit, name, Exception.message(e)}}
+        {:error, reason} ->
+          {:error, {:invalid_commit, name, "invalid JSON: #{inspect(reason)}"}}
       end
     end
   end

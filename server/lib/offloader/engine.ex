@@ -102,7 +102,7 @@ defmodule Offloader.Engine do
   Run a compiled SQL string with bound value params, on a pooled read connection in
   the CALLER's process (no GenServer round-trip). Returns {:ok, %{columns, rows}}.
   `json_columns` names output columns whose (VARCHAR) value is a JSON document to be
-  decoded into a nested term.
+  wrapped as a raw JSON fragment (embedded verbatim on serialize).
   """
   @spec execute(GenServer.server(), String.t(), [term()], [String.t()]) ::
           {:ok, map()} | {:error, Error.t()}
@@ -385,17 +385,11 @@ defmodule Offloader.Engine do
     end)
   end
 
-  # A `to_json(col)` projection returns a JSON document as VARCHAR; decode it so the
-  # response carries a nested object/array instead of a JSON string.
+  # A `to_json(col)` projection returns a JSON document as VARCHAR. Wrap it as a pre-encoded
+  # fragment so the response carries it verbatim — never decoded to a term and re-encoded (the
+  # response cache stores the term, so that re-encode would otherwise run on every serve).
   defp decode_json(nil), do: nil
-
-  defp decode_json(value) when is_binary(value) do
-    case Jason.decode(value) do
-      {:ok, decoded} -> decoded
-      _ -> value
-    end
-  end
-
+  defp decode_json(value) when is_binary(value), do: Offloader.RawJSON.new(value)
   defp decode_json(value), do: value
 
   # ── checkout / checkin (atomics spinlock over ETS slots) ───────────────────────
@@ -537,7 +531,7 @@ defmodule Offloader.Engine do
 
   # Normalize duckdbex value encodings to JSON-friendly terms. duckdbex hands back
   # calendar tuples for the temporal types and a {hi,lo} pair for HUGEINT — none of
-  # which Jason can encode, so an un-normalized value would crash the response.
+  # which the JSON encoder can handle, so an un-normalized value would crash the response.
   #   DATE                 -> {y,m,d}                 -> "YYYY-MM-DD"
   #   TIMESTAMP/TIMESTAMPTZ -> {{y,mo,d},{h,mi,s,us}} -> ISO-8601 datetime
   #   TIME                 -> {h,mi,s,us}             -> ISO-8601 time

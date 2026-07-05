@@ -47,7 +47,7 @@ defmodule Offloader.Gcs.Token do
 
     case :httpc.request(:get, request, opts, body_format: :binary) do
       {:ok, {{_v, 200, _}, _headers, body}} ->
-        case Jason.decode(body) do
+        case JSON.decode(body) do
           {:ok, %{"access_token" => token} = payload} ->
             {:ok, token, integer_or_nil(payload["expires_in"])}
 

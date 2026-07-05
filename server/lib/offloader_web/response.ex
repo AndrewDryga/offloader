@@ -28,6 +28,6 @@ defmodule OffloaderWeb.Response do
     conn
     |> put_resp_header("x-request-id", request_id)
     |> put_resp_content_type("application/json")
-    |> send_resp(ApiError.status(error), Jason.encode!(body))
+    |> send_resp(ApiError.status(error), JSON.encode!(body))
   end
 end

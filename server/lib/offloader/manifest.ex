@@ -484,12 +484,12 @@ defmodule Offloader.Manifest do
   end
 
   defp decode(body, rel) do
-    case Jason.decode(body) do
+    case JSON.decode(body) do
       {:ok, map} ->
         {:ok, map}
 
       {:error, e} ->
-        {:error, [Error.new(rel, "", :invalid_json, "invalid JSON: #{Exception.message(e)}")]}
+        {:error, [Error.new(rel, "", :invalid_json, "invalid JSON: #{inspect(e)}")]}
     end
   end
 end

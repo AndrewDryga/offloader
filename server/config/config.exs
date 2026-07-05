@@ -16,7 +16,7 @@ config :offloader, OffloaderWeb.AdminEndpoint,
 
 config :offloader, :env, config_env()
 
-config :phoenix, :json_library, Jason
+config :phoenix, :json_library, JSON
 
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",

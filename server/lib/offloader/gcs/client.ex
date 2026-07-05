@@ -57,7 +57,7 @@ defmodule Offloader.Gcs.Client do
     url = "#{base_url()}/storage/v1/b/#{encode(bucket)}/o?" <> URI.encode_query(params)
 
     with {:ok, 200, body} <- request(url, token),
-         {:ok, payload} <- Jason.decode(body) do
+         {:ok, payload} <- decode_or_invalid(body) do
       items = acc ++ (payload["items"] || [])
 
       case payload["nextPageToken"] do
@@ -67,8 +67,14 @@ defmodule Offloader.Gcs.Client do
     else
       {:ok, 401, _} -> {:error, :unauthorized}
       {:ok, status, _} -> {:error, {:gcs_api_error, status}}
-      {:error, %Jason.DecodeError{}} -> {:error, {:gcs_api_error, :invalid_json}}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp decode_or_invalid(body) do
+    case JSON.decode(body) do
+      {:ok, payload} -> {:ok, payload}
+      {:error, _} -> {:error, {:gcs_api_error, :invalid_json}}
     end
   end
 

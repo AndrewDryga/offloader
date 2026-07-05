@@ -52,7 +52,8 @@ defmodule Offloader.MixProject do
       {:bandit, "~> 1.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:jason, "~> 1.4"},
+      # Runtime uses Elixir's native JSON module (faster, no dep). Jason is test-only (fixtures).
+      {:jason, "~> 1.4", only: :test},
       {:yaml_elixir, "~> 2.9"},
       {:duckdbex, "~> 0.4"}
     ]

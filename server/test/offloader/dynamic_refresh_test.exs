@@ -218,7 +218,9 @@ defmodule Offloader.DynamicRefreshTest do
       assert state.active.snapshot_id == "tid_42"
 
       assert {:ok, resp} = Runtime.serve(rt, "champs", nil, %{"champion_id" => "1"}, "r")
-      assert [%{"champion_id" => "1", "data" => %{"num_games" => 136_068}}] = resp.data
+      # the nested `data` column is a raw JSON fragment (embedded verbatim on serialize)
+      assert [%{"champion_id" => "1", "data" => %Offloader.RawJSON{} = data}] = resp.data
+      assert %{"num_games" => 136_068} = JSON.decode!(JSON.encode!(data))
     end
 
     test "one failing source never blocks a healthy dataset's refresh" do
