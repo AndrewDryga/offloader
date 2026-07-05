@@ -14,7 +14,7 @@ territories, choose one direction, define the art direction and visual system,
 implement in small rendered passes, and review before landing.
 
 **Scope and gating.** The `portal/` marketing site is gated behind the V1 proof
-gates (see `context_and_goal.md`) — do not build it prematurely. Until it is
+gates (see `project.md`) — do not build it prematurely. Until it is
 unlocked, the surfaces this skill directs are positioning docs, pilot collateral,
 architecture diagrams, and the finance-grade ROI report. The craft is the same;
 the medium is whatever surface is honestly in scope now.
@@ -26,7 +26,7 @@ the medium is whatever surface is honestly in scope now.
   slice — is this surface even worth building right now?
 - Wear the **Security** hat and run `/verify-api` before any visual asserts a
   capability. A serving-path diagram, a claimed isolation guarantee, or a
-  benchmark must be true in the product and defensible from `context_and_goal.md`.
+  benchmark must be true in the product and defensible from `project.md`.
 - Wear the **SEO**, **UX**, and **accessibility** hats: honest positioning, an
   obvious scan path, and — once the portal exists — titles/meta, structured data,
   and crawlable HTML.
@@ -36,7 +36,7 @@ the medium is whatever surface is honestly in scope now.
 ## Workflow
 
 1. **Read the product and the surface.**
-   Read `context_and_goal.md`, `docs/`, the README, existing layout and asset
+   Read `project.md`, `docs/`, the README, existing layout and asset
    patterns, and the target surface. Treat the security invariant and the BYOC
    claim discipline as hard constraints.
 
@@ -88,7 +88,7 @@ the medium is whatever surface is honestly in scope now.
 - Visual drama must earn its cost. Motion, WebGL, canvas, video, and heavy images
   need a product reason, a reduced-motion path, and a performance check.
 - Every visual claim must be true in the product and defensible from
-  `context_and_goal.md` — no invented benchmarks, no "real-time" over a 15–120
+  `project.md` — no invented benchmarks, no "real-time" over a 15–120
   minute freshness window, no "data never leaves your cloud" unless the BYOC caveat
   holds.
 - The final surface must work in its medium. Render the page in a browser; build
@@ -109,4 +109,4 @@ Review loop: <what to render and the design-review checkpoints>
 
 For implementation work, edit the relevant files, render the surface, capture it,
 run the project gate (currently `make check && make doctor && coop tasks lint`;
-see `context_and_goal.md`), and summarize the before/after.
+see `project.md`), and summarize the before/after.

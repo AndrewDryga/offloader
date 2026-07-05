@@ -22,7 +22,7 @@ precise, credible, useful, and true.
   art direction. Words and design are one pass, not two.
 - Wear the **Security** hat (AGENTS.md) for any claim about tenant isolation, API
   keys, column allowlists, audit, object-store access, or BYOC. Run `/verify-api`
-  against the code and `context_and_goal.md` before asserting a capability — never
+  against the code and `project.md` before asserting a capability — never
   ship a claim the product can't defend.
 - Wear the **SEO** and **PM** hats: target the buyer's real search/problem, and
   cut any section that isn't the smallest useful thing.
@@ -45,7 +45,7 @@ replace it with proof.
 ## Workflow
 
 1. **Read before writing.**
-   Read `context_and_goal.md`, `docs/`, the README, the current surface, the
+   Read `project.md`, `docs/`, the README, the current surface, the
    approved art direction, and any pilot/ROI material. Capture real product facts
    before changing words.
 
@@ -111,7 +111,7 @@ replace it with proof.
 - No vague transformation claims and no "blazing-fast / 10x" theater.
 - No fake urgency.
 - No inflated security or isolation guarantee. Every isolation claim must be true
-  in the compiler and auth path and defensible from `context_and_goal.md`.
+  in the compiler and auth path and defensible from `project.md`.
 - No "real-time" — the model is 15–120 minute snapshot freshness. Say the window.
 - No "data never leaves your cloud" unless telemetry and support artifacts are
   local-only or explicitly opted in (BYOC claim discipline).
@@ -120,7 +120,7 @@ replace it with proof.
 - No polished paragraph that says nothing testable.
 - No generic "three benefits" unless each is tied to a real product behavior.
 - Don't sell against a case where native acceleration or a homegrown cache is
-  honestly the better answer — the competitive stance is in `context_and_goal.md`.
+  honestly the better answer — the competitive stance is in `project.md`.
 
 ## Copy Tests
 
