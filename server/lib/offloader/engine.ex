@@ -87,11 +87,15 @@ defmodule Offloader.Engine do
     GenServer.start_link(__MODULE__, opts, gen_opts)
   end
 
-  @doc "Materialize a validated manifest into `table`. Returns {:ok, %{table, row_count}}."
-  @spec materialize(GenServer.server(), String.t(), Manifest.t()) ::
+  @doc """
+  Materialize a validated manifest into `table`. Returns {:ok, %{table, row_count}}.
+  `sort_columns` (the dataset's filter columns) sorts the table on write so DuckDB's per-row-group
+  min/max zone maps prune scans for those filters — a cheap, one-time cost at materialize.
+  """
+  @spec materialize(GenServer.server(), String.t(), Manifest.t(), [String.t()]) ::
           {:ok, map()} | {:error, Error.t()}
-  def materialize(server, table, %Manifest{} = manifest),
-    do: writer_call(server, {:materialize, table, manifest}, @materialize_timeout)
+  def materialize(server, table, %Manifest{} = manifest, sort_columns \\ []),
+    do: writer_call(server, {:materialize, table, manifest, sort_columns}, @materialize_timeout)
 
   @doc "Atomically point `active` (a view) at `table`, so readers see the new snapshot at once."
   @spec swap(GenServer.server(), String.t(), String.t()) :: :ok | {:error, Error.t()}
@@ -248,9 +252,9 @@ defmodule Offloader.Engine do
   end
 
   @impl true
-  def handle_call({:materialize, table, manifest}, _from, state) do
+  def handle_call({:materialize, table, manifest, sort_columns}, _from, state) do
     ident = quote_ident(table)
-    sql = "CREATE OR REPLACE TABLE #{ident} AS #{read_expr(manifest)}"
+    sql = "CREATE OR REPLACE TABLE #{ident} AS #{read_expr(manifest)}#{order_by(sort_columns)}"
 
     with {:ok, _} <- run(state.writer, sql, [], :materialize_failed),
          {:ok, count} <- table_count(state.writer, ident) do
@@ -505,6 +509,11 @@ defmodule Offloader.Engine do
   end
 
   defp read_expr(%Manifest{files: files, dir: dir}), do: Offloader.Sql.read_files_expr(files, dir)
+
+  # Sort the materialized table on the dataset's filter columns so DuckDB's per-row-group min/max
+  # zone maps prune scans for those filters. Empty list -> no ORDER BY (original behavior).
+  defp order_by([]), do: ""
+  defp order_by(columns), do: " ORDER BY " <> Enum.map_join(columns, ", ", &quote_ident/1)
 
   defp table_count(conn, quoted_ident) do
     case run(conn, "SELECT count(*) FROM #{quoted_ident}", [], :materialize_failed) do

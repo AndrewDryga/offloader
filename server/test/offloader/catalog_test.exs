@@ -24,6 +24,17 @@ defmodule Offloader.CatalogTest do
         assert ep.tenant_column == cat.datasets[ep.dataset].tenant_column
       end
     end
+
+    test "derives sort_columns per dataset: tenant column first, then endpoint filter columns" do
+      {:ok, cat} = Catalog.load(@example)
+      sort = cat.datasets["customer_usage"].sort_columns
+
+      # tenant column leads (every tenant query filters it) so the table's zone maps prune by tenant
+      assert List.first(sort) == "tenant_id"
+      # the endpoints' filter columns are included — materialize ORDER BYs them for pruning
+      assert "usage_date" in sort
+      assert "account_id" in sort
+    end
   end
 
   describe "loader-level validation" do

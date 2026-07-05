@@ -48,6 +48,8 @@ defmodule Offloader.Catalog do
     {endpoints, endpoint_errors} =
       load_endpoints(dir, project["endpoints_dir"] || "endpoints", datasets)
 
+    datasets = with_sort_columns(datasets, endpoints)
+
     {keys, key_errors} = load_keys(dir, project["keys"], endpoints)
     {auth_mode, auth_errors} = auth_mode(project, endpoints)
 
@@ -67,6 +69,36 @@ defmodule Offloader.Catalog do
       errors ->
         {:error, errors}
     end
+  end
+
+  # Sort each dataset's materialized table on the columns its endpoints filter, so DuckDB's
+  # per-row-group min/max zone maps prune scans for those filters. Tenant column leads (every tenant
+  # query filters it); then the endpoints' filter columns ranked by how many endpoints share each
+  # (a shared leading key prunes for more endpoints). Capped so the ORDER BY at materialize is cheap.
+  @max_sort_columns 4
+  defp with_sort_columns(datasets, endpoints) do
+    filters_by_dataset =
+      Enum.reduce(Map.values(endpoints), %{}, fn ep, acc ->
+        cols = Enum.map(ep.filters, & &1.column)
+        Map.update(acc, ep.dataset, cols, &(&1 ++ cols))
+      end)
+
+    Map.new(datasets, fn {id, ds} ->
+      ranked =
+        filters_by_dataset
+        |> Map.get(id, [])
+        |> Enum.frequencies()
+        |> Enum.sort_by(fn {_col, n} -> -n end)
+        |> Enum.map(fn {col, _n} -> col end)
+
+      sort =
+        [ds.tenant_column | ranked]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+        |> Enum.take(@max_sort_columns)
+
+      {id, %{ds | sort_columns: sort}}
+    end)
   end
 
   # `auth: required` (default) needs an API key per request; `auth: none` serves the

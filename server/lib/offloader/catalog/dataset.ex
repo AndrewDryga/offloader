@@ -9,7 +9,18 @@ defmodule Offloader.Catalog.Dataset do
   alias Offloader.Catalog.{Error, Identifier, Parse}
 
   @enforce_keys [:id, :tenant_column, :schema, :columns]
-  defstruct [:id, :description, :manifest, :source, :tenant_column, :schema, :columns]
+  # sort_columns: the filter columns to ORDER BY when materializing, so DuckDB zone maps prune.
+  # Derived from the endpoints referencing this dataset (see Catalog), so it starts empty here.
+  defstruct [
+    :id,
+    :description,
+    :manifest,
+    :source,
+    :tenant_column,
+    :schema,
+    :columns,
+    sort_columns: []
+  ]
 
   @type source :: %{
           type: String.t(),
@@ -25,7 +36,8 @@ defmodule Offloader.Catalog.Dataset do
           source: source() | nil,
           tenant_column: String.t() | nil,
           schema: [column()],
-          columns: MapSet.t()
+          columns: MapSet.t(),
+          sort_columns: [String.t()]
         }
 
   @top_keys ~w(id description manifest source tenant_column schema)

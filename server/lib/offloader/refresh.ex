@@ -128,7 +128,7 @@ defmodule Offloader.Refresh do
         {:rejected, attempt(manifest.snapshot_id, :rejected, summary)}
 
       :ok ->
-        case Engine.materialize(engine, table, manifest) do
+        case Engine.materialize(engine, table, manifest, dataset.sort_columns) do
           {:ok, _} ->
             {:staged, snap(manifest, table)}
 
@@ -184,7 +184,8 @@ defmodule Offloader.Refresh do
   defp materialize_and_swap(engine, dataset, manifest) do
     table = snapshot_table(dataset.id, manifest.snapshot_id)
 
-    with {:materialize, {:ok, _}} <- {:materialize, Engine.materialize(engine, table, manifest)},
+    with {:materialize, {:ok, _}} <-
+           {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
          {:swap, :ok} <- {:swap, Engine.swap(engine, dataset.id, table)} do
       {:swapped, snap(manifest, table), attempt(manifest.snapshot_id, :ok, nil)}
     else
