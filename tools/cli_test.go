@@ -16,6 +16,23 @@ func TestVersionPrintsSomething(t *testing.T) {
 	}
 }
 
+func TestVersionFlagAliases(t *testing.T) {
+	// `version` also works spelled as a flag — the form people reach for first.
+	var ref bytes.Buffer
+	run([]string{"version"}, &ref, &ref)
+	want := strings.TrimSpace(ref.String())
+
+	for _, flag := range []string{"--version", "-v"} {
+		var out, errb bytes.Buffer
+		if code := run([]string{flag}, &out, &errb); code != 0 {
+			t.Fatalf("%s exit = %d, want 0 (stderr: %q)", flag, code, errb.String())
+		}
+		if got := strings.TrimSpace(out.String()); got != want {
+			t.Fatalf("%s printed %q, want %q", flag, got, want)
+		}
+	}
+}
+
 func TestHelpListsCommands(t *testing.T) {
 	var out bytes.Buffer
 	if code := run([]string{"help"}, &out, &out); code != 0 {

@@ -27,7 +27,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	c, ok := commands[args[0]]
+	// Accept the conventional flag spellings for version alongside the `version` subcommand,
+	// so `offloader --version` (what people actually type) prints the version instead of erroring.
+	name := args[0]
+	if name == "--version" || name == "-v" {
+		name = "version"
+	}
+
+	c, ok := commands[name]
 	if !ok {
 		fmt.Fprintf(stderr, "offloader: unknown command %q\n\n", args[0])
 		usage(stderr)

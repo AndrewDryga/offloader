@@ -10,8 +10,10 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 func init() {
@@ -220,12 +222,36 @@ func remoteConfigEnv(configURL string) []string {
 }
 
 // runDocker runs `docker <args>` with the container's output streamed through, returning
-// its exit code (so Ctrl-C / a failed image propagates).
+// its exit code. SIGINT/SIGTERM are forwarded to the child, so stopping serve — whether by
+// Ctrl-C in a terminal or a `kill`/supervisor signal — tears the `--rm` container down
+// instead of orphaning it (a bare kill of this process would otherwise leave it running).
 func runDocker(stdout, stderr io.Writer, args ...string) int {
 	cmd := exec.Command("docker", args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	if err := cmd.Run(); err != nil {
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sig)
+
+	if err := cmd.Start(); err != nil {
+		return 1
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case s := <-sig:
+				_ = cmd.Process.Signal(s)
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	if err := cmd.Wait(); err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			return ee.ExitCode()
