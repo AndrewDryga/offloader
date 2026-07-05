@@ -983,8 +983,8 @@ defmodule Offloader.Runtime do
     end
   end
 
-  defp execute(engine, plan) do
-    case Engine.execute(engine, plan.sql, plan.params, plan.json_columns) do
+  defp execute(engine, plan, remote?) do
+    case Engine.execute(engine, plan.sql, plan.params, plan.json_columns, remote: remote?) do
       {:ok, result} ->
         {:ok, result}
 
@@ -1015,8 +1015,8 @@ defmodule Offloader.Runtime do
       key = cache_key(endpoint, tenant, params, snapshot.snapshot_id)
 
       case cache_get(ctx, endpoint, key) do
-        {:ok, data} ->
-          {:ok, response(endpoint, snapshot, data, request_id, "hit")}
+        {:ok, {json, row_count}} ->
+          {:ok, response(endpoint, snapshot, json, row_count, request_id, "hit")}
 
         :miss ->
           serve_fresh(ctx, endpoint, snapshot, tenant, params, request_id, key)
@@ -1053,14 +1053,22 @@ defmodule Offloader.Runtime do
 
   defp serve_fresh(ctx, endpoint, snapshot, tenant, params, request_id, key) do
     source = source_for(endpoint, snapshot)
+    # remote_scan reads the object store per request; tell the engine so it caps their
+    # concurrency (admission control) and they can't starve local_table queries of the pool.
+    remote? = match?({:scan, _, _}, source)
 
     with {:ok, plan} <- Compiler.compile(endpoint, params, tenant, source),
-         {:ok, result} <- execute(ctx.engine, plan) do
+         {:ok, result} <- execute(ctx.engine, plan, remote?) do
       data = Enum.map(result.rows, fn row -> result.columns |> Enum.zip(row) |> Map.new() end)
+      # Encode the (stable) data array ONCE here; the response cache stores these bytes, so
+      # cache hits splice them in as a raw fragment instead of re-encoding the whole term on
+      # every request. Only the per-request `meta` is encoded per hit.
+      json = data |> JSON.encode_to_iodata!() |> IO.iodata_to_binary()
+      row_count = length(data)
 
-      if cacheable?(endpoint), do: cache_put(ctx, key, data)
+      if cacheable?(endpoint), do: cache_put(ctx, key, {json, row_count})
       status = if cacheable?(endpoint), do: "miss", else: "off"
-      {:ok, response(endpoint, snapshot, data, request_id, status)}
+      {:ok, response(endpoint, snapshot, json, row_count, request_id, status)}
     end
   end
 
@@ -1086,9 +1094,12 @@ defmodule Offloader.Runtime do
     state
   end
 
-  defp response(endpoint, snapshot, data, request_id, cache_status) do
+  # `json` is the already-encoded `data` array (cached and reused across hits); embed it as a
+  # raw fragment so only `meta` is encoded per request. `row_count` is carried alongside since
+  # it can't be read back off the encoded binary.
+  defp response(endpoint, snapshot, json, row_count, request_id, cache_status) do
     %{
-      data: data,
+      data: Offloader.RawJSON.new(json),
       meta: %{
         request_id: request_id,
         endpoint: endpoint.name,
@@ -1097,7 +1108,7 @@ defmodule Offloader.Runtime do
         # When this response body was built. Behind a CDN a cached body keeps its original
         # generated_at, so a client comparing it to wall-clock "now" can tell it got a cached hit.
         generated_at: DateTime.to_iso8601(DateTime.utc_now()),
-        row_count: length(data),
+        row_count: row_count,
         serving_mode: endpoint.serving_mode,
         cache: cache_status,
         freshness: freshness(endpoint, snapshot)

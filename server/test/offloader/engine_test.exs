@@ -173,6 +173,19 @@ defmodule Offloader.EngineTest do
     assert n > 0
   end
 
+  test "remote_scan concurrency is capped below the pool, reserving slots for local_table" do
+    prev = Application.get_env(:offloader, :remote_scan_concurrency)
+    Application.put_env(:offloader, :remote_scan_concurrency, 2)
+    on_exit(fn -> Application.put_env(:offloader, :remote_scan_concurrency, prev) end)
+
+    dir = Path.join(System.tmp_dir!(), "offl_cap_#{System.unique_integer([:positive])}")
+    {:ok, eng} = Engine.start_link(cache_dir: dir, pool_size: 8)
+    on_exit(fn -> if Process.alive?(eng), do: Engine.stop(eng) end)
+
+    # remote_scan reads may claim at most 2 of the 8 slots; the other 6 stay for local_table.
+    assert %{connections: 8, remote_cap: 2} = Engine.pool_stats(eng)
+  end
+
   test "execute and pool_stats on an engine with no live process are safe, not crashes" do
     assert {:error, %Error{reason: :not_ready}} =
              Engine.execute(:offloader_engine_absent, "SELECT 1")

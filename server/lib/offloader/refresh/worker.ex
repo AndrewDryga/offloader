@@ -112,8 +112,25 @@ defmodule Offloader.Refresh.Worker do
     opts = Keyword.put_new(opts, :quarantined, Map.get(entry, :quarantined))
     outcome = Refresh.perform(state.engine, state.dataset, Map.get(entry, :active), how, opts)
     :ok = GenServer.call(state.runtime, {:apply_refresh, state.dataset.id, outcome}, 30_000)
+    prewarm_metadata(state.engine, outcome)
     outcome
   end
+
+  # After a swap, warm DuckDB's shared object-store metadata cache for the new snapshot's
+  # remote files, so the first remote_scan request doesn't pay the cold Parquet-footer fetch
+  # (~130ms). Best-effort and async — the swap already succeeded, so a prewarm failure must
+  # never touch it. No-op for local files (nothing to fetch) and cheap for local_table (its
+  # materialize already read the same footers into the cache); the win is remote_scan datasets.
+  defp prewarm_metadata(engine, {:swapped, snap, _attempt}) do
+    if Enum.any?(snap.files, &Offloader.ObjectStore.remote_path?(&1["path"])) do
+      sql = "SELECT * FROM (#{Offloader.Sql.read_files_expr(snap.files, snap.dir)}) LIMIT 0"
+      Task.start(fn -> Offloader.Engine.execute(engine, sql, [], [], remote: true) end)
+    end
+
+    :ok
+  end
+
+  defp prewarm_metadata(_engine, _outcome), do: :ok
 
   defp default_manifest_path(state),
     do: Path.join(state.config_dir, state.dataset.manifest)

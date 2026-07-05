@@ -17,6 +17,9 @@ defmodule Offloader.RuntimeTest do
     %{rt: rt}
   end
 
+  # resp.data is a raw JSON fragment (the encoded, cached data array); decode it to assert on rows.
+  defp rows(resp), do: JSON.decode!(resp.data.json)
+
   describe "authorize/3" do
     test "returns the bound tenant for a valid key + granted endpoint", %{rt: rt} do
       assert {:ok, "tenant_acme"} =
@@ -54,8 +57,9 @@ defmodule Offloader.RuntimeTest do
       # generated_at is the response build time (ISO8601) — lets a client behind a CDN spot a cached hit
       assert {:ok, %DateTime{}, _} = DateTime.from_iso8601(resp.meta.generated_at)
       assert %{watermark: _, age_seconds: _, stale: _} = resp.meta.freshness
-      assert is_list(resp.data)
-      assert %{"account_id" => _, "api_calls_total" => calls} = hd(resp.data)
+      decoded = rows(resp)
+      assert is_list(decoded)
+      assert %{"account_id" => _, "api_calls_total" => calls} = hd(decoded)
       assert is_integer(calls)
     end
 
@@ -64,8 +68,8 @@ defmodule Offloader.RuntimeTest do
       {:ok, acme} = Runtime.serve(rt, "customer_usage_summary", "tenant_acme", params, "r")
       {:ok, globex} = Runtime.serve(rt, "customer_usage_summary", "tenant_globex", params, "r")
 
-      acme_accounts = Enum.map(acme.data, & &1["account_id"])
-      globex_accounts = Enum.map(globex.data, & &1["account_id"])
+      acme_accounts = Enum.map(rows(acme), & &1["account_id"])
+      globex_accounts = Enum.map(rows(globex), & &1["account_id"])
       # acme has acct_apollo/acct_zephyr; globex has acct_orion — no overlap.
       assert MapSet.disjoint?(MapSet.new(acme_accounts), MapSet.new(globex_accounts))
     end
@@ -99,7 +103,7 @@ defmodule Offloader.RuntimeTest do
           fn {tenant, _} ->
             case Runtime.serve(rt, "customer_usage_summary", tenant, params, "r") do
               {:ok, resp} ->
-                {tenant, {:ok, Enum.map(resp.data, & &1["account_id"])}}
+                {tenant, {:ok, Enum.map(rows(resp), & &1["account_id"])}}
 
               # 50-way concurrency can exceed the read pool; the runtime sheds the
               # overflow with a 503 (:not_ready). That is correct backpressure, not a

@@ -72,6 +72,9 @@ Everything else has a sensible default:
 - `OFFLOADER_CORS_ORIGINS` — allow a browser front-end to call the API cross-origin: `*` or a
   comma-separated origin list (unset ⇒ no CORS). See [serving public data](public-serving.md).
 - Tuning: `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
+  `OFFLOADER_REMOTE_SCAN_CONCURRENCY` (max concurrent `remote_scan` reads, default
+  `min(pool_size, 16)` — caps slow object-store reads so they can't starve the pool of fast
+  `local_table` queries; see [architecture](architecture.md#getting-the-most-from-remote_scan)),
   `OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT` (bound DuckDB to the container's
   memory allocation), `OFFLOADER_CACHE_MAX_ENTRIES` (response-cache entry ceiling, default
   10,000 — raise it for more distinct query shapes, lower it to cap cache memory).

@@ -85,6 +85,30 @@ by construction: it never crosses tenants, and a new snapshot invalidates every
 entry (invalidation is snapshot-based, never time-based). Turn it on for endpoints
 whose repeated same-param reads are worth caching; leave it `none` otherwise.
 
+### Getting the most from `remote_scan`
+
+`remote_scan` pays object-store latency per request, so its performance depends on how
+little data DuckDB has to fetch and how many reads run at once:
+
+- **Sort (and bloom-filter) the Parquet on the columns your endpoints filter — producer
+  side.** DuckDB pushes the endpoint's `WHERE` into `read_parquet` and skips any row group
+  whose min/max (or bloom filter) rules out a match — but only if the file is *laid out* for
+  it. A snapshot sorted by `tenant_id, <filter columns>` lets a selective query read a
+  handful of row groups instead of the whole file; an unsorted export makes DuckDB scan
+  everything. This is the single biggest lever for `remote_scan`, and it lives in **your
+  snapshot pipeline** (e.g. `ORDER BY` / `sortWithinPartitions` before the Databricks/Spark
+  write), not in Offloader — Offloader reads a snapshot's files read-only and can't reorder
+  them. (The materialized `local_table` path sorts on refresh for you; the remote path can't.)
+- **Object-store metadata is cached automatically.** Offloader enables DuckDB's HTTP-metadata
+  and object caches, so a file's Parquet footer is fetched once, not on every request — safe
+  because snapshots are immutable (a new snapshot is new file URLs). No configuration needed.
+- **`remote_scan` concurrency is capped so it can't starve `local_table`.** A burst of
+  cache-miss reads on a huge remote dataset can each hold a connection for the whole slow
+  fetch; the engine limits how many run at once (`OFFLOADER_REMOTE_SCAN_CONCURRENCY`, default
+  `min(pool_size, 16)`), reserving the rest of the read pool for fast local queries. Size the
+  pool up for local throughput without letting remote reads follow it up. See
+  [config-reference](config-reference.md).
+
 ## Snapshot manifest contract
 
 A manifest is a small JSON file that points Offloader at one snapshot's files and declares its

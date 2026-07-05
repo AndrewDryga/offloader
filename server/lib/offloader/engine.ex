@@ -57,6 +57,9 @@ defmodule Offloader.Engine do
 
   @hugeint_base 18_446_744_073_709_551_616
   @default_pool_size 16
+  # Default cap on concurrent remote_scan reads (see `remote_cap/1`). 16 held up in the
+  # blitz benchmark; a bigger pool then serves local_table without lifting this ceiling.
+  @default_remote_cap 16
   # Full scans through the pool before giving up (with a 1ms yield between cycles).
   @max_checkout_cycles 50
   # All writer calls serialize on one connection and can queue behind a long
@@ -108,14 +111,19 @@ defmodule Offloader.Engine do
   `json_columns` names output columns whose (VARCHAR) value is a JSON document to be
   wrapped as a raw JSON fragment (embedded verbatim on serialize).
   """
-  @spec execute(GenServer.server(), String.t(), [term()], [String.t()]) ::
+  @spec execute(GenServer.server(), String.t(), [term()], [String.t()], keyword()) ::
           {:ok, map()} | {:error, Error.t()}
-  def execute(server, sql, params \\ [], json_columns \\ []) do
+  def execute(server, sql, params \\ [], json_columns \\ [], opts \\ []) do
     case pool(server) do
       nil -> {:error, Error.new(:not_ready, "engine is not ready")}
-      pool -> pooled_query(pool, sql, params, json_columns)
+      pool -> pooled_query(pool, sql, params, json_columns, max_slots(pool, opts))
     end
   end
+
+  # remote_scan reads hold a connection for a whole slow object-store read; cap how many pool
+  # slots they may claim (`remote_cap`) so a burst can't occupy the pool and starve local_table
+  # queries — which keep access to the full `size`, i.e. always `size - remote_cap` free slots.
+  defp max_slots(%{size: size, remote_cap: cap}, opts), do: if(opts[:remote], do: cap, else: size)
 
   @doc "List a materialized table's column names in order."
   @spec known_columns(GenServer.server(), String.t()) :: {:ok, [String.t()]} | {:error, Error.t()}
@@ -138,16 +146,16 @@ defmodule Offloader.Engine do
       {:error, Error.new(:engine_unavailable, "engine call failed: #{inspect(reason)}")}
   end
 
-  @doc "Pool statistics for diagnostics: %{connections, busy, saturated}."
+  @doc "Pool statistics for diagnostics: %{connections, busy, saturated, remote_cap}."
   @spec pool_stats(GenServer.server()) :: map()
   def pool_stats(server) do
     case pool(server) do
       nil ->
-        %{connections: 0, busy: 0, saturated: false}
+        %{connections: 0, busy: 0, saturated: false, remote_cap: 0}
 
-      %{locks: locks, size: size} ->
+      %{locks: locks, size: size, remote_cap: cap} ->
         busy = Enum.count(1..size, fn i -> :atomics.get(locks, i) == 1 end)
-        %{connections: size, busy: busy, saturated: busy >= size}
+        %{connections: size, busy: busy, saturated: busy >= size, remote_cap: cap}
     end
   end
 
@@ -299,8 +307,8 @@ defmodule Offloader.Engine do
     end
   end
 
-  defp pooled_query(pool, sql, params, json_columns) do
-    case checkout(pool) do
+  defp pooled_query(pool, sql, params, json_columns, max_slots) do
+    case checkout(pool, max_slots) do
       {:ok, idx, conn} ->
         try do
           run_and_read(pool, idx, conn, sql, params, json_columns)
@@ -398,29 +406,32 @@ defmodule Offloader.Engine do
 
   # ── checkout / checkin (atomics spinlock over ETS slots) ───────────────────────
 
-  defp checkout(%{table: table, locks: locks, size: size}) do
-    start = rem(:erlang.phash2(self()), size)
-    try_checkout(table, locks, size, start, start, 0)
+  # `max_slots` bounds which slots this query may claim: `size` for local_table (the whole
+  # pool), a smaller `remote_cap` for remote_scan. Slots [0, max_slots) are scanned; the
+  # reserved tail [remote_cap, size) is therefore reachable only by local_table queries.
+  defp checkout(%{table: table, locks: locks}, max_slots) do
+    start = rem(:erlang.phash2(self()), max_slots)
+    try_checkout(table, locks, max_slots, start, start, 0)
   end
 
-  defp try_checkout(_table, _locks, _size, _idx, _start, cycles)
+  defp try_checkout(_table, _locks, _max_slots, _idx, _start, cycles)
        when cycles >= @max_checkout_cycles,
        do: :error
 
-  defp try_checkout(table, locks, size, idx, start, cycles) do
+  defp try_checkout(table, locks, max_slots, idx, start, cycles) do
     case :atomics.compare_exchange(locks, idx + 1, 0, 1) do
       :ok ->
         [{_key, conn}] = :ets.lookup(table, {:conn, idx})
         {:ok, idx, conn}
 
       _busy ->
-        next = rem(idx + 1, size)
+        next = rem(idx + 1, max_slots)
 
         if next == start do
           Process.sleep(1)
-          try_checkout(table, locks, size, next, start, cycles + 1)
+          try_checkout(table, locks, max_slots, next, start, cycles + 1)
         else
-          try_checkout(table, locks, size, next, start, cycles)
+          try_checkout(table, locks, max_slots, next, start, cycles)
         end
     end
   end
@@ -457,10 +468,27 @@ defmodule Offloader.Engine do
       end
     end)
     |> case do
-      :ok -> {:ok, %{table: table, locks: locks, size: size, db: db, object_store: object_store}}
-      {:error, reason} -> {:error, reason}
+      :ok ->
+        {:ok,
+         %{
+           table: table,
+           locks: locks,
+           size: size,
+           remote_cap: remote_cap(size),
+           db: db,
+           object_store: object_store
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
+
+  # Concurrent-remote_scan ceiling: the configured value clamped to the pool (can't reserve
+  # more slots than exist), else the default. With the default pool (16) this equals the pool
+  # — no reservation, unchanged behavior; it only bites once the pool is sized up past it.
+  defp remote_cap(size),
+    do: min(size, Offloader.Config.remote_scan_concurrency() || @default_remote_cap)
 
   defp new_connection(db, object_store) do
     with {:ok, conn} <- Duckdbex.connection(db),

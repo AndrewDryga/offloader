@@ -17,6 +17,21 @@ pool_size =
       end
   end
 
+# Max concurrent remote_scan (read_parquet-from-object-store) queries — unset => engine
+# default (min(pool_size, 16)); must be a positive int. Caps how many pool connections a
+# burst of slow object-store reads can hold, so they can't starve local_table queries.
+remote_scan_concurrency =
+  case System.get_env("OFFLOADER_REMOTE_SCAN_CONCURRENCY") do
+    nil ->
+      nil
+
+    raw ->
+      case Integer.parse(raw) do
+        {n, ""} when n > 0 -> n
+        _ -> nil
+      end
+  end
+
 # Response-cache entry ceiling — unset => Config default (10_000); must be a positive int.
 cache_max_entries =
   case System.get_env("OFFLOADER_CACHE_MAX_ENTRIES") do
@@ -86,6 +101,7 @@ config :offloader,
          end
      end),
   pool_size: pool_size,
+  remote_scan_concurrency: remote_scan_concurrency,
   cache_max_entries: cache_max_entries,
   object_store: object_store,
   gcs_token: System.get_env("OFFLOADER_GCS_TOKEN"),

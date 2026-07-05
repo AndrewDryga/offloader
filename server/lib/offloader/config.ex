@@ -44,6 +44,15 @@ defmodule Offloader.Config do
   def pool_size, do: Application.get_env(:offloader, :pool_size)
 
   @doc """
+  Max concurrent `remote_scan` queries (`OFFLOADER_REMOTE_SCAN_CONCURRENCY`), or nil for the
+  engine default (`min(pool_size, 16)`). remote_scan reads the object store per request and
+  holds a pool connection for the whole slow read; this caps how many run at once so a burst
+  of fat-endpoint misses can't occupy the whole pool and starve local_table queries.
+  """
+  @spec remote_scan_concurrency() :: pos_integer() | nil
+  def remote_scan_concurrency, do: Application.get_env(:offloader, :remote_scan_concurrency)
+
+  @doc """
   Max entries in the per-snapshot response cache (`OFFLOADER_CACHE_MAX_ENTRIES`),
   default `10_000`. Bounds cache memory so open-cardinality params can't grow it
   without limit; on overflow the oldest entries are evicted.

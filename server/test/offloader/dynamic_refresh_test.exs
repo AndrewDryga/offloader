@@ -218,9 +218,10 @@ defmodule Offloader.DynamicRefreshTest do
       assert state.active.snapshot_id == "tid_42"
 
       assert {:ok, resp} = Runtime.serve(rt, "champs", nil, %{"champion_id" => "1"}, "r")
-      # the nested `data` column is a raw JSON fragment (embedded verbatim on serialize)
-      assert [%{"champion_id" => "1", "data" => %Offloader.RawJSON{} = data}] = resp.data
-      assert %{"num_games" => 136_068} = JSON.decode!(JSON.encode!(data))
+      # resp.data is the encoded data array (the cached bytes); decode it to inspect the row.
+      # The nested `data` column is embedded verbatim, so it round-trips as a real object.
+      assert [%{"champion_id" => "1", "data" => data}] = JSON.decode!(resp.data.json)
+      assert %{"num_games" => 136_068} = data
     end
 
     test "one failing source never blocks a healthy dataset's refresh" do
@@ -304,8 +305,9 @@ defmodule Offloader.DynamicRefreshTest do
       assert usage.active.snapshot_id == "2026-06-01T00:00:00Z_r0007"
 
       assert {:ok, resp} = Runtime.serve(rt, "usage", nil, %{"account_id" => "acct_apollo"}, "r")
-      assert resp.data != []
-      assert Enum.all?(resp.data, &(&1["account_id"] == "acct_apollo"))
+      rows = JSON.decode!(resp.data.json)
+      assert rows != []
+      assert Enum.all?(rows, &(&1["account_id"] == "acct_apollo"))
 
       # A manual refresh of the healthy dataset keeps working while the broken one fails.
       assert {:ok, _} = Runtime.refresh(rt, "customer_usage")
