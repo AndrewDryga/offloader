@@ -374,13 +374,12 @@ defmodule Offloader.Compiler do
   # A string/enum-param filter compares stringly — CAST(col AS VARCHAR) = $n — so a
   # string value like "ALL" against a non-VARCHAR column filters to no rows instead of
   # erroring (the upstream API's stringly comparison; a no-op cast on VARCHAR columns). Date params
-  # cast the PARAM side (::DATE); integer params compare natively.
-  defp filter_column_sql(endpoint, f) do
-    case param_type(endpoint, f.param) do
-      t when t in ["string", "enum"] -> "CAST(#{ident(f.column)} AS VARCHAR)"
-      _ -> ident(f.column)
-    end
-  end
+  # Compare against the RAW column so DuckDB's min/max zone maps (and any index) can prune —
+  # never wrap the column in CAST(...). Wrapping defeats pruning on a non-VARCHAR column, and on a
+  # VARCHAR column it's a no-op DuckDB removes anyway. Type compatibility is handled on the PARAM
+  # side (dates get ::DATE via param_cast/2); integers and strings compare against the column's own
+  # type, with DuckDB coercing the bound literal — which keeps pruning intact.
+  defp filter_column_sql(_endpoint, f), do: ident(f.column)
 
   defp param_cast(endpoint, f) do
     if param_type(endpoint, f.param) == "date", do: "::DATE", else: ""
