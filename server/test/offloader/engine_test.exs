@@ -44,6 +44,19 @@ defmodule Offloader.EngineTest do
     assert length(cols) == 8
   end
 
+  test "remote-read metadata caches are enabled on pool connections", %{eng: eng} do
+    # remote_scan re-reads a Parquet footer from the object store on every request; caching
+    # it is the optimization (safe because Offloader snapshots are immutable). Assert both are
+    # on via a pool connection so a future connection-init refactor can't silently drop them.
+    for setting <- ["enable_http_metadata_cache", "enable_object_cache"] do
+      assert {:ok, %{rows: [["true"]]}} =
+               Engine.execute(
+                 eng,
+                 "SELECT value FROM duckdb_settings() WHERE name = '#{setting}'"
+               )
+    end
+  end
+
   test "execute binds only values as params and normalizes dates/hugeints", %{eng: eng} do
     sql =
       "SELECT account_id, usage_date, sum(api_calls)::BIGINT AS calls " <>
