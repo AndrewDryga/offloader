@@ -29,9 +29,12 @@ RUN mix release
 # ── runtime ──────────────────────────────────────────────────────────────────────
 FROM ${RUNTIME_IMAGE} AS runtime
 
+# libsctp1 is only here to satisfy the Erlang socket NIF's SCTP probe at boot: without it the
+# runtime prints a benign but alarming "Failed open sctp dynamic library: libsctp.so.1" warning
+# on every start. Offloader never opens an SCTP socket; this just quiets a false alarm.
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends \
-     libstdc++6 openssl libncurses6 ca-certificates locales curl \
+     libstdc++6 openssl libncurses6 ca-certificates locales curl libsctp1 \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
