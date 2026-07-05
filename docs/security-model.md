@@ -6,15 +6,17 @@ concepts? See [What Offloader is](concepts.md).)
 
 ## The short version
 
-- Your data, config, logs, and metrics **stay in your environment**. Offloader makes no
-  outbound telemetry calls.
-- Consumers reach data only through **named endpoints** on the API port, using an **API key**
-  you issue. There is no arbitrary SQL.
-- Each key is scoped to **specific endpoints** and bound to **one tenant** (customer/account).
-  Offloader inserts the tenant filter itself — a caller **cannot** widen it or read another
-  tenant's rows.
-- Operator surfaces (docs, metrics, diagnostics) are on a **separate admin port** that **you**
-  keep private. Offloader is not a login/identity product.
+Everything stays in your environment — the data, the config, the logs, the
+metrics. Offloader makes no outbound telemetry calls.
+
+Consumers never get SQL access. They reach data only through the **named
+endpoints** you define, on the API port, with an **API key** you issue. Each key
+is scoped to specific endpoints and bound to **one tenant** (customer/account),
+and Offloader inserts the tenant filter itself — a caller cannot widen it or
+read another tenant's rows.
+
+Operator surfaces (docs, metrics, diagnostics) live on a **separate admin port**
+that **you** keep private. Offloader is not a login or identity product.
 
 ## Who can reach what
 
@@ -29,26 +31,30 @@ immediately.
 
 ## What Offloader enforces (you get these for free)
 
-- **No arbitrary SQL** reaches consumers — only your declared endpoints.
-- **Endpoint allowlist** per key: a key can call only the endpoints granted to it.
-- **Tenant isolation:** the tenant filter is inserted server-side from the key and cannot be
-  overridden by a request parameter.
-- **Column allowlist:** an endpoint can return only its declared columns — checked before the
-  query runs.
-- **Safe errors:** a forbidden endpoint and a non-existent one return the **same** response, so
-  probing can't discover what exists.
-- **Secrets stay out of the open:** logs, metrics, diagnostics, and support bundles never
-  include API keys, tokens, credentialed URLs, or raw params by default; support bundles are
-  redacted and list what's inside.
-- **Read-only object-store credentials** are the intended posture — Offloader only reads snapshots.
+A consumer can never send SQL — the only thing they can call is an endpoint you
+declared. Their key works only on the endpoints granted to it, and the tenant
+filter comes from the key itself, inserted server-side; no request parameter can
+override it. Columns are locked down the same way: an endpoint can return only
+its declared columns, and that allowlist is checked before the query ever runs.
+
+Errors don't leak information either. Calling a forbidden endpoint returns the
+**same** response as calling one that doesn't exist, so a probing caller can't
+map out what's there.
+
+Secrets stay out of the open. Logs, metrics, diagnostics, and support bundles
+never include API keys, tokens, credentialed URLs, or raw request params by
+default — bundles are redacted and list exactly what's inside. And the intended
+posture for object-store credentials is **read-only**: Offloader only ever reads
+snapshots, so that's all its credentials should allow.
 
 ## What you're responsible for
 
-- **Exposing the admin port safely.** Offloader ships the separation (two ports) and redaction;
-  you decide how the admin port is reached — loopback, an internal network, a proxy, or your IAM.
-- **TLS and ingress** in front of the API port.
-- **The snapshot pipeline** that publishes data to object storage, and the object-store
-  permissions themselves.
+Three things stay on your side. You decide how the **admin port** is reached —
+Offloader ships the two-port separation and the redaction, but whether that
+means loopback, an internal network, a proxy, or your IAM is your call. You put
+**TLS and ingress** in front of the API port. And you own the **snapshot
+pipeline** that publishes data to object storage, along with the object-store
+permissions themselves.
 
 Offloader does **not** provide RBAC, SSO, org/team management, or a hosted control plane. If you
 need enterprise access controls, run the admin port behind the ones you already use.

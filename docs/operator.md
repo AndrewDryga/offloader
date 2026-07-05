@@ -5,32 +5,41 @@ diagnostics fields. It links to the deep docs rather than repeating them.
 
 ## Deploy
 
-- Examples for `docker run`, Compose, Kubernetes, and Prometheus:
-  [`../deploy/`](../deploy/README.md).
-- The container reads env vars + config; nothing is baked into the image. Required:
-  `OFFLOADER_CONFIG`, `OFFLOADER_SECRET_KEY_BASE`. Recommended: `OFFLOADER_ADMIN_TOKEN`
-  (gates `/diagnostics`), `OFFLOADER_LOG_LEVEL`.
-- **Config source:** `OFFLOADER_CONFIG` is either a **mounted directory** (a path to
-  `offloader.yml`) or a **`gs://…` bucket prefix**, fetched at boot so the container is fully
-  stateless. Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` and Offloader re-checks the bucket
-  on that interval and **hot-reloads changes with no restart** — even a dataset schema change
-  cuts over with zero downtime, and a bad revision is ignored (the running config keeps serving).
-  Full details: [config guide](developer-experience.md#config-from-object-storage-optional).
-- Two ports: **API** (product traffic, API-key auth) and **ADMIN** (health, metrics,
-  diagnostics, docs). Keep the admin port private — see "Port exposure" below.
+The container reads env vars plus config; nothing is baked into the image. Two
+variables are required — `OFFLOADER_CONFIG` and `OFFLOADER_SECRET_KEY_BASE` —
+and two more are worth setting from day one: `OFFLOADER_ADMIN_TOKEN` (gates
+`/diagnostics`) and `OFFLOADER_LOG_LEVEL`. Ready-to-adapt examples for
+`docker run`, Compose, Kubernetes, and Prometheus live in
+[`../deploy/`](../deploy/README.md).
+
+`OFFLOADER_CONFIG` points at either a **mounted directory** (a path to
+`offloader.yml`) or a **`gs://…` bucket prefix**, fetched at boot so the
+container is fully stateless. Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` and
+Offloader re-checks the bucket on that interval and **hot-reloads changes with
+no restart** — even a dataset schema change cuts over with zero downtime, and a
+bad revision is ignored (the running config keeps serving). Full details:
+[config guide](developer-experience.md#config-from-object-storage-optional).
+
+The container listens on two ports: **API** (product traffic, API-key auth) and
+**ADMIN** (health, metrics, diagnostics, docs). Keep the admin port private —
+see "Port exposure" below.
 
 ## Upgrade check and rollback
 
-- **Before rollout:** deploy the **published, signed image** and verify the instance — both
-  ports, health, diagnostics/metrics, and a manifest→HTTP smoke — before it takes traffic. A
-  broken image or config fails here, not in front of a customer.
-- **Upgrade:** deploy the new pinned image tag (never `:latest`). There is no schema
-  migration; the cache rematerializes from the manifest on boot.
-- **Roll back the image:** redeploy the previous tag (`kubectl rollout undo` /
-  `docker compose up` with the old tag). Health returns immediately.
-- **Roll back a snapshot:** a bad snapshot never swaps in (validation + compatibility
-  gate it). To revert a *good-but-wrong* snapshot, roll the dataset back to its previous
-  good one (see [runbooks](operations/runbooks.md) → "Rollback to previous snapshot").
+Always deploy the **published, signed image**, pinned to a version tag — never
+`:latest`. Before an instance takes traffic, verify it: both ports up, health
+green, diagnostics and metrics responding, and one manifest→HTTP smoke call. A
+broken image or config fails here, not in front of a customer.
+
+Upgrades are uneventful by design: there is no schema migration, and the cache
+rematerializes from the manifest on boot. Rolling back an image is just
+redeploying the previous tag (`kubectl rollout undo`, or `docker compose up`
+with the old tag) — health returns immediately.
+
+Snapshots protect themselves: a bad one never swaps in, because validation and
+the compatibility gate reject it. To revert a *good-but-wrong* snapshot, roll
+the dataset back to its previous good one (see
+[runbooks](operations/runbooks.md) → "Rollback to previous snapshot").
 
 ## Cache quarantine and rebuild
 
@@ -41,26 +50,30 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
 
 ## Sizing
 
-- **Memory:** the server materializes snapshots into DuckDB; RSS scales with active
-  snapshot size. The example runs at ~160 MB RSS; size for your largest dataset plus
-  headroom. Measure with the [benchmark harness](benchmarks.md).
-- **Disk:** the cache volume holds the DuckDB file(s); size it for your largest
-  snapshot plus a retained previous snapshot, plus margin. `offloader_cache_disk_free_bytes`
-  alerts before it fills.
-- **CPU:** reads are served from a materialized table across a pool of DuckDB read
-  connections (`OFFLOADER_POOL_SIZE`, default 16); requests run concurrently, so throughput
-  scales with the pool size, not a single queue. When every connection is busy a request is
-  shed as `503` rather than queueing unboundedly; raise the pool size (and CPU) if you see
-  that under load. Watch p95 (95th-percentile latency) with the [benchmark harness](benchmarks.md).
+**Memory** scales with what's loaded: the server materializes snapshots into
+DuckDB, so RSS follows your active snapshot sizes. The bundled example runs at
+~160 MB RSS; size for your largest dataset plus headroom, and measure with the
+[benchmark harness](benchmarks.md).
+
+**Disk** is the cache volume, which holds the DuckDB file(s). Size it for your
+largest snapshot plus a retained previous snapshot, plus margin —
+`offloader_cache_disk_free_bytes` alerts before it fills.
+
+**CPU** buys concurrency. Reads are served from a materialized table across a
+pool of DuckDB read connections (`OFFLOADER_POOL_SIZE`, default 16), so requests
+run concurrently and throughput scales with the pool size, not a single queue.
+When every connection is busy, a request is shed as a `503` rather than queueing
+unboundedly — if you see that under load, raise the pool size (and CPU). Watch
+p95 (95th-percentile latency) with the [benchmark harness](benchmarks.md).
 
 ## Security model
 
-- Full model: [`security-model.md`](security-model.md). API keys are hashed at rest,
-  revocable, scoped to endpoints, and tenant-bound; the compiler inserts the tenant
-  filter and it cannot be overridden. Mint keys with `offloader keys create` (the token
-  is shown once; only its hash is stored).
-- These invariants are covered by an adversarial security test suite that runs on every build
-  (cross-tenant reads, key-scope escapes, injection, and more).
+API keys are hashed at rest, revocable, scoped to endpoints, and tenant-bound;
+the compiler inserts the tenant filter and it cannot be overridden. Mint keys
+with `offloader keys create` — the token is shown once, and only its hash is
+stored. An adversarial security test suite exercises these invariants on every
+build (cross-tenant reads, key-scope escapes, injection, and more). The full
+model is in [`security-model.md`](security-model.md).
 
 ## Port exposure
 
@@ -102,15 +115,16 @@ Alerts worth setting (all on `/metrics`):
 
 ## Scaling & availability
 
-Two independent axes:
+These are two independent axes. For **throughput**, scale a single instance:
+reads run on a DuckDB connection pool sized with `OFFLOADER_POOL_SIZE`, and you
+bound memory with `OFFLOADER_DUCKDB_THREADS` / `OFFLOADER_DUCKDB_MEMORY_LIMIT`.
+A saturated pool sheds excess load as a retryable `503`.
 
-- **Throughput (one instance)** — reads run on a DuckDB connection pool; size it with
-  `OFFLOADER_POOL_SIZE`, and bound memory with `OFFLOADER_DUCKDB_THREADS` /
-  `OFFLOADER_DUCKDB_MEMORY_LIMIT`. A saturated pool sheds excess as a retryable `503`.
-- **Availability (many instances)** — an instance is **stateless**: it materializes each
-  snapshot into its own local cache from the bucket and serves reads with no shared state or
-  coordination. Run N behind your load balancer; each loads config and snapshots
-  independently, and any instance can serve any request. Keep each instance's admin port private.
+For **availability**, scale out: an instance is **stateless** — it materializes
+each snapshot into its own local cache from the bucket and serves reads with no
+shared state or coordination. Run N behind your load balancer; each loads config
+and snapshots independently, and any instance can serve any request. Keep each
+instance's admin port private.
 
 ## Support
 

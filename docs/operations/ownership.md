@@ -15,10 +15,9 @@ or upstream-data problem from being mis-filed as an Offloader bug (and vice-vers
 
 ## Support exclusions
 
-These are the customer's, not covered by the Offloader support response-time target:
-
-- Upstream pipeline failures; bad or incomplete manifests.
-- Customer IAM/network changes; object-store outages.
-- Insufficient disk, memory, or CPU.
-- Unsupported config changes.
-- Data modeling work; custom connector work outside a signed SOW.
+The support response-time target covers Offloader's own behavior, not the
+environment around it. Upstream pipeline failures and bad or incomplete
+manifests are the data producer's to fix. IAM and network changes, object-store
+outages, and insufficient disk, memory, or CPU belong to the team running the
+environment. Unsupported config changes, data-modeling work, and custom
+connector work outside a signed SOW aren't covered either.
