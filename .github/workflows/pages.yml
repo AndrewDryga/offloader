@@ -17,10 +17,13 @@ permissions:
   pages: write
   id-token: write
 
-# One deploy at a time; a newer push supersedes an in-flight run.
+# One deploy at a time. Let an in-flight deploy FINISH and queue the next (GitHub Pages'
+# recommended setting): cancelling a deploy mid-flight fails it as "try again later", so two
+# close pushes (e.g. a site edit + a release's version-pin bump) would race. With this, the
+# running deploy completes and only the latest queued push runs after it.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
