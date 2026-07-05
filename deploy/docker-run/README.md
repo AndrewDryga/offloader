@@ -13,7 +13,7 @@ docker run --rm \
   -p 127.0.0.1:4001:4001 \
   -v "$PWD/offloader:/etc/offloader:ro" \
   -v offloader-cache:/var/lib/offloader/cache \
-  ghcr.io/andrewdryga/offloader:0.1.4        # pin a version — never :latest
+  ghcr.io/andrewdryga/offloader:0.1.5        # pin a version — never :latest
 ```
 
 ## What each part does
