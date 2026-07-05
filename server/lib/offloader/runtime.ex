@@ -748,7 +748,7 @@ defmodule Offloader.Runtime do
     path = Path.join(state.cache_dir, @sidecar)
     tmp = path <> ".tmp"
 
-    with :ok <- File.write(tmp, JSON.encode!(payload)),
+    with :ok <- File.write(tmp, JSON.encode_to_iodata!(payload)),
          :ok <- File.rename(tmp, path) do
       :ok
     else
