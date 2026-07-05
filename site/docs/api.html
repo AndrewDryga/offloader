@@ -114,7 +114,7 @@ Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) AP
 <p>Always the same envelope: <code>data</code> (the rows) + <code>meta</code> (what you&#39;re reading).</p>
 <pre tabindex="0"><code class="language-json">{
   &quot;data&quot;: [
-    { &quot;account_id&quot;: &quot;acct_zephyr&quot;, &quot;active_users_total&quot;: 244, &quot;api_calls_total&quot;: 56839, &quot;storage_gb_avg&quot;: 34.3 }
+    { &quot;account_id&quot;: &quot;acct_zephyr&quot;, &quot;active_users_total&quot;: 244, &quot;api_calls_total&quot;: 56839, &quot;storage_gb_avg&quot;: 34.300000000000004 }
   ],
   &quot;meta&quot;: {
     &quot;request_id&quot;:   &quot;GL6f4CKamol9&quot;,
@@ -179,6 +179,9 @@ Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) AP
 <p><strong>Reacting to <code>stale: true</code>:</strong> the response is still valid data — it&#39;s a <em>hint</em>, not an error. Show
 it, optionally with an &quot;updated N minutes ago&quot; note. It clears when the next snapshot lands.</p>
 <p>Nested columns declared <code>JSON</code> come back as real nested objects, not strings.</p>
+<p>Computed numeric columns (an <code>avg</code>, say) are returned as full-precision floating-point — e.g.
+<code>34.300000000000004</code>, not <code>34.3</code> — so compare them with a tolerance rather than for exact
+equality. Values you store and pass through keep whatever precision they had.</p>
 <h2 id="errors">Errors</h2>
 <p>Errors return a stable shape and a terse message — a forbidden endpoint and a non-existent one
 look identical on purpose, so probing can&#39;t map what exists. Every error body is:</p>

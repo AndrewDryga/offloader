@@ -115,19 +115,71 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
 — the server rematerializes from the current manifest. Details:
 <a href="runbooks.html">runbooks</a> → &quot;Cache quarantine and rebuild&quot;.</p>
 <h2 id="sizing">Sizing</h2>
-<p><strong>Memory</strong> scales with what&#39;s loaded: the server materializes snapshots into
-DuckDB, so RSS follows your active snapshot sizes. The bundled example runs at
-~160 MB RSS; size for your largest dataset plus headroom, and measure with the
-<a href="benchmarks.html">benchmark harness</a>.</p>
-<p><strong>Disk</strong> is the cache volume, which holds the DuckDB file(s). Size it for your
-largest snapshot plus a retained previous snapshot, plus margin —
-<code>offloader_cache_disk_free_bytes</code> alerts before it fills.</p>
+<p><strong>Memory &amp; threads</strong> are set per instance with two env vars, sized to the box:</p>
+<ul>
+<li><code>OFFLOADER_DUCKDB_THREADS</code> — set to the container&#39;s <strong>vCPU count</strong>. DuckDB otherwise
+sees every host core and oversubscribes under a cgroup CPU limit; pinning it to the
+allocation keeps scheduling sane. (This is DuckDB&#39;s intra-query parallelism; the read
+<em>pool</em> below is a separate knob for concurrent queries.)</li>
+<li><code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code> — a <strong>ceiling</strong> on DuckDB&#39;s working memory (query buffers
+plus the buffer pool that caches hot pages), not a target. It need not match your dataset
+size: the server materializes into an on-disk DuckDB file and memory-maps it, so only the
+working set stays resident. On the reference box (4 vCPU / 15 GB), 67 datasets totalling
+<strong>5.8 GB materialized</strong> used <strong>~600 MB RSS idle</strong> and peaked <strong>~2.1 GB under full
+cache-miss load</strong> — with the limit set to 10 GB. Set the limit to leave headroom for the
+BEAM VM (~0.3–0.6 GB) and the OS/page cache: roughly <strong>container RAM − 2 GB</strong>, or ~70% of
+RAM. Watch actual RSS and <code>p95</code> with the <a href="benchmarks.html">benchmark harness</a>.</li>
+</ul>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>instance</th>
+<th><code>OFFLOADER_DUCKDB_THREADS</code></th>
+<th><code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2 vCPU / 8 GB</td>
+<td><code>2</code></td>
+<td><code>6GB</code></td>
+</tr>
+<tr>
+<td>4 vCPU / 16 GB</td>
+<td><code>4</code></td>
+<td><code>12GB</code></td>
+</tr>
+<tr>
+<td>8 vCPU / 32 GB</td>
+<td><code>8</code></td>
+<td><code>26GB</code></td>
+</tr>
+</tbody></table>
+</div>
+<p>RAM tracks the working set, not the on-disk size — the reference Blitz workload (67 datasets,
+5.8 GB materialized) fits the 4 vCPU / 16 GB row with room to spare. Size up only if your
+active snapshots or query working memory (large sorts/aggregations) are bigger.</p>
+<p><strong>Disk</strong> is the cache volume, which holds the DuckDB file(s). Size it for the materialized
+size plus a retained previous snapshot, plus margin — the reference workload is <strong>5.8 GB for
+67 datasets</strong>. <code>offloader_cache_disk_free_bytes</code> alerts before it fills.</p>
 <p><strong>CPU</strong> buys concurrency. Reads are served from a materialized table across a
 pool of DuckDB read connections (<code>OFFLOADER_POOL_SIZE</code>, default 16), so requests
 run concurrently and throughput scales with the pool size, not a single queue.
 When every connection is busy, a request is shed as a <code>503</code> rather than queueing
 unboundedly — if you see that under load, raise the pool size (and CPU). Watch
 p95 (95th-percentile latency) with the <a href="benchmarks.html">benchmark harness</a>.</p>
+<p><strong>Cache-hit and cache-miss tune differently.</strong> A warm response cache
+(<code>cache.policy: snapshot</code>) serves a precomputed, pre-encoded body, so hits are cheap
+CPU (only the per-request metadata is re-encoded) and stay fast regardless of pool
+size — that is the hot path to keep on. Cache <em>misses</em> are where the pool matters,
+and the two serving modes pull opposite ways: a <code>local_table</code> miss is a fast in-memory
+query, so a bigger pool cleanly raises miss throughput; a <code>remote_scan</code> miss waits on
+the object store per request, so too many at once thrash the box. That is why
+<code>remote_scan</code> concurrency is capped separately (<code>OFFLOADER_REMOTE_SCAN_CONCURRENCY</code>,
+default <code>min(pool_size, 16)</code>) — size the pool up for <code>local_table</code>, and the cap keeps
+slow remote reads from starving it. Very large payloads (multi-MB) are bandwidth-bound
+on the response write, not CPU-bound: paginate them or lower their <code>limit</code> rather than
+adding cores.</p>
 <h2 id="security-model">Security model</h2>
 <p>API keys are hashed at rest, revocable, scoped to endpoints, and tenant-bound;
 the compiler inserts the tenant filter and it cannot be overridden. Mint keys
@@ -167,8 +219,9 @@ prints a concise per-dataset summary. Metrics for alerting are on <code>/metrics
 <h2 id="scaling-availability">Scaling &amp; availability</h2>
 <p>These are two independent axes. For <strong>throughput</strong>, scale a single instance:
 reads run on a DuckDB connection pool sized with <code>OFFLOADER_POOL_SIZE</code>, and you
-bound memory with <code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>.
-A saturated pool sheds excess load as a retryable <code>503</code>.</p>
+bound DuckDB to the box with <code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>
+— set both to the instance size (<a href="#sizing">Sizing</a> has a per-instance table and the
+measured memory footprint). A saturated pool sheds excess load as a retryable <code>503</code>.</p>
 <p>For <strong>availability</strong>, scale out: an instance is <strong>stateless</strong> — it materializes
 each snapshot into its own local cache from the bucket and serves reads with no
 shared state or coordination. Run N behind your load balancer; each loads config

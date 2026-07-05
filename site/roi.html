@@ -1,407 +1,919 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ROI calculator — Offloader</title>
-    <meta
-      name="description"
-      content="Estimate what your product's repeated reads would cost on an Offloader fleet versus your warehouse — the fleet is sized from your traffic. Runs entirely in your browser; your numbers are never sent anywhere."
-    />
-    <link rel="canonical" href="https://offloader.dryga.com/roi.html" />
-    <meta name="color-scheme" content="light dark" />
-    <meta property="og:title" content="Offloader — ROI calculator" />
-    <meta
-      property="og:description"
-      content="What would your repeated warehouse reads cost on Offloader instead? Sizes the fleet from your traffic and shows the plain difference — computed in your browser."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Offloader" />
-    <meta property="og:url" content="https://offloader.dryga.com/roi.html" />
-    <meta property="og:image" content="https://offloader.dryga.com/og.png" />
-    <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0E0E11" media="(prefers-color-scheme: dark)" />
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="preload" as="font" type="font/woff2" href="fonts/SpaceGrotesk-700.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="fonts/JetBrainsMono-400.woff2" crossorigin />
-    <link rel="stylesheet" href="styles.css" />
-    <script src="analytics.js" defer></script>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>ROI calculator — Offloader</title>
+        <meta
+            name="description"
+            content="Estimate what your product's repeated reads would cost on an Offloader fleet versus your warehouse — the fleet is sized from your traffic. Runs entirely in your browser; your numbers are never sent anywhere."
+        />
+        <link rel="canonical" href="https://offloader.dryga.com/roi.html" />
+        <meta name="color-scheme" content="light dark" />
+        <meta property="og:title" content="Offloader — ROI calculator" />
+        <meta
+            property="og:description"
+            content="What would your repeated warehouse reads cost on Offloader instead? Sizes the fleet from your traffic and shows the plain difference — computed in your browser."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Offloader" />
+        <meta
+            property="og:url"
+            content="https://offloader.dryga.com/roi.html"
+        />
+        <meta
+            property="og:image"
+            content="https://offloader.dryga.com/og.png"
+        />
+        <meta
+            name="theme-color"
+            content="#FBFAF7"
+            media="(prefers-color-scheme: light)"
+        />
+        <meta
+            name="theme-color"
+            content="#0E0E11"
+            media="(prefers-color-scheme: dark)"
+        />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <link
+            rel="preload"
+            as="font"
+            type="font/woff2"
+            href="fonts/SpaceGrotesk-700.woff2"
+            crossorigin
+        />
+        <link
+            rel="preload"
+            as="font"
+            type="font/woff2"
+            href="fonts/JetBrainsMono-400.woff2"
+            crossorigin
+        />
+        <link rel="stylesheet" href="styles.css" />
+        <script src="analytics.js" defer></script>
 
-    <style>
-      /* ── ROI calculator (page-scoped) ─────────────────────────────────── */
-      .calc-intro { padding-top: clamp(3rem, 6vw, 5rem); }
-      #calc { padding-block: clamp(2rem, 4vw, 3rem); }   /* flows from the intro — no divider/gap */
-      .calc-intro h1 { font-size: var(--fs-h2); max-width: 20ch; margin-bottom: 1.1rem; }
-      .calc-lede { max-width: 54ch; font-size: var(--fs-lede); color: var(--ink-2); line-height: 1.55; }
-      .privacy-pill {
-        display: inline-flex; align-items: center; gap: 0.55rem; margin-top: 1.6rem;
-        padding: 0.5rem 0.9rem; border: 1px solid var(--line); border-radius: 999px;
-        font-size: var(--fs-small); color: var(--ink-2); background: var(--paper-2);
-      }
-      .privacy-pill svg { color: var(--ok); flex: none; }
+        <style>
+            /* ── ROI calculator (page-scoped) ─────────────────────────────────── */
+            .calc-intro {
+                padding-top: clamp(3rem, 6vw, 5rem);
+            }
+            #calc {
+                padding-block: clamp(2rem, 4vw, 3rem);
+            } /* flows from the intro — no divider/gap */
+            .calc-intro h1 {
+                font-size: var(--fs-h2);
+                max-width: 20ch;
+                margin-bottom: 1.1rem;
+            }
+            .calc-lede {
+                max-width: 54ch;
+                font-size: var(--fs-lede);
+                color: var(--ink-2);
+                line-height: 1.55;
+            }
+            .privacy-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.55rem;
+                margin-top: 1.6rem;
+                padding: 0.5rem 0.9rem;
+                border: 1px solid var(--line);
+                border-radius: 999px;
+                font-size: var(--fs-small);
+                color: var(--ink-2);
+                background: var(--paper-2);
+            }
+            .privacy-pill svg {
+                color: var(--ok);
+                flex: none;
+            }
 
-      .calc { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.5rem, 3vw, 2.75rem); align-items: start; }
-      @media (max-width: 860px) { .calc { grid-template-columns: 1fr; } }
+            .calc {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: clamp(1.5rem, 3vw, 2.75rem);
+                align-items: start;
+            }
+            @media (max-width: 860px) {
+                .calc {
+                    grid-template-columns: 1fr;
+                }
+            }
 
-      .calc-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--paper); overflow: hidden; }
-      .calc-panel > h2 {
-        font-family: var(--mono); font-size: var(--fs-label); font-weight: 500;
-        letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted);
-        padding: 1.1rem 1.4rem; margin: 0; border-bottom: 1px solid var(--line-2);
-      }
-      .calc-body { padding: 1.4rem; display: grid; gap: 1.4rem; }
+            .calc-panel {
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                background: var(--paper);
+                overflow: hidden;
+            }
+            .calc-panel > h2 {
+                font-family: var(--mono);
+                font-size: var(--fs-label);
+                font-weight: 500;
+                letter-spacing: var(--track-label);
+                text-transform: uppercase;
+                color: var(--muted);
+                padding: 1.1rem 1.4rem;
+                margin: 0;
+                border-bottom: 1px solid var(--line-2);
+            }
+            .calc-body {
+                padding: 1.4rem;
+                display: grid;
+                gap: 1.4rem;
+            }
 
-      .field { display: grid; gap: 0.4rem; }
-      .field label { font-size: 0.94rem; font-weight: 550; color: var(--ink); }
-      .field .hint { font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
-      .field input[type="number"], .field input[type="text"] {
-        font-family: var(--sans); font-size: 1rem; color: var(--ink); background: var(--paper-2);
-        border: 1px solid var(--line); border-radius: 9px; padding: 0.6rem 0.75rem; width: 100%;
-      }
-      .field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
-      .unit { position: relative; }
-      .unit input { padding-right: 3.1rem; }
-      .unit > span { position: absolute; right: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.9rem; pointer-events: none; }
-      .range-row { display: flex; align-items: center; gap: 1rem; }
-      .range-row input[type="range"] { flex: 1; accent-color: var(--accent); }
-      .range-out { font-family: var(--mono); font-size: 0.95rem; color: var(--accent-2); min-width: 3.5ch; text-align: right; }
+            .field {
+                display: grid;
+                gap: 0.4rem;
+            }
+            .field label {
+                font-size: 0.94rem;
+                font-weight: 550;
+                color: var(--ink);
+            }
+            .field .hint {
+                font-size: var(--fs-small);
+                color: var(--muted);
+                line-height: 1.4;
+            }
+            .field input[type="number"],
+            .field input[type="text"] {
+                font-family: var(--sans);
+                font-size: 1rem;
+                color: var(--ink);
+                background: var(--paper-2);
+                border: 1px solid var(--line);
+                border-radius: 9px;
+                padding: 0.6rem 0.75rem;
+                width: 100%;
+            }
+            .field input:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 1px;
+                border-color: var(--accent);
+            }
+            .unit {
+                position: relative;
+            }
+            .unit input {
+                padding-right: 3.1rem;
+            }
+            .unit > span {
+                position: absolute;
+                right: 0.85rem;
+                top: 50%;
+                transform: translateY(-50%);
+                color: var(--muted);
+                font-size: 0.9rem;
+                pointer-events: none;
+            }
+            .range-row {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+            .range-row input[type="range"] {
+                flex: 1;
+                accent-color: var(--accent);
+            }
+            .range-out {
+                font-family: var(--mono);
+                font-size: 0.95rem;
+                color: var(--accent-2);
+                min-width: 3.5ch;
+                text-align: right;
+            }
 
-      .adv summary { cursor: pointer; font-size: 0.9rem; font-weight: 550; color: var(--ink-2); list-style: none; }
-      .adv summary::-webkit-details-marker { display: none; }
-      .adv summary::after { content: " ＋"; color: var(--muted); }
-      .adv[open] summary::after { content: " －"; }
-      .adv[open] summary { margin-bottom: 1rem; }
-      .adv .adv-grid { display: grid; gap: 1.1rem; }
-      .check { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.94rem; color: var(--ink); }
-      .check input { margin-top: 0.15rem; accent-color: var(--accent); width: 1.05rem; height: 1.05rem; flex: none; }
-      .check .hint { display: block; font-size: var(--fs-small); color: var(--muted); font-weight: 400; }
+            .adv summary {
+                cursor: pointer;
+                font-size: 0.9rem;
+                font-weight: 550;
+                color: var(--ink-2);
+                list-style: none;
+            }
+            .adv summary::-webkit-details-marker {
+                display: none;
+            }
+            .adv summary::after {
+                content: " ＋";
+                color: var(--muted);
+            }
+            .adv[open] summary::after {
+                content: " －";
+            }
+            .adv[open] summary {
+                margin-bottom: 1rem;
+            }
+            .adv .adv-grid {
+                display: grid;
+                gap: 1.1rem;
+            }
+            .check {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.6rem;
+                font-size: 0.94rem;
+                color: var(--ink);
+            }
+            .check input {
+                margin-top: 0.15rem;
+                accent-color: var(--accent);
+                width: 1.05rem;
+                height: 1.05rem;
+                flex: none;
+            }
+            .check .hint {
+                display: block;
+                font-size: var(--fs-small);
+                color: var(--muted);
+                font-weight: 400;
+            }
 
-      /* results */
-      .save-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-      .save-table caption { text-align: left; font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); padding: 0.3rem 0 0.55rem; }
-      .save-table td { text-align: right; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--line-2); }
-      .save-table td:first-child { text-align: left; color: var(--ink-2); }
-      .save-table tbody td { font-family: var(--mono); font-size: 0.95rem; color: var(--ink); }
-      .save-table tr.expected td { font-weight: 600; }
-      .save-table tr.expected td:not(:first-child) { color: var(--ok); }
-      .neg { color: var(--accent-2) !important; }
-      .fleet { font-size: 0.9rem; color: var(--ink-2); line-height: 1.55; }
-      .fleet b { color: var(--ink); }
-      .caveats { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.5rem; }
-      .caveats li { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
-      .caveats li::marker { color: var(--muted); }
-      .result-cta { padding: 1.1rem 1.4rem; border-top: 1px solid var(--line-2); background: var(--paper-2); font-size: 0.94rem; color: var(--ink-2); }
-      .result-cta a { color: var(--accent-2); font-weight: 550; text-decoration: underline; text-underline-offset: 2px; }
+            /* results */
+            .save-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-variant-numeric: tabular-nums;
+            }
+            .save-table caption {
+                text-align: left;
+                font-family: var(--mono);
+                font-size: var(--fs-label);
+                font-weight: 500;
+                letter-spacing: var(--track-label);
+                text-transform: uppercase;
+                color: var(--muted);
+                padding: 0.3rem 0 0.55rem;
+            }
+            .save-table td {
+                text-align: right;
+                padding: 0.5rem 0.4rem;
+                border-bottom: 1px solid var(--line-2);
+            }
+            .save-table td:first-child {
+                text-align: left;
+                color: var(--ink-2);
+            }
+            .save-table tbody td {
+                font-family: var(--mono);
+                font-size: 0.95rem;
+                color: var(--ink);
+            }
+            .save-table tr.expected td {
+                font-weight: 600;
+            }
+            .save-table tr.expected td:not(:first-child) {
+                color: var(--ok);
+            }
+            .neg {
+                color: var(--accent-2) !important;
+            }
+            .fleet {
+                font-size: 0.9rem;
+                color: var(--ink-2);
+                line-height: 1.55;
+            }
+            .fleet b {
+                color: var(--ink);
+            }
+            .caveats {
+                margin: 0;
+                padding-left: 1.1rem;
+                display: grid;
+                gap: 0.5rem;
+            }
+            .caveats li {
+                font-size: var(--fs-small);
+                color: var(--ink-2);
+                line-height: 1.5;
+            }
+            .caveats li::marker {
+                color: var(--muted);
+            }
+            .result-cta {
+                padding: 1.1rem 1.4rem;
+                border-top: 1px solid var(--line-2);
+                background: var(--paper-2);
+                font-size: 0.94rem;
+                color: var(--ink-2);
+            }
+            .result-cta a {
+                color: var(--accent-2);
+                font-weight: 550;
+                text-decoration: underline;
+                text-underline-offset: 2px;
+            }
 
-      .explain-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; margin-top: 1.5rem; }
-      @media (max-width: 640px) { .explain-grid { grid-template-columns: 1fr; } }
-      .explain-card { background: var(--paper); padding: clamp(1.4rem, 3vw, 2rem); }
-      .explain-card h3 { font-size: var(--fs-h3); margin-bottom: 0.7rem; }
-      .explain-card p, .explain-card li { font-size: 0.94rem; color: var(--ink-2); line-height: 1.55; }
-      .explain-card ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; }
-      .explain-card code { font-family: var(--mono); font-size: 0.85em; background: var(--paper-2); padding: 0.05em 0.35em; border-radius: 4px; }
-    </style>
-  </head>
-  <body>
-    <a class="skip" href="#calc">Skip to the calculator</a>
+            .explain-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1px;
+                background: var(--line-2);
+                border: 1px solid var(--line-2);
+                border-radius: 14px;
+                overflow: hidden;
+                margin-top: 1.5rem;
+            }
+            @media (max-width: 640px) {
+                .explain-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .explain-card {
+                background: var(--paper);
+                padding: clamp(1.4rem, 3vw, 2rem);
+            }
+            .explain-card h3 {
+                font-size: var(--fs-h3);
+                margin-bottom: 0.7rem;
+            }
+            .explain-card p,
+            .explain-card li {
+                font-size: 0.94rem;
+                color: var(--ink-2);
+                line-height: 1.55;
+            }
+            .explain-card ol {
+                margin: 0;
+                padding-left: 1.2rem;
+                display: grid;
+                gap: 0.4rem;
+            }
+            .explain-card code {
+                font-family: var(--mono);
+                font-size: 0.85em;
+                background: var(--paper-2);
+                padding: 0.05em 0.35em;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <a class="skip" href="#calc">Skip to the calculator</a>
 
-    <header class="site" role="banner">
-      <nav class="wrap nav" aria-label="Primary">
-        <a class="brand" href="index.html" aria-label="Offloader home">
-          <svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-            <rect width="4.4" height="4.4" rx="0.6" fill="currentColor" />
-            <rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor" />
-          </svg>
-          <span class="brand-word">Offloader</span>
-        </a>
-        <ul class="nav-links">
-          <li><a href="index.html#how">How it works</a></li>
-          <li><a href="index.html#proof">Proof</a></li>
-          <li><a href="index.html#pricing">Pricing</a></li>
-          <li><a href="index.html#fit">Fit</a></li>
-          <li><a href="docs/index.html">Docs</a></li>
-          <li>
-            <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a>
-          </li>
-        </ul>
-      </nav>
-    </header>
+        <header class="site" role="banner">
+            <nav class="wrap nav" aria-label="Primary">
+                <a class="brand" href="index.html" aria-label="Offloader home">
+                    <svg
+                        class="brand-mark"
+                        width="1em"
+                        height="1em"
+                        viewBox="0 0 10 10"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <rect
+                            width="4.4"
+                            height="4.4"
+                            rx="0.6"
+                            fill="currentColor"
+                        />
+                        <rect
+                            x="5.6"
+                            y="5.6"
+                            width="4.4"
+                            height="4.4"
+                            rx="0.6"
+                            fill="currentColor"
+                        />
+                    </svg>
+                    <span class="brand-word">Offloader</span>
+                </a>
+                <ul class="nav-links">
+                    <li><a href="index.html#how">How it works</a></li>
+                    <li><a href="index.html#proof">Proof</a></li>
+                    <li><a href="index.html#pricing">Pricing</a></li>
+                    <li><a href="index.html#fit">Fit</a></li>
+                    <li><a href="docs/index.html">Docs</a></li>
+                    <li>
+                        <a
+                            href="https://calendly.com/andrew-dryga/offloader"
+                            target="_blank"
+                            rel="noopener"
+                            class="nav-cta"
+                            >Book a call</a
+                        >
+                    </li>
+                </ul>
+            </nav>
+        </header>
 
-    <main id="main" tabindex="-1">
-      <section class="wrap calc-intro">
-        <p class="kicker">ROI calculator</p>
-        <h1>What would these reads cost on Offloader instead?</h1>
-        <p class="calc-lede">
-          Offloading moves your product's repeated reads off the warehouse onto a small fleet you run.
-          This sizes that fleet from your traffic and compares its cost to what those reads cost the
-          warehouse today — the plain difference, not a sales promise.
-        </p>
-        <p class="privacy-pill">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M12 2 4 5v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V5l-8-3Z" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
-          Computed entirely in your browser. Your numbers are never sent, stored, or logged.
-        </p>
-      </section>
+        <main id="main" tabindex="-1">
+            <section class="wrap calc-intro">
+                <p class="kicker">ROI calculator</p>
+                <h1>What would these reads cost on Offloader instead?</h1>
+                <p class="calc-lede">
+                    Offloading moves your product's repeated reads off the
+                    warehouse onto a small fleet you run. This sizes that fleet
+                    from your traffic and compares its cost to what those reads
+                    cost the warehouse today — the plain difference, not a sales
+                    promise.
+                </p>
+                <p class="privacy-pill">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path
+                            d="M12 2 4 5v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V5l-8-3Z"
+                        />
+                        <path d="m9 12 2 2 4-4" />
+                    </svg>
+                    Computed entirely in your browser. Your numbers are never
+                    sent, stored, or logged.
+                </p>
+            </section>
 
-      <section class="wrap" id="calc">
-        <div class="calc">
-          <!-- inputs ─────────────────────────────────────────────── -->
-          <form class="calc-panel" id="calc-form" autocomplete="off">
-            <h2>Your numbers</h2>
-            <div class="calc-body">
-              <div class="field">
-                <label for="requests">Requests served per month</label>
-                <div class="unit"><input type="text" inputmode="numeric" id="requests" value="50000000" /><span>/mo</span></div>
-                <span class="hint">Total product reads you serve for these dashboards / stats.</span>
-              </div>
+            <section class="wrap" id="calc">
+                <div class="calc">
+                    <!-- inputs ─────────────────────────────────────────────── -->
+                    <form class="calc-panel" id="calc-form" autocomplete="off">
+                        <h2>Your numbers</h2>
+                        <div class="calc-body">
+                            <div class="field">
+                                <label for="requests"
+                                    >Requests served per month</label
+                                >
+                                <div class="unit">
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        id="requests"
+                                        value="50000000"
+                                    /><span>/mo</span>
+                                </div>
+                                <span class="hint"
+                                    >Total product reads you serve for these
+                                    dashboards / stats.</span
+                                >
+                            </div>
 
-              <div class="field">
-                <label for="warehouse">Current warehouse cost for those reads, per month</label>
-                <div class="unit"><input type="text" inputmode="numeric" id="warehouse" value="6000" /><span>$/mo</span></div>
-                <span class="hint">What the warehouse bills you today to answer them.</span>
-              </div>
+                            <div class="field">
+                                <label for="warehouse"
+                                    >Current warehouse cost for those reads, per
+                                    month</label
+                                >
+                                <div class="unit">
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        id="warehouse"
+                                        value="6000"
+                                    /><span>$/mo</span>
+                                </div>
+                                <span class="hint"
+                                    >What the warehouse bills you today to
+                                    answer them.</span
+                                >
+                            </div>
 
-              <div class="field">
-                <label for="repeatable">Share that's repeatable</label>
-                <div class="range-row">
-                  <input type="range" id="repeatable" min="0" max="100" step="5" value="70" />
-                  <output class="range-out" id="repeatable-out" for="repeatable">70%</output>
+                            <div class="field">
+                                <label for="repeatable"
+                                    >Share that's repeatable</label
+                                >
+                                <div class="range-row">
+                                    <input
+                                        type="range"
+                                        id="repeatable"
+                                        min="0"
+                                        max="100"
+                                        step="5"
+                                        value="70"
+                                    />
+                                    <output
+                                        class="range-out"
+                                        id="repeatable-out"
+                                        for="repeatable"
+                                        >70%</output
+                                    >
+                                </div>
+                                <span class="hint"
+                                    >The same query shapes, run over and over —
+                                    that's what Offloader serves from a
+                                    snapshot. The rest stays on the
+                                    warehouse.</span
+                                >
+                            </div>
+
+                            <div class="field">
+                                <label for="cdn">CDN cache hit rate</label>
+                                <div class="range-row">
+                                    <input
+                                        type="range"
+                                        id="cdn"
+                                        min="0"
+                                        max="95"
+                                        step="5"
+                                        value="90"
+                                    />
+                                    <output
+                                        class="range-out"
+                                        id="cdn-out"
+                                        for="cdn"
+                                        >90%</output
+                                    >
+                                </div>
+                                <span class="hint"
+                                    >A CDN in front serves repeat responses at
+                                    the edge, so Offloader's fleet only handles
+                                    the misses — a higher hit rate means fewer
+                                    instances. Set to 0% if you don't front it
+                                    with a CDN.</span
+                                >
+                            </div>
+
+                            <details class="adv">
+                                <summary>Assumptions</summary>
+                                <div class="adv-grid">
+                                    <label class="check">
+                                        <input type="checkbox" id="committed" />
+                                        <span
+                                            >Warehouse is on committed /
+                                            flat-rate capacity
+                                            <span class="hint"
+                                                >Moving the reads off won't
+                                                lower the bill until you
+                                                actually downsize the committed
+                                                tier.</span
+                                            >
+                                        </span>
+                                    </label>
+                                </div>
+                            </details>
+                        </div>
+                    </form>
+
+                    <!-- results ───────────────────────────────────────────── -->
+                    <div class="calc-panel" aria-live="polite">
+                        <h2>Estimate</h2>
+                        <div class="calc-body">
+                            <table class="save-table">
+                                <tbody>
+                                    <tr>
+                                        <td>Repeatable warehouse cost</td>
+                                        <td id="r-wh">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Offloader infrastructure</td>
+                                        <td id="r-infra">—</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <table class="save-table" id="scen">
+                                <caption id="scen-cap">
+                                    Estimated savings — per month · annualized
+                                </caption>
+                                <tbody id="scen-body"></tbody>
+                            </table>
+                            <p class="fleet" id="fleet"></p>
+                            <ul class="caveats" id="caveats"></ul>
+                        </div>
+                        <div class="result-cta">
+                            A rough estimate from your inputs and the validated
+                            benchmark. The
+                            <a href="index.html#pricing">paid diagnostic</a>
+                            sizes it against your real traffic and data and
+                            hands you a finance-grade before/after on your
+                            actual warehouse bill.
+                        </div>
+                    </div>
                 </div>
-                <span class="hint">The same query shapes, run over and over — that's what Offloader serves from a snapshot. The rest stays on the warehouse.</span>
-              </div>
+            </section>
 
-              <details class="adv">
-                <summary>Assumptions</summary>
-                <div class="adv-grid">
-                  <label class="check">
-                    <input type="checkbox" id="committed" />
-                    <span>Warehouse is on committed / flat-rate capacity
-                      <span class="hint">Moving the reads off won't lower the bill until you actually downsize the committed tier.</span>
-                    </span>
-                  </label>
+            <section class="wrap band">
+                <div class="section-head">
+                    <p class="kicker">How this is computed</p>
+                    <h2 style="font-size: var(--fs-h2)">
+                        Honest by construction
+                    </h2>
                 </div>
-              </details>
+                <div class="explain-grid">
+                    <div class="explain-card">
+                        <h3>The plain difference</h3>
+                        <p>
+                            Savings = the <b>repeatable share</b> of your
+                            warehouse cost − what the
+                            <b>Offloader fleet</b> costs to run. Three
+                            predictions bracket how much of that spend actually
+                            clears once it's served from cache.
+                        </p>
+                    </div>
+                    <div class="explain-card">
+                        <h3>How the fleet is sized</h3>
+                        <p>
+                            The repeatable requests that miss the CDN become a
+                            <b>peak</b> rate (product traffic runs ~4× its
+                            average at busy hours). Each instance sustains
+                            <code>~2,500 req/s</code> cached from the benchmark,
+                            so the fleet is however many instances that peak
+                            needs — minimum two for availability.
+                        </p>
+                    </div>
+                    <div class="explain-card">
+                        <h3>Only the repeatable reads</h3>
+                        <p>
+                            Offloader serves the <b>repeatable</b> query shapes
+                            from a snapshot; ad-hoc and one-off reads stay on
+                            the warehouse. So the saving applies to the
+                            repeatable share of your bill — the rest is
+                            untouched.
+                        </p>
+                    </div>
+                    <div class="explain-card">
+                        <h3>Where it won't overclaim</h3>
+                        <p>
+                            Sizing is an <b>estimate</b> from a single-machine
+                            benchmark — confirm it with a pilot. On
+                            <b>committed capacity</b> the warehouse savings are
+                            <em>potential</em> until you downsize the tier — the
+                            calculator flags it.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="band cta-band">
+                <div class="wrap cta-band-inner">
+                    <p class="kicker" style="text-align: center">
+                        Ready for the real number?
+                    </p>
+                    <h2 style="font-size: var(--fs-h2)">
+                        Book the paid diagnostic.
+                    </h2>
+                    <p class="cta-band-sub">
+                        We size the fleet against your real traffic and data and
+                        measure the before/after on your actual warehouse bill —
+                        a finance-grade number you can take to whoever signs off
+                        on the spend.
+                    </p>
+                    <div class="cta-row cta-band-row">
+                        <a
+                            class="btn btn-primary"
+                            href="https://calendly.com/andrew-dryga/offloader"
+                            target="_blank"
+                            rel="noopener"
+                            >Book a diagnostic</a
+                        >
+                        <a class="btn btn-ghost" href="index.html#how"
+                            >See how it works</a
+                        >
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-foot">
+            <div class="wrap foot-inner">
+                <div class="foot-brand">
+                    <p class="foot-word">
+                        <svg
+                            class="brand-mark"
+                            width="1em"
+                            height="1em"
+                            viewBox="0 0 10 10"
+                            aria-hidden="true"
+                            focusable="false"
+                        >
+                            <rect
+                                width="4.4"
+                                height="4.4"
+                                rx="0.6"
+                                fill="currentColor"
+                            />
+                            <rect
+                                x="5.6"
+                                y="5.6"
+                                width="4.4"
+                                height="4.4"
+                                rx="0.6"
+                                fill="currentColor"
+                            />
+                        </svg>
+                        Offloader
+                    </p>
+                    <p class="foot-tag">
+                        If your warehouse can export Parquet, Offloader can
+                        serve it.
+                    </p>
+                    <p class="foot-copy">© 2026 Offloader</p>
+                </div>
+                <nav class="foot-nav" aria-label="Footer">
+                    <div>
+                        <h3>Product</h3>
+                        <a href="index.html#how">How it works</a>
+                        <a href="index.html#pricing">Pricing</a>
+                        <a href="index.html#faq">FAQ</a>
+                    </div>
+                    <div>
+                        <h3>Docs</h3>
+                        <a href="docs/concepts.html">Concepts</a>
+                        <a href="docs/quickstart.html">Quickstart</a>
+                        <a href="docs/cli.html">CLI reference</a>
+                        <a href="docs/security-model.html">Security</a>
+                    </div>
+                    <div>
+                        <h3>Evaluate</h3>
+                        <a href="roi.html">ROI calculator</a>
+                        <a href="docs/benchmarks.html">Benchmarks</a>
+                    </div>
+                    <div>
+                        <h3>Talk to us</h3>
+                        <a
+                            href="https://calendly.com/andrew-dryga/offloader"
+                            target="_blank"
+                            rel="noopener"
+                            >Book a diagnostic</a
+                        >
+                        <a href="https://github.com/AndrewDryga/offloader"
+                            >GitHub</a
+                        >
+                    </div>
+                </nav>
             </div>
-          </form>
+        </footer>
 
-          <!-- results ───────────────────────────────────────────── -->
-          <div class="calc-panel" aria-live="polite">
-            <h2>Estimate</h2>
-            <div class="calc-body">
-              <table class="save-table">
-                <tbody>
-                  <tr><td>Repeatable warehouse cost</td><td id="r-wh">—</td></tr>
-                  <tr><td>Offloader infrastructure</td><td id="r-infra">—</td></tr>
-                </tbody>
-              </table>
-              <table class="save-table" id="scen">
-                <caption id="scen-cap">Estimated savings — per month · annualized</caption>
-                <tbody id="scen-body"></tbody>
-              </table>
-              <p class="fleet" id="fleet"></p>
-              <ul class="caveats" id="caveats"></ul>
-            </div>
-            <div class="result-cta">
-              A rough estimate from your inputs and the validated benchmark. The
-              <a href="index.html#pricing">paid diagnostic</a> sizes it against your real traffic and
-              data and hands you a finance-grade before/after on your actual warehouse bill.
-            </div>
-          </div>
-        </div>
-      </section>
+        <script>
+            // ROI calculator — runs entirely in the browser. No network requests, no storage,
+            // no analytics on these inputs: your numbers never leave this page. (View source.)
+            (function () {
+                "use strict";
 
-      <section class="wrap band">
-        <div class="section-head">
-          <p class="kicker">How this is computed</p>
-          <h2 style="font-size:var(--fs-h2)">Honest by construction</h2>
-        </div>
-        <div class="explain-grid">
-          <div class="explain-card">
-            <h3>The plain difference</h3>
-            <p>
-              Savings = the <b>repeatable share</b> of your warehouse cost − what the <b>Offloader
-              fleet</b> costs to run. Three predictions bracket how much of that spend actually clears
-              once it's served from cache.
-            </p>
-          </div>
-          <div class="explain-card">
-            <h3>How the fleet is sized</h3>
-            <p>
-              The repeatable requests become a <b>peak</b> rate (product traffic runs ~4× its average
-              at busy hours). Each instance sustains <code>~5,000 req/s</code> cached from the
-              benchmark, so the fleet is however many instances that peak needs — minimum two for
-              availability.
-            </p>
-          </div>
-          <div class="explain-card">
-            <h3>Only the repeatable reads</h3>
-            <p>
-              Offloader serves the <b>repeatable</b> query shapes from a snapshot; ad-hoc and one-off
-              reads stay on the warehouse. So the saving applies to the repeatable share of your bill —
-              the rest is untouched.
-            </p>
-          </div>
-          <div class="explain-card">
-            <h3>Where it won't overclaim</h3>
-            <p>
-              Sizing is an <b>estimate</b> from a single-machine benchmark — confirm it with a pilot. On
-              <b>committed capacity</b> the warehouse savings are <em>potential</em> until you downsize the
-              tier — the calculator flags it.
-            </p>
-          </div>
-        </div>
-      </section>
+                // Fleet-sizing constants, grounded in the validated benchmark (~2,500 req/s cached on a
+                // single 4-vCPU replica for a 50 KB nested-JSON payload). An estimate, not an SLA.
+                var REF_RPS = 2500; // measured cached req/s, 50 KB nested payload, per 4-vCPU replica
+                var UTIL = 0.6; // typical per-instance utilization headroom
+                var PEAK_FACTOR = 4; // product traffic peaks well above its monthly average
+                var SEC_PER_MONTH = 30 * 24 * 3600; // 2,592,000
+                var INSTANCE = { vcpu: 4, ram: 16, usd: 120 }; // the benchmark's serving instance
+                // Three predictions on how much of the repeatable warehouse spend actually clears once
+                // served from cache — long-tail params and refresh windows still touch the warehouse.
+                var SCENARIOS = [
+                    { name: "Optimistic", clear: 0.9 },
+                    { name: "Expected", clear: 0.75, hi: true },
+                    { name: "Conservative", clear: 0.6 },
+                ];
 
-      <section class="band cta-band">
-        <div class="wrap cta-band-inner">
-          <p class="kicker" style="text-align:center">Ready for the real number?</p>
-          <h2 style="font-size:var(--fs-h2)">Book the paid diagnostic.</h2>
-          <p class="cta-band-sub">
-            We size the fleet against your real traffic and data and measure the before/after on your
-            actual warehouse bill — a finance-grade number you can take to whoever signs off on the spend.
-          </p>
-          <div class="cta-row cta-band-row">
-            <a class="btn btn-primary" href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
-            <a class="btn btn-ghost" href="index.html#how">See how it works</a>
-          </div>
-        </div>
-      </section>
-    </main>
+                var $ = function (id) {
+                    return document.getElementById(id);
+                };
+                var money0 = new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 0,
+                });
+                var int0 = new Intl.NumberFormat("en-US", {
+                    maximumFractionDigits: 0,
+                });
+                function usd(v) {
+                    var n = Math.round(v);
+                    return (n < 0 ? "−" : "") + money0.format(Math.abs(n));
+                }
+                function fnum(el) {
+                    var v = parseFloat(
+                        String(el.value).replace(/[^0-9.\-]/g, ""),
+                    );
+                    return isFinite(v) && v > 0 ? v : 0;
+                }
 
-    <footer class="site-foot">
-      <div class="wrap foot-inner">
-        <div class="foot-brand">
-          <p class="foot-word">
-            <svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-              <rect width="4.4" height="4.4" rx="0.6" fill="currentColor" />
-              <rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor" />
-            </svg>
-            Offloader
-          </p>
-          <p class="foot-tag">
-            If your warehouse can export Parquet, Offloader can serve it.
-          </p>
-          <p class="foot-copy">© 2026 Offloader</p>
-        </div>
-        <nav class="foot-nav" aria-label="Footer">
-          <div>
-            <h3>Product</h3>
-            <a href="index.html#how">How it works</a>
-            <a href="index.html#pricing">Pricing</a>
-            <a href="index.html#faq">FAQ</a>
-          </div>
-          <div>
-            <h3>Docs</h3>
-            <a href="docs/concepts.html">Concepts</a>
-            <a href="docs/quickstart.html">Quickstart</a>
-            <a href="docs/cli.html">CLI reference</a>
-            <a href="docs/security-model.html">Security</a>
-          </div>
-          <div>
-            <h3>Evaluate</h3>
-            <a href="roi.html">ROI calculator</a>
-            <a href="docs/benchmarks.html">Benchmarks</a>
-          </div>
-          <div>
-            <h3>Talk to us</h3>
-            <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
-            <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
-          </div>
-        </nav>
-      </div>
-    </footer>
+                // Size the fleet from the repeatable request volume alone.
+                function sizeFleet(repeatableRequests) {
+                    var peakRps =
+                        (repeatableRequests / SEC_PER_MONTH) * PEAK_FACTOR;
+                    var instances = Math.max(
+                        2,
+                        Math.ceil(peakRps / (REF_RPS * UTIL)) || 0,
+                    ); // min 2 for availability
+                    return {
+                        instances: instances,
+                        peakRps: peakRps,
+                        infra: instances * INSTANCE.usd,
+                    };
+                }
 
-    <script>
-      // ROI calculator — runs entirely in the browser. No network requests, no storage,
-      // no analytics on these inputs: your numbers never leave this page. (View source.)
-      (function () {
-        "use strict";
+                function render() {
+                    var requests = fnum($("requests"));
+                    var cost = fnum($("warehouse"));
+                    var pct = Math.min(100, fnum($("repeatable"))) / 100;
+                    var cdn = Math.min(100, fnum($("cdn"))) / 100;
+                    var committed = $("committed").checked;
+                    $("repeatable-out").textContent =
+                        Math.round(pct * 100) + "%";
+                    $("cdn-out").textContent = Math.round(cdn * 100) + "%";
 
-        // Fleet-sizing constants, grounded in the validated benchmark (docs/benchmarks.md:
-        // ~5–6k req/s cached on a single instance). An estimate, not an SLA.
-        var REF_RPS = 5000;                 // sustained cached req/s per instance (benchmark low end)
-        var UTIL = 0.6;                     // typical per-instance utilization headroom
-        var PEAK_FACTOR = 4;                // product traffic peaks well above its monthly average
-        var SEC_PER_MONTH = 30 * 24 * 3600; // 2,592,000
-        var INSTANCE = { vcpu: 2, ram: 8, usd: 65 }; // a typical serving instance
-        // Three predictions on how much of the repeatable warehouse spend actually clears once
-        // served from cache — long-tail params and refresh windows still touch the warehouse.
-        var SCENARIOS = [
-          { name: "Optimistic", clear: 0.9 },
-          { name: "Expected", clear: 0.75, hi: true },
-          { name: "Conservative", clear: 0.6 }
-        ];
+                    // Warehouse savings don't depend on the CDN — the repeatable reads are offloaded either
+                    // way (CDN or Offloader, neither hits the warehouse). The CDN only shrinks the fleet: it
+                    // absorbs its hit-rate share of responses at the edge, so Offloader serves just the misses.
+                    var offloadable = cost * pct;
+                    var f = sizeFleet(requests * pct * (1 - cdn));
 
-        var $ = function (id) { return document.getElementById(id); };
-        var money0 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-        var int0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-        function usd(v) { var n = Math.round(v); return (n < 0 ? "−" : "") + money0.format(Math.abs(n)); }
-        function fnum(el) { var v = parseFloat(String(el.value).replace(/[^0-9.\-]/g, "")); return isFinite(v) && v > 0 ? v : 0; }
+                    $("r-wh").textContent = usd(offloadable) + "/mo";
+                    $("r-infra").textContent = usd(f.infra) + "/mo";
 
-        // Size the fleet from the repeatable request volume alone.
-        function sizeFleet(repeatableRequests) {
-          var peakRps = (repeatableRequests / SEC_PER_MONTH) * PEAK_FACTOR;
-          var instances = Math.max(2, Math.ceil(peakRps / (REF_RPS * UTIL)) || 0); // min 2 for availability
-          return { instances: instances, peakRps: peakRps, infra: instances * INSTANCE.usd };
-        }
+                    $("scen-cap").textContent =
+                        (committed ? "Potential" : "Estimated") +
+                        " savings — per month · annualized";
+                    $("scen-body").innerHTML = SCENARIOS.map(function (s) {
+                        var save = offloadable * s.clear - f.infra;
+                        var neg = save < 0 ? ' class="neg"' : "";
+                        return (
+                            '<tr class="' +
+                            (s.hi ? "expected" : "") +
+                            '"><td>' +
+                            s.name +
+                            "</td><td" +
+                            neg +
+                            ">" +
+                            usd(save) +
+                            "/mo</td><td" +
+                            neg +
+                            ">" +
+                            usd(save * 12) +
+                            "/yr</td></tr>"
+                        );
+                    }).join("");
 
-        function render() {
-          var requests = fnum($("requests"));
-          var cost = fnum($("warehouse"));
-          var pct = Math.min(100, fnum($("repeatable"))) / 100;
-          var committed = $("committed").checked;
-          $("repeatable-out").textContent = Math.round(pct * 100) + "%";
+                    $("fleet").innerHTML =
+                        "Sized for ~" +
+                        int0.format(Math.round(f.peakRps)) +
+                        " req/s peak: <b>" +
+                        f.instances +
+                        " × " +
+                        INSTANCE.vcpu +
+                        " vCPU / " +
+                        INSTANCE.ram +
+                        " GB</b> (~" +
+                        usd(INSTANCE.usd) +
+                        "/mo each).";
 
-          var offloadable = cost * pct;      // warehouse cost of the repeatable reads
-          var f = sizeFleet(requests * pct); // the fleet only serves the repeatable requests
+                    var cav = [
+                        "The three predictions vary how much of the repeatable spend actually clears once served from cache (90 / 75 / 60%) — long-tail params and refresh windows still touch the warehouse.",
+                    ];
+                    cav.push(
+                        "Fleet sizing is an estimate from the validated benchmark (~2,500 req/s per 4-vCPU instance) — confirm capacity with a pilot.",
+                    );
+                    if (cdn > 0)
+                        cav.push(
+                            "Assumes a CDN in front serves " +
+                                Math.round(cdn * 100) +
+                                "% of repeat responses at the edge, so the fleet is sized only for the misses. CDN request/egress cost isn't modeled — typically well below compute or warehouse spend. If your CDN charges on per-request basis we can route your traffic using our partner CDN networks to reduce costs even further.",
+                        );
+                    if (committed)
+                        cav.push(
+                            "Committed / flat-rate capacity: moving the reads off doesn't lower the warehouse bill until you downsize the tier — until then these savings are potential, not realized.",
+                        );
+                    $("caveats").innerHTML = cav
+                        .map(function (c) {
+                            return "<li>" + c + "</li>";
+                        })
+                        .join("");
+                }
 
-          $("r-wh").textContent = usd(offloadable) + "/mo";
-          $("r-infra").textContent = usd(f.infra) + "/mo";
+                // Group the big number inputs with commas as you type (fnum strips them back out).
+                function group(el) {
+                    var raw = el.value.replace(/\D/g, "");
+                    var caret =
+                        el.selectionStart == null
+                            ? el.value.length
+                            : el.selectionStart;
+                    var digitsLeft = el.value
+                        .slice(0, caret)
+                        .replace(/\D/g, "").length;
+                    el.value =
+                        raw === "" ? "" : Number(raw).toLocaleString("en-US");
+                    var pos = 0,
+                        seen = 0;
+                    while (pos < el.value.length && seen < digitsLeft) {
+                        if (
+                            el.value.charCodeAt(pos) >= 48 &&
+                            el.value.charCodeAt(pos) <= 57
+                        )
+                            seen++;
+                        pos++;
+                    }
+                    try {
+                        el.setSelectionRange(pos, pos);
+                    } catch (e) {}
+                }
+                ["requests", "warehouse"].forEach(function (id) {
+                    var el = $(id);
+                    el.addEventListener("input", function () {
+                        group(el);
+                    });
+                    group(el); // format the initial value
+                });
 
-          $("scen-cap").textContent = (committed ? "Potential" : "Estimated") + " savings — per month · annualized";
-          $("scen-body").innerHTML = SCENARIOS.map(function (s) {
-            var save = offloadable * s.clear - f.infra;
-            var neg = save < 0 ? ' class="neg"' : "";
-            return '<tr class="' + (s.hi ? "expected" : "") + '"><td>' + s.name + "</td><td" + neg + ">" +
-              usd(save) + "/mo</td><td" + neg + ">" + usd(save * 12) + "/yr</td></tr>";
-          }).join("");
-
-          $("fleet").innerHTML =
-            "Sized for ~" + int0.format(Math.round(f.peakRps)) + " req/s peak: <b>" +
-            f.instances + " × " + INSTANCE.vcpu + " vCPU / " + INSTANCE.ram + " GB</b> (~" + usd(INSTANCE.usd) + "/mo each).";
-
-          var cav = ["The three predictions vary how much of the repeatable spend actually clears once served from cache (90 / 75 / 60%) — long-tail params and refresh windows still touch the warehouse."];
-          cav.push("Fleet sizing is an estimate from the validated benchmark (~5k req/s per instance) — confirm capacity with a pilot.");
-          if (committed) cav.push("Committed / flat-rate capacity: moving the reads off doesn't lower the warehouse bill until you downsize the tier — until then these savings are potential, not realized.");
-          $("caveats").innerHTML = cav.map(function (c) { return "<li>" + c + "</li>"; }).join("");
-        }
-
-        // Group the big number inputs with commas as you type (fnum strips them back out).
-        function group(el) {
-          var raw = el.value.replace(/\D/g, "");
-          var caret = el.selectionStart == null ? el.value.length : el.selectionStart;
-          var digitsLeft = el.value.slice(0, caret).replace(/\D/g, "").length;
-          el.value = raw === "" ? "" : Number(raw).toLocaleString("en-US");
-          var pos = 0, seen = 0;
-          while (pos < el.value.length && seen < digitsLeft) {
-            if (el.value.charCodeAt(pos) >= 48 && el.value.charCodeAt(pos) <= 57) seen++;
-            pos++;
-          }
-          try { el.setSelectionRange(pos, pos); } catch (e) {}
-        }
-        ["requests", "warehouse"].forEach(function (id) {
-          var el = $(id);
-          el.addEventListener("input", function () { group(el); });
-          group(el); // format the initial value
-        });
-
-        var form = document.getElementById("calc-form");
-        form.addEventListener("input", render);
-        form.addEventListener("change", render);
-        render();
-      })();
-    </script>
-  </body>
+                var form = document.getElementById("calc-form");
+                form.addEventListener("input", render);
+                form.addEventListener("change", render);
+                render();
+            })();
+        </script>
+    </body>
 </html>

@@ -69,12 +69,12 @@ curl -H "Authorization: Bearer offl_demo_acme_key" \
 
 ```json
 {
-  "data": [ { "account_id": "acct_zephyr", "active_users_total": 244, "api_calls_total": 56839, "storage_gb_avg": 34.3 }, "…" ],
+  "data": [ { "account_id": "acct_zephyr", "active_users_total": 244, "api_calls_total": 56839, "storage_gb_avg": 34.300000000000004 }, "…" ],
   "meta": {
-    "request_id": "…", "endpoint": "customer_usage_summary",
+    "request_id": "…", "endpoint": "customer_usage_summary", "version": 1,
     "snapshot_id": "2026-06-01T00:00:00Z_r0007", "generated_at": "2026-07-01T18:21:10Z", "row_count": 2,
     "serving_mode": "local_table", "cache": "miss",
-    "freshness": { "watermark": "2026-06-01T00:00:00Z", "age_seconds": 2658070, "stale": true }
+    "freshness": { "watermark": "2026-06-01T00:00:00Z", "age_seconds": 2658070, "max_staleness_minutes": 120, "stale": true }
   }
 }
 ```

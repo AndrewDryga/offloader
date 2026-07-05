@@ -28,7 +28,7 @@ Always the same envelope: `data` (the rows) + `meta` (what you're reading).
 ```json
 {
   "data": [
-    { "account_id": "acct_zephyr", "active_users_total": 244, "api_calls_total": 56839, "storage_gb_avg": 34.3 }
+    { "account_id": "acct_zephyr", "active_users_total": 244, "api_calls_total": 56839, "storage_gb_avg": 34.300000000000004 }
   ],
   "meta": {
     "request_id":   "GL6f4CKamol9",
@@ -64,6 +64,10 @@ Always the same envelope: `data` (the rows) + `meta` (what you're reading).
 it, optionally with an "updated N minutes ago" note. It clears when the next snapshot lands.
 
 Nested columns declared `JSON` come back as real nested objects, not strings.
+
+Computed numeric columns (an `avg`, say) are returned as full-precision floating-point — e.g.
+`34.300000000000004`, not `34.3` — so compare them with a tolerance rather than for exact
+equality. Values you store and pass through keep whatever precision they had.
 
 ## Errors
 

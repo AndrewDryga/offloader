@@ -129,13 +129,33 @@ rematerializes from the manifest). Check disk first.</li>
 <li><strong>Owner:</strong> customer environment.</li>
 <li><strong>Action:</strong> grow the cache volume or clear old snapshots, then restart.</li>
 </ul>
-<h2 id="pool-busy-endpoint-latency-regression">Pool busy / endpoint latency regression</h2>
+<h2 id="pool-busy-endpoint-latency-regression-sizing-the-read-pool">Pool busy / endpoint latency regression — sizing the read pool</h2>
 <ul>
-<li><strong>Signals:</strong> rising p95/p99 (benchmark harness / your APM); <code>DIAG</code> <code>pool</code>.</li>
-<li><strong>Owner:</strong> Offloader (serving) or customer (load).</li>
-<li><strong>Action:</strong> compare against a benchmark baseline (<code>../benchmarks.md</code>). For a hot,
-high-QPS endpoint on <code>remote_scan</code>, move it to <code>local_table</code>. Consider the response
-cache for repeated params.</li>
+<li><strong>Signals:</strong> rising p95/p99 (benchmark harness / your APM); <code>offloader_pool_busy</code>
+sustained near <code>offloader_pool_connections</code>; <code>DIAG</code> <code>pool</code>.</li>
+<li><strong>Owner:</strong> Offloader (serving) or customer (load / sizing).</li>
+<li><strong>Action:</strong> classify the bottleneck first, then size for it — the right pool size
+depends on the workload and serving mode, not a single number. Baseline against
+<a href="benchmarks.html"><code>benchmarks.md</code></a>.<ul>
+<li><strong>Cache hits dominate</strong> (stable params + <code>cache.policy: snapshot</code>): a hit serves a
+precomputed, pre-encoded body and barely touches the pool, so pool size is a non-issue
+— turn caching on. Latency here is CPU/payload, not the pool.</li>
+<li><strong><code>local_table</code> misses, high concurrency:</strong> a materialized read is a fast in-memory
+query, so throughput scales cleanly with the pool — raise <code>OFFLOADER_POOL_SIZE</code> (and CPU
+to match). Measured on a 4-vCPU box, a 128-connection pool served the whole suite with
+zero errors where a 16-connection pool was shedding <code>503</code>s. This is the main throughput knob.</li>
+<li><strong><code>remote_scan</code> misses:</strong> each read waits on the object store, so a large pool of them
+thrashes the box — a burst of fat-endpoint misses can push tail latency into seconds. Do
+NOT chase it by raising the pool; <code>OFFLOADER_REMOTE_SCAN_CONCURRENCY</code> (default
+<code>min(pool_size, 16)</code>) caps them for exactly this reason. Scale <strong>out</strong> (more replicas)
+instead, move a hot endpoint to <code>local_table</code>, or make the source Parquet prunable
+(<a href="https://github.com/AndrewDryga/offloader/blob/main/docs/architecture.md#getting-the-most-from-remote_scan">architecture</a>).</li>
+<li><strong>Multi-MB payloads:</strong> bandwidth-bound on the response write, not the pool — paginate or
+lower the endpoint&#39;s <code>limit</code>; more connections won&#39;t help.</li>
+</ul>
+</li>
+<li><strong>Rule of thumb:</strong> start at the default 16; scale the pool up for <code>local_table</code> throughput,
+scale replicas out for <code>remote_scan</code> and availability.</li>
 </ul>
 <h2 id="tenantauth-misconfiguration-key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</h2>
 <ul>
