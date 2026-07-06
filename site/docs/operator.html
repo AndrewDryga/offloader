@@ -159,6 +159,10 @@ RAM. Watch actual RSS and <code>p95</code> with the <a href="benchmarks.html">be
 <p>RAM tracks the working set, not the on-disk size — the reference Blitz workload (67 datasets,
 5.8 GB materialized) fits the 4 vCPU / 16 GB row with room to spare. Size up only if your
 active snapshots or query working memory (large sorts/aggregations) are bigger.</p>
+<p>The <strong>response cache</strong> also lives in RAM (ETS), bounded by <em>entry count</em>
+(<code>OFFLOADER_CACHE_MAX_ENTRIES</code>, default 10,000) — not bytes. So its footprint is roughly
+<code>entries × average response size</code>: negligible for small payloads, but with fat endpoints
+(multi-MB responses) lower the ceiling, or expect it to add to RSS.</p>
 <p><strong>Disk</strong> is the cache volume, which holds the DuckDB file(s). Size it for the materialized
 size plus a retained previous snapshot, plus margin — the reference workload is <strong>5.8 GB for
 67 datasets</strong>. <code>offloader_cache_disk_free_bytes</code> alerts before it fills.</p>

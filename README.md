@@ -8,14 +8,14 @@ The serving layer for customer-facing analytics.
 expensive data warehouse (Snowflake, Databricks, BigQuery) on every page load.
 Offloader serves those same reads from cheap, pre-computed snapshots on your own
 servers instead — cutting warehouse cost and speeding up responses. New to the idea?
-Start with **[What Offloader is, in plain language](docs/concepts.md)**.
+Start with **[What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)**.
 
 Offloader is a self-hostable container that moves repeated product-facing analytical
 reads off Databricks, Snowflake, BigQuery, and similar warehouses by serving approved
 object-storage snapshots through governed REST endpoints — on infrastructure you
 already operate. There is no Offloader cloud, and your private data never leaves your
 environment. (An optional managed CDN edge can serve already-public data — public only,
-opt-in; see [serving public data](docs/public-serving.md).)
+opt-in; see [serving public data](https://offloader.dryga.com/docs/public-serving.html).)
 
 Status: the server is **feature-complete and validated against real production
 data**. The commercial offer is a paid diagnostic plus offload pilot, not a broad data
@@ -23,17 +23,17 @@ platform.
 
 ## Documentation
 
-**New here → [What Offloader is, in plain language](docs/concepts.md)** (the words and
+**New here → [What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)** (the words and
 the mental model, no jargon).
 
 Then, by what you want to do:
 
-- **Try it** — [Quickstart](docs/quickstart.md): run it against a bundled example in ~15 minutes, no cloud needed.
-- **Define your endpoints** — [Config guide](docs/developer-experience.md): what the `offloader.yml` + `datasets/`/`endpoints/`/`keys/` files look like.
-- **Tooling** — [CLI reference](docs/cli.md): the optional `offloader` helper, every command and flag.
-- **Run it in production** — [Operator guide](docs/operator.md) · [Deployment](docs/deployment.md).
-- **Security** — [Security model](docs/security-model.md): what's protected, and what you own.
-- **Cost case** — [ROI calculator](https://offloader.dryga.com/roi.html) · [Benchmarks](docs/benchmarks.md).
+- **Try it** — [Quickstart](https://offloader.dryga.com/docs/quickstart.html): run it against a bundled example in ~15 minutes, no cloud needed.
+- **Define your endpoints** — [Config guide](https://offloader.dryga.com/docs/developer-experience.html): what the `offloader.yml` + `datasets/`/`endpoints/`/`keys/` files look like.
+- **Tooling** — [CLI reference](https://offloader.dryga.com/docs/cli.html): the optional `offloader` helper, every command and flag.
+- **Run it in production** — [Operator guide](https://offloader.dryga.com/docs/operator.html) · [Deployment](https://offloader.dryga.com/docs/deployment.html).
+- **Security** — [Security model](https://offloader.dryga.com/docs/security-model.html): what's protected, and what you own.
+- **Cost case** — [ROI calculator](https://offloader.dryga.com/roi.html) · [Benchmarks](https://offloader.dryga.com/docs/benchmarks.html).
 
 Deeper: [Architecture](docs/architecture.md) · [Release process](docs/release.md).
 
@@ -61,7 +61,7 @@ Offloader is not:
 
 ## What it does
 
-The engineer's-eye view (the plain-language version is in [concepts](docs/concepts.md)):
+The engineer's-eye view (the plain-language version is in [concepts](https://offloader.dryga.com/docs/concepts.html)):
 
 - Serve named, versioned REST endpoints over approved Parquet/CSV snapshots,
   materialized into DuckDB and swapped in atomically.
@@ -85,7 +85,7 @@ The engineer's-eye view (the plain-language version is in [concepts](docs/concep
 - Scale: a DuckDB read-connection pool + per-request serving in the caller process
   (~5–6k req/s cached, p99 < 60ms on 50KB nested payloads; validated at 66
   datasets / 67 endpoints against a real production GCS bucket). Measure on your own
-  data with the [benchmark harness](docs/benchmarks.md).
+  data with the [benchmark harness](https://offloader.dryga.com/docs/benchmarks.html).
 - Expose generated docs/OpenAPI + a client `/schema`, Prometheus metrics (pool,
   refresh, per-endpoint latency), and redacted diagnostics on a separate admin port.
 - Preserve the previous good snapshot on refresh failure (`rollback`), and ship a
@@ -108,7 +108,7 @@ docker run \
   ghcr.io/andrewdryga/offloader:<version>
 ```
 
-The full env-var reference is in the [config guide](docs/developer-experience.md).
+The full env-var reference is in the [config guide](https://offloader.dryga.com/docs/developer-experience.html).
 
 ## Repository layout
 

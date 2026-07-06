@@ -8,12 +8,13 @@ Kubernetes, Nomad, ECS, or your own platform).
 
 Two ports, with different audiences:
 
-<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
-  <div class="ports">
-    <div class="node node-hero"><span class="node-k">Product traffic</span><strong>API port · 4000</strong><span class="node-sub">endpoint API keys · tenant enforcement</span></div>
-    <div class="node"><span class="node-k">Operators — keep private</span><strong>Admin port · 4001</strong><span class="node-sub">health · metrics · diagnostics · docs</span></div>
-  </div>
-</figure>
+```flow two-ports
+  API port · 4000     Product traffic
+                      endpoint API keys · tenant enforcement
+
+  Admin port · 4001   Operators — keep private
+                      health · metrics · diagnostics · docs
+```
 
 The admin port is not an identity product — expose it only through your own network, proxy,
 firewall, or IAM.

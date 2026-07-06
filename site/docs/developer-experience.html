@@ -137,8 +137,9 @@ comma-separated origin list (unset ⇒ no CORS). See <a href="public-serving.htm
 <code>min(pool_size, 16)</code> — caps slow object-store reads so they can&#39;t starve the pool of fast
 <code>local_table</code> queries; see <a href="https://github.com/AndrewDryga/offloader/blob/main/docs/architecture.md#getting-the-most-from-remote_scan">architecture</a>),
 <code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code> (bound DuckDB to the container&#39;s
-memory allocation), <code>OFFLOADER_CACHE_MAX_ENTRIES</code> (response-cache entry ceiling, default
-10,000 — raise it for more distinct query shapes, lower it to cap cache memory).</li>
+memory allocation), <code>OFFLOADER_CACHE_MAX_ENTRIES</code> (response-cache entry ceiling, default 10,000 — it
+bounds the <strong>number</strong> of cached responses, not bytes, so cache RAM ≈ entries × average
+response size; raise it for more distinct query shapes, lower it for fat payloads to cap memory).</li>
 </ul>
 <p>Object-store credentials are needed only when your config reads from a remote source (below);
 the local example needs no cloud vars and makes no outbound calls.</p>

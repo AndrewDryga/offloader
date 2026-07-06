@@ -64,6 +64,65 @@ const GROUPS = [
 const FLAT = GROUPS.flatMap((g) => g.items.map((it) => ({ group: g.name, slug: it[0], src: it[1], title: it[2], blurb: it[3] })));
 const BY_SRC = new Map(FLAT.map((p) => [p.src, `${p.slug}.html`])); // repo-rel source → output filename
 
+// ── on-brand flow diagrams ──────────────────────────────────────────────────
+// These figures are pure CSS (styled by site/styles.css + docs.css) — they render
+// beautifully on the site, but GitHub's markdown sanitizer strips the class hooks
+// they rely on, collapsing them to unstyled text. So the docs *source* carries a
+// readable ASCII fallback inside a ```flow <id>``` fence (clean on GitHub and in any
+// md viewer), and we splice the real figure back in here before marked runs — the
+// site output stays byte-identical to inlining the HTML. Editing a diagram means
+// updating BOTH the ASCII fence in the doc AND its HTML here, or the two surfaces drift.
+const FIGURES = {
+  "warehouse-vs-offloader": `<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a live screen. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
+  <div class="flow-lane">
+    <span class="lane-tag lane-before">Before</span>
+    <div class="flow-track">
+      <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
+      <div class="hop"><span class="hop-l">live query</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
+    </div>
+  </div>
+  <div class="flow-lane">
+    <span class="lane-tag lane-after">After</span>
+    <div class="flow-track">
+      <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
+      <div class="hop"><span class="hop-l">cached REST</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
+      <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
+    </div>
+  </div>
+</figure>`,
+  "snapshot-pipeline": `<figure class="flow" aria-label="Your pipeline exports a snapshot (Parquet + manifest) to object storage on your schedule; Offloader loads the latest snapshot into DuckDB and serves REST; a newer snapshot triggers an automatic, zero-downtime swap.">
+  <div class="flow-track">
+    <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
+    <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
+    <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
+    <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
+  </div>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>
+</figure>`,
+  "two-ports": `<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
+  <div class="ports">
+    <div class="node node-hero"><span class="node-k">Product traffic</span><strong>API port · 4000</strong><span class="node-sub">endpoint API keys · tenant enforcement</span></div>
+    <div class="node"><span class="node-k">Operators — keep private</span><strong>Admin port · 4001</strong><span class="node-sub">health · metrics · diagnostics · docs</span></div>
+  </div>
+</figure>`,
+};
+
+// Replace each ```flow <id>``` fence with its figure HTML, raw — so marked passes it
+// through exactly as if the HTML were inline (identical to the pre-fence source).
+function expandFlowFigures(md, srcRepoRel) {
+  return md.replace(/^```flow[ \t]+([\w-]+)[ \t]*\r?\n[\s\S]*?\r?\n```[ \t]*$/gm, (_block, id) => {
+    const fig = FIGURES[id];
+    if (!fig) throw new Error(`docs-site: unknown flow figure "${id}" in ${srcRepoRel} — add it to FIGURES in build.mjs`);
+    return fig;
+  });
+}
+
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // GitHub-compatible heading slug, so existing in-doc #anchors keep resolving.
@@ -254,7 +313,7 @@ mkdirSync(OUT, { recursive: true });
 
 for (let i = 0; i < FLAT.length; i++) {
   const p = FLAT[i];
-  const md = readFileSync(join(ROOT, p.src), "utf8");
+  const md = expandFlowFigures(readFileSync(join(ROOT, p.src), "utf8"), p.src);
   let body = marked.parse(md);
   body = addHeadingIds(body);
   body = rewriteLinks(body, p.src);

@@ -22,26 +22,16 @@ be **a few minutes or hours fresh** — not up-to-the-second.
 Offloader serves those repeated questions from **cheap, pre-computed copies of the
 data** instead of hitting the warehouse every time.
 
-<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a live screen. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
-  <div class="flow-lane">
-    <span class="lane-tag lane-before">Before</span>
-    <div class="flow-track">
-      <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">live query</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
-    </div>
-  </div>
-  <div class="flow-lane">
-    <span class="lane-tag lane-after">After</span>
-    <div class="flow-track">
-      <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">cached REST</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
-      <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
-    </div>
-  </div>
-</figure>
+```flow warehouse-vs-offloader
+  Before
+    Your app  ──live query──▶  Data warehouse
+                               $$$ · slow — billed per query
+
+  After
+    Your app  ──cached REST──▶  Offloader  ──reads──▶  Snapshot
+                                your servers            S3 · GCS
+                                cheap · fast
+```
 
 You publish periodic **snapshots** of the data to object storage. Offloader loads a
 snapshot into a fast local engine and answers your product's REST calls from it. When
@@ -87,18 +77,21 @@ Two more you'll see in operations:
 
 ## How the pieces fit
 
-<figure class="flow" aria-label="Your pipeline exports a snapshot (Parquet + manifest) to object storage on your schedule; Offloader loads the latest snapshot into DuckDB and serves REST; a newer snapshot triggers an automatic, zero-downtime swap.">
-  <div class="flow-track">
-    <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
-    <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
-    <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
-    <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
-  </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>
-</figure>
+```flow snapshot-pipeline
+  Your pipeline            warehouse export, on your schedule
+        │ export
+        ▼
+  Object store             Parquet + manifest — S3 · GCS
+        │ materialize
+        ▼
+  Offloader · DuckDB       your servers; loads the latest snapshot
+        ▲
+        │ REST
+  Your app                 every request — fast · cheap
+
+  ↻ A newer snapshot triggers an automatic, zero-downtime swap — the
+    warehouse is only touched by the export, never by live traffic.
+```
 
 ## The two ports
 
