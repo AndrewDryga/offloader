@@ -503,12 +503,12 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </div>
                             <figcaption id="savings-cap" class="ledger-cap">
                                 <span>If you don’t save, we don’t earn.</span>
-                                <span class="illus"
-                                    >A real cutover — anonymized</span
-                                >
                             </figcaption>
                             <p class="ledger-scale">
-                                What that <b>$440</b> served:
+                                <span class="ledger-scale-label"
+                                    >A real cutover</span
+                                >
+                                What that <b>$440</b> served in real life:
                                 <b>136M requests a month</b>, 8&nbsp;TB, 94%
                                 cached — at the CDN edge, with no unplanned
                                 downtime since cutover, on the customer’s own
@@ -533,9 +533,11 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                         reserved-capacity warehouse the fee
                                         starts only when you actually downsize
                                         the tier.
-                                    <p><a href="roi.html"
+                                    </p>
+                                    <p>
+                                        <a href="roi.html"
                                             >Estimate your savings →</a
-                                        ></p>
+                                        >
                                     </p>
                                 </div>
                             </div>
@@ -807,8 +809,8 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                     comfortably — about 52 requests a second on
                                     average, well inside the
                                     <a href="docs/benchmarks.html"
-                                        >~2,500/s a single 4-vCPU instance hit in
-                                        benchmark</a
+                                        >~2,500/s a single 4-vCPU instance hit
+                                        in benchmark</a
                                     >
                                     — so you’d run
                                     <strong>two small instances</strong> for HA,
@@ -883,10 +885,10 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                     infrastructure, and there’s no lock-in — if
                                     we vanished tomorrow, your container,
                                     config, data, and app keep working exactly
-                                    as they are. Support is a
-                                    response-time commitment, not an uptime SLA
-                                    (you run it, so uptime is yours); you email
-                                    a person, not a queue.
+                                    as they are. Support is a response-time
+                                    commitment, not an uptime SLA (you run it,
+                                    so uptime is yours); you email a person, not
+                                    a queue.
                                 </p>
                             </div>
                         </details>
@@ -956,7 +958,9 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             ><span class="dot"></span>
                             <span class="run-title">terminal</span>
                         </div>
-                        <pre class="run-code">$ curl -fsSL https://offloader.dryga.com/install.sh | sh
+                        <pre
+                            class="run-code"
+                        >$ curl -fsSL https://offloader.dryga.com/install.sh | sh
 
 $ offloader serve gs://offloader-public-samples/offloader/
   pulling image · serving the public sample on :8088 …
