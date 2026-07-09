@@ -138,14 +138,16 @@ defmodule Offloader.RuntimeTest do
       params = %{"from" => "2026-05-30", "to" => "2026-06-01"}
 
       # Kick a refresh (a GenServer.call that occupies the writer) from another
-      # process, and hammer serve concurrently. Serve must not queue behind it.
+      # process, and serve concurrently without saturating the read pool. Pool
+      # saturation/backpressure has its own test above; this one proves reads do
+      # not queue behind the writer.
       refresher = Task.async(fn -> Runtime.refresh(rt, "customer_usage") end)
 
       served =
-        1..50
+        1..32
         |> Task.async_stream(
           fn _ -> Runtime.serve(rt, "customer_usage_summary", "tenant_acme", params, "r") end,
-          max_concurrency: 25,
+          max_concurrency: 8,
           timeout: 30_000
         )
         |> Enum.map(fn {:ok, res} -> res end)
