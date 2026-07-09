@@ -13,7 +13,7 @@
         <meta property="og:title" content="Offloader — ROI calculator" />
         <meta
             property="og:description"
-            content="What would your repeated warehouse reads cost on Offloader instead? Sizes the fleet from your traffic and shows the plain difference — computed in your browser."
+            content="What would your repeated product API reads cost on Offloader instead? Sizes the fleet from your traffic and shows the plain difference — computed in your browser."
         />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Offloader" />
@@ -405,11 +405,11 @@
                 <p class="kicker">ROI calculator</p>
                 <h1>What would these reads cost on Offloader instead?</h1>
                 <p class="calc-lede">
-                    Offloading moves your product's repeated reads off the
-                    warehouse onto a small fleet you run. This sizes that fleet
-                    from your traffic and compares its cost to what those reads
-                    cost the warehouse today — the plain difference, not a sales
-                    promise.
+                    Offloading moves repeated product API reads off the
+                    warehouse request path and onto a small fleet you run. This
+                    sizes that fleet from your traffic and compares its cost to
+                    what those reads cost the warehouse today — the plain
+                    difference, not a sales promise.
                 </p>
                 <p class="privacy-pill">
                     <svg
@@ -450,8 +450,9 @@
                                     /><span>/mo</span>
                                 </div>
                                 <span class="hint"
-                                    >Total product reads you serve for these
-                                    dashboards / stats.</span
+                                    >Total reads for the endpoints you want to
+                                    offload: usage meters, billing metrics,
+                                    leaderboards, facets, recommendations.</span
                                 >
                             </div>
 
@@ -495,9 +496,9 @@
                                     >
                                 </div>
                                 <span class="hint"
-                                    >The same query shapes, run over and over —
-                                    that's what Offloader serves from a
-                                    snapshot. The rest stays on the
+                                    >The same bounded endpoint shapes, run over
+                                    and over — that's what Offloader serves from
+                                    a snapshot. The rest stays on the
                                     warehouse.</span
                                 >
                             </div>
@@ -579,9 +580,9 @@
                             A rough estimate from your inputs and the validated
                             benchmark. The
                             <a href="index.html#pricing">paid diagnostic</a>
-                            sizes it against your real traffic and data and
-                            hands you a finance-grade before/after on your
-                            actual warehouse bill.
+                            turns this into a defensible baseline: workload,
+                            request volume, current cost, fleet cost, and
+                            realized versus potential savings.
                         </div>
                     </div>
                 </div>
@@ -602,7 +603,8 @@
                             warehouse cost − what the
                             <b>Offloader fleet</b> costs to run. Three
                             predictions bracket how much of that spend actually
-                            clears once it's served from cache.
+                            clears once those reads leave the warehouse request
+                            path.
                         </p>
                     </div>
                     <div class="explain-card">
@@ -620,8 +622,9 @@
                         <h3>Only the repeatable reads</h3>
                         <p>
                             Offloader serves the <b>repeatable</b> query shapes
-                            from a snapshot; ad-hoc and one-off reads stay on
-                            the warehouse. So the saving applies to the
+                            from a snapshot; ad-hoc, internal BI, and one-off
+                            reads stay on the warehouse. So the saving applies
+                            to the
                             repeatable share of your bill — the rest is
                             untouched.
                         </p>
@@ -632,8 +635,9 @@
                             Sizing is an <b>estimate</b> from a single-machine
                             benchmark — confirm it with a pilot. On
                             <b>committed capacity</b> the warehouse savings are
-                            <em>potential</em> until you downsize the tier — the
-                            calculator flags it.
+                            <em>potential</em> until you downsize the tier. The
+                            diagnostic separates realized savings from savings
+                            that need a finance or capacity action.
                         </p>
                     </div>
                 </div>
@@ -649,9 +653,9 @@
                     </h2>
                     <p class="cta-band-sub">
                         We size the fleet against your real traffic and data and
-                        measure the before/after on your actual warehouse bill —
-                        a finance-grade number you can take to whoever signs off
-                        on the spend.
+                        establish the offloadable workload, baseline, and
+                        realized versus potential savings — a finance-grade
+                        number you can take to whoever signs off on the spend.
                     </p>
                     <div class="cta-row cta-band-row">
                         <a
@@ -753,7 +757,7 @@
                 var SEC_PER_MONTH = 30 * 24 * 3600; // 2,592,000
                 var INSTANCE = { vcpu: 4, ram: 16, usd: 120 }; // the benchmark's serving instance
                 // Three predictions on how much of the repeatable warehouse spend actually clears once
-                // served from cache — long-tail params and refresh windows still touch the warehouse.
+                // served from Offloader — long-tail params and refresh windows still touch the warehouse.
                 var SCENARIOS = [
                     { name: "Optimistic", clear: 0.9 },
                     { name: "Expected", clear: 0.75, hi: true },
@@ -853,7 +857,7 @@
                         "/mo each).";
 
                     var cav = [
-                        "The three predictions vary how much of the repeatable spend actually clears once served from cache (90 / 75 / 60%) — long-tail params and refresh windows still touch the warehouse.",
+                        "The three predictions vary how much of the repeatable spend actually clears once served from Offloader (90 / 75 / 60%) — long-tail params and refresh windows still touch the warehouse.",
                     ];
                     cav.push(
                         "Fleet sizing is an estimate from the validated benchmark (~2,500 req/s per 4-vCPU instance) — confirm capacity with a pilot.",

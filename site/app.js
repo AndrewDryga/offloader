@@ -1,6 +1,6 @@
 /* One honest flourish: the cost ledger counts up to its resting value — the same
-   query, still being billed. The HTML seeds the start of the run (100,000 × $0.012
-   = $1,200, internally consistent), so there's never a downward flash. Reduced
+   query, still being billed. The HTML seeds the start of the run (100,000 × $0.005
+   = $500, internally consistent), so there's never a downward flash. Reduced
    motion → jump straight to the resting values (the ones the aria-label and the
    pricing ledger quote). No JS → the seed stands, still consistent and labeled
    illustrative. */
@@ -11,7 +11,7 @@
   if (!calls || !cost) return;
 
   var callsTo = +calls.dataset.to;              // 1,000,000
-  var costTo = +cost.dataset.to;                //    12,000
+  var costTo = +cost.dataset.to;                //     5,000
   var callsFrom = Math.round(callsTo * 0.1);    // 100,000 — a long, visible climb
   var costFrom = Math.round(costTo * 0.1);
 

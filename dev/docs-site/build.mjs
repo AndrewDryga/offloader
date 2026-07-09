@@ -73,12 +73,12 @@ const BY_SRC = new Map(FLAT.map((p) => [p.src, `${p.slug}.html`])); // repo-rel 
 // site output stays byte-identical to inlining the HTML. Editing a diagram means
 // updating BOTH the ASCII fence in the doc AND its HTML here, or the two surfaces drift.
 const FIGURES = {
-  "warehouse-vs-offloader": `<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a live screen. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
+  "warehouse-vs-offloader": `<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a production API. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
   <div class="flow-lane">
     <span class="lane-tag lane-before">Before</span>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">live query</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="hop"><span class="hop-l">warehouse query</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
     </div>
   </div>
@@ -86,7 +86,7 @@ const FIGURES = {
     <span class="lane-tag lane-after">After</span>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">cached REST</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="hop"><span class="hop-l">governed REST</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
@@ -103,7 +103,7 @@ const FIGURES = {
     <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
   </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by customer-facing API traffic.</figcaption>
 </figure>`,
   "two-ports": `<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
   <div class="ports">

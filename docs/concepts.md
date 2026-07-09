@@ -6,38 +6,42 @@ assumed.
 
 ## The problem it solves
 
-Your product has screens that show analytics: usage dashboards, leaderboards, "top
-accounts," stats pages. Every time a user opens one, your app runs a query against
-your **data warehouse** (Snowflake, Databricks, BigQuery, …). Warehouses are great
-for crunching huge data, but they are **expensive per query** and **not fast enough**
-to sit directly behind a busy product screen. So you end up paying a lot, and users
-wait.
+Your product reads data the warehouse produces: usage meters, billing metrics,
+leaderboards, recommendations, customer analytics. Those reads often sit on the
+**production request path** — your backend needs an account's usage, a customer's
+billing totals, or a leaderboard slice while a user is waiting.
 
-Here's the thing: those product screens ask the **same shapes of questions over and
-over** ("usage for account X over the last 30 days"), against data that only needs to
-be **a few minutes or hours fresh** — not up-to-the-second.
+Warehouses (Snowflake, Databricks, BigQuery, …) are great at crunching huge data
+and publishing analytical outputs. They are a poor origin for high-volume,
+customer-facing reads when every request has to wait on warehouse compute or a
+hand-rolled serving cache. So you end up choosing between warehouse cost, slow
+tails, or another service your team has to maintain.
+
+Here's the thing: those product APIs usually ask the **same bounded questions over
+and over** ("usage for account X over the last 30 days"), against data that only
+needs to be **a few minutes or hours fresh** — not up-to-the-second.
 
 ## What Offloader does
 
-Offloader serves those repeated questions from **cheap, pre-computed copies of the
-data** instead of hitting the warehouse every time.
+Offloader turns those pre-computed copies into **governed REST endpoints** instead
+of making the warehouse answer every product request.
 
 ```flow warehouse-vs-offloader
   Before
-    Your app  ──live query──▶  Data warehouse
+    Your app  ──warehouse query──▶  Data warehouse
                                $$$ · slow — billed per query
 
   After
-    Your app  ──cached REST──▶  Offloader  ──reads──▶  Snapshot
-                                your servers            S3 · GCS
-                                cheap · fast
+    Your app  ──governed REST──▶  Offloader  ──reads──▶  Snapshot
+                                  your servers             S3 · GCS
+                                  cheap · fast
 ```
 
 You publish periodic **snapshots** of the data to object storage. Offloader loads a
 snapshot into a fast local engine and answers your product's REST calls from it. When
 a newer snapshot appears, it swaps over — with no downtime. The warehouse is only
-touched by the pipeline that builds snapshots (on a schedule you control), not by live
-traffic.
+touched by the pipeline that builds snapshots (on a schedule you control), not by
+customer-facing API traffic.
 
 It runs as a **single container on your own infrastructure**: there's no Offloader
 cloud, and your private data never leaves your environment.
@@ -46,7 +50,8 @@ cloud, and your private data never leaves your environment.
 
 | Good fit if… | Not a fit if… |
 | --- | --- |
-| The same query shapes repeat a lot | Every query is different / ad-hoc SQL |
+| Your app or API serves warehouse-built data per request | It's an internal BI dashboard and the BI tool's cache/extracts already solve refresh |
+| The same bounded query shapes repeat a lot | Every query is different / ad-hoc SQL |
 | "A few minutes/hours old" is fine | You need up-to-the-second data |
 | You can export snapshots to S3/GCS | You can't produce snapshots |
 | You want to cut warehouse serving cost | Native warehouse acceleration already solves it |
@@ -90,7 +95,7 @@ Two more you'll see in operations:
   Your app                 every request — fast · cheap
 
   ↻ A newer snapshot triggers an automatic, zero-downtime swap — the
-    warehouse is only touched by the export, never by live traffic.
+    warehouse is only touched by the export, never by customer-facing API traffic.
 ```
 
 ## The two ports

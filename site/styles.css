@@ -106,13 +106,17 @@ strong { font-weight: 600; }
 .nav-cta { color: var(--paper) !important; background: var(--ink); font-weight: 550; border: 1px solid var(--ink); border-radius: 999px; padding: 0.42rem 0.95rem; transition: background 0.15s var(--ease), border-color 0.15s var(--ease); }
 .nav-cta:hover { background: var(--accent); border-color: var(--accent); }
 @media (max-width: 700px) {
-  .nav-links { gap: 1rem; }
+  .brand-word { display: none; }
+  .nav-links { gap: 0.7rem; }
   .nav-links a { font-size: 0.88rem; }
-  /* keep the high-intent links (How it works · Pricing · Docs · Book a call); drop Proof/Fit */
-  .nav-links li:nth-child(2), .nav-links li:nth-child(4) { display: none; }
+  /* keep the conversion CTA; drop section links that force horizontal scroll */
+  .nav-links li:nth-child(1), .nav-links li:nth-child(2), .nav-links li:nth-child(3), .nav-links li:nth-child(4), .nav-links li:nth-child(5) { display: none; }
+  .nav-cta { padding-inline: 0.8rem; }
 }
-/* tiny screens: the mark alone stands in for the wordmark so all four links + CTA fit */
-@media (max-width: 480px) { .brand-word { display: none; } .nav-links { gap: 0.8rem; } }
+/* tiny screens: keep the spacing tight around the remaining high-intent links. */
+@media (max-width: 480px) {
+  .nav-links { gap: 0.7rem; }
+}
 
 /* ── shared section furniture ───────────────────────────────────────── */
 .band { padding-block: var(--band-y); border-top: 1px solid var(--line-2); }
@@ -162,10 +166,40 @@ strong { font-weight: 600; }
   border-radius: 12px;
   box-shadow: 0 1px 0 var(--line-2), 0 30px 60px -34px rgba(23, 23, 27, 0.45);
 }
-.ledger-tape { padding: 1.65rem 1.75rem 0.75rem; overflow-x: auto; }
+.ledger-tape { padding: 1.65rem 1.75rem 0.75rem; overflow-x: auto; overflow-y: hidden; }
 .ledger pre { margin: 0; font-family: var(--mono); font-size: clamp(0.8rem, 0.72rem + 0.3vw, 0.95rem); line-height: 1.9; font-variant-numeric: tabular-nums; color: var(--muted); white-space: pre; }
+.receipt-lines {
+  width: 100%;
+  min-width: 100%;
+  font-family: var(--mono);
+  font-size: clamp(0.74rem, 0.68rem + 0.2vw, 0.84rem);
+  line-height: 1.9;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.receipt-row {
+  display: grid;
+  grid-template-columns: 6.4ch 13.5ch max-content;
+  column-gap: 1.9ch;
+  align-items: baseline;
+}
+.receipt-row-api .receipt-value { grid-column: 2 / 4; }
+.receipt-row-api .receipt-note { display: none; }
+.receipt-label { color: var(--muted); }
+.receipt-value { color: var(--ink); white-space: nowrap; }
+.receipt-note { color: var(--muted); white-space: nowrap; }
+.receipt-rule {
+  width: 22.5ch;
+  margin: 0.38rem 0 0.38rem 8.3ch;
+  border-top: 1px solid var(--line);
+}
+.receipt-row-bill,
+.receipt-row-bill .receipt-note {
+  color: var(--ink);
+  font-weight: 500;
+}
 .ledger .js-count { display: inline-block; min-width: 9ch; }  /* reserve final width — no reflow mid-count */
-.ledger .js-cost { display: inline-block; min-width: 7.2ch; } /* 7.2ch × 1.25em ≈ 9 base-ch, matching the rows above; $1,200 → $12,000 without shifting the line */
+.ledger .js-cost { display: inline-block; min-width: 5.8ch; } /* 5.8ch × 1.25em ≈ 7 base-ch, enough for $5,000 without shifting the line */
 .ledger .tok { color: var(--ink); }
 .ledger .rule { color: var(--line); }
 .bill-line { color: var(--ink); font-weight: 500; }
@@ -185,6 +219,9 @@ strong { font-weight: 600; }
 @media (max-width: 480px) {
   .ledger-tape { padding: 1.15rem 1.15rem 0.6rem; }
   .ledger pre { font-size: 0.72rem; line-height: 1.85; }
+  .receipt-lines { font-size: 0.72rem; line-height: 1.85; }
+  .receipt-row { grid-template-columns: 6.4ch 13.5ch max-content; column-gap: 1.9ch; }
+  .receipt-rule { width: 22.5ch; margin-left: 8.3ch; }
   .ledger-cap { padding: 0.8rem 1.15rem; }
 }
 
@@ -221,7 +258,7 @@ strong { font-weight: 600; }
 .code .hl { background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 3px; padding: 0.05em 0.15em; }
 .code .hl.s { color: var(--accent-2); }
 
-/* ── data-path diagram (the live read path never touches the warehouse) ── */
+/* ── data-path diagram (the product request path never touches the warehouse) ── */
 .flow { margin: 0 0 clamp(2.75rem, 5vw, 4.25rem); }
 .flow-track { display: flex; align-items: stretch; gap: 0; }
 .flow .node {
@@ -231,7 +268,7 @@ strong { font-weight: 600; }
 .flow .node-k { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); line-height: 1.4; }
 .flow .node strong { font-family: var(--display); font-weight: 600; font-size: 1.04rem; letter-spacing: -0.015em; color: var(--ink); }
 .flow .node-sub { font-size: 0.83rem; color: var(--muted); line-height: 1.4; }
-.flow .node-batch { background: transparent; border-style: dashed; }        /* the occasional feed, not the live path */
+.flow .node-batch { background: transparent; border-style: dashed; }        /* the occasional feed, not the request path */
 .flow .node-batch strong { color: var(--ink-2); }
 .flow .node-hero { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .flow .node-hero strong { color: var(--accent-2); }

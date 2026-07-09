@@ -2,13 +2,15 @@
 
 [![CI](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml)
 
-The serving layer for customer-facing analytics.
+The self-hosted serving layer for warehouse-built product data.
 
-**In plain terms:** your product's dashboards and stats pages run queries against an
-expensive data warehouse (Snowflake, Databricks, BigQuery) on every page load.
-Offloader serves those same reads from cheap, pre-computed snapshots on your own
-servers instead — cutting warehouse cost and speeding up responses. New to the idea?
-Start with **[What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)**.
+**In plain terms:** your product reads data the warehouse produces — usage meters,
+billing metrics, leaderboards, recommendations, customer analytics. If your backend
+answers those bounded reads from Snowflake, Databricks, BigQuery, or similar systems
+on the production request path, you pay warehouse latency and compute again and again.
+Offloader turns approved snapshots into governed REST endpoints on your own servers
+instead — cutting warehouse cost and speeding up responses. New to the idea? Start
+with **[What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)**.
 
 Offloader is a self-hostable container that moves repeated product-facing analytical
 reads off Databricks, Snowflake, BigQuery, and similar warehouses by serving approved
@@ -41,8 +43,8 @@ Deeper: [Architecture](docs/architecture.md) · [Release process](docs/release.m
 
 Offloader is:
 
-- A self-hostable serving container for bounded production analytics
-  endpoints.
+- A self-hostable serving container for bounded production read APIs over
+  warehouse-built snapshots.
 - A manifest-backed snapshot materializer and query runtime.
 - A contract registry for REST APIs over approved serving datasets.
 - A freshness, observability, and finance-grade ROI reporting layer.
@@ -53,11 +55,26 @@ Offloader is not:
 
 - A warehouse replacement.
 - A BI tool.
+- A dashboard refresh layer for internal BI.
 - A general SQL workspace.
 - A streaming database.
 - An ELT/data modeling tool.
 - A hosted cloud service.
 - A control plane, RBAC system, or SSO provider.
+
+## What it replaces
+
+Offloader is for the serving layer teams usually build by hand after product
+traffic starts hitting warehouse-backed analytics:
+
+- Product endpoints that query Snowflake, Databricks, BigQuery, or similar systems
+  while a customer waits.
+- Homegrown Redis/Postgres/DuckDB cache services without a manifest contract,
+  rollback, generated docs, diagnostics, or safe snapshot swaps.
+- A second serving database when the workload is read-only, bounded, snapshot-fresh,
+  and REST is the contract your app actually needs.
+- Tenant filters, endpoint allowlists, and column limits scattered across app
+  handlers instead of compiled into one serving contract.
 
 ## What it does
 

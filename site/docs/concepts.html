@@ -81,24 +81,27 @@ the handful of words the rest of the docs use — no prior…">
 the handful of words the rest of the docs use — no prior data-engineering knowledge
 assumed.</p>
 <h2 id="the-problem-it-solves">The problem it solves</h2>
-<p>Your product has screens that show analytics: usage dashboards, leaderboards, &quot;top
-accounts,&quot; stats pages. Every time a user opens one, your app runs a query against
-your <strong>data warehouse</strong> (Snowflake, Databricks, BigQuery, …). Warehouses are great
-for crunching huge data, but they are <strong>expensive per query</strong> and <strong>not fast enough</strong>
-to sit directly behind a busy product screen. So you end up paying a lot, and users
-wait.</p>
-<p>Here&#39;s the thing: those product screens ask the <strong>same shapes of questions over and
-over</strong> (&quot;usage for account X over the last 30 days&quot;), against data that only needs to
-be <strong>a few minutes or hours fresh</strong> — not up-to-the-second.</p>
+<p>Your product reads data the warehouse produces: usage meters, billing metrics,
+leaderboards, recommendations, customer analytics. Those reads often sit on the
+<strong>production request path</strong> — your backend needs an account&#39;s usage, a customer&#39;s
+billing totals, or a leaderboard slice while a user is waiting.</p>
+<p>Warehouses (Snowflake, Databricks, BigQuery, …) are great at crunching huge data
+and publishing analytical outputs. They are a poor origin for high-volume,
+customer-facing reads when every request has to wait on warehouse compute or a
+hand-rolled serving cache. So you end up choosing between warehouse cost, slow
+tails, or another service your team has to maintain.</p>
+<p>Here&#39;s the thing: those product APIs usually ask the <strong>same bounded questions over
+and over</strong> (&quot;usage for account X over the last 30 days&quot;), against data that only
+needs to be <strong>a few minutes or hours fresh</strong> — not up-to-the-second.</p>
 <h2 id="what-offloader-does">What Offloader does</h2>
-<p>Offloader serves those repeated questions from <strong>cheap, pre-computed copies of the
-data</strong> instead of hitting the warehouse every time.</p>
-<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a live screen. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
+<p>Offloader turns those pre-computed copies into <strong>governed REST endpoints</strong> instead
+of making the warehouse answer every product request.</p>
+<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a production API. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
   <div class="flow-lane">
     <span class="lane-tag lane-before">Before</span>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">live query</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="hop"><span class="hop-l">warehouse query</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
     </div>
   </div>
@@ -106,7 +109,7 @@ data</strong> instead of hitting the warehouse every time.</p>
     <span class="lane-tag lane-after">After</span>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">cached REST</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="hop"><span class="hop-l">governed REST</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
@@ -117,8 +120,8 @@ data</strong> instead of hitting the warehouse every time.</p>
 <p>You publish periodic <strong>snapshots</strong> of the data to object storage. Offloader loads a
 snapshot into a fast local engine and answers your product&#39;s REST calls from it. When
 a newer snapshot appears, it swaps over — with no downtime. The warehouse is only
-touched by the pipeline that builds snapshots (on a schedule you control), not by live
-traffic.</p>
+touched by the pipeline that builds snapshots (on a schedule you control), not by
+customer-facing API traffic.</p>
 <p>It runs as a <strong>single container on your own infrastructure</strong>: there&#39;s no Offloader
 cloud, and your private data never leaves your environment.</p>
 <h2 id="is-it-a-fit">Is it a fit?</h2>
@@ -131,7 +134,11 @@ cloud, and your private data never leaves your environment.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td>The same query shapes repeat a lot</td>
+<td>Your app or API serves warehouse-built data per request</td>
+<td>It&#39;s an internal BI dashboard and the BI tool&#39;s cache/extracts already solve refresh</td>
+</tr>
+<tr>
+<td>The same bounded query shapes repeat a lot</td>
 <td>Every query is different / ad-hoc SQL</td>
 </tr>
 <tr>
@@ -224,7 +231,7 @@ cloud, and your private data never leaves your environment.</p>
     <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
   </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by live traffic.</figcaption>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by customer-facing API traffic.</figcaption>
 </figure>
 
 <h2 id="the-two-ports">The two ports</h2>

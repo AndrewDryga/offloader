@@ -4,21 +4,21 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>
-            Offloader — the serving layer for customer-facing analytics
+            Offloader — self-hosted serving for warehouse-built data
         </title>
         <meta
             name="description"
-            content="Serve your product's repeated analytics reads from cheap, pre-computed snapshots on your own servers — fast, governed, honest about freshness."
+            content="Turn warehouse snapshots into fast, governed REST endpoints on your own servers — for product reads that should not stay on the warehouse request path."
         />
         <link rel="canonical" href="https://offloader.dryga.com/" />
         <meta name="color-scheme" content="light dark" />
         <meta
             property="og:title"
-            content="Offloader — the serving layer for customer-facing analytics"
+            content="Offloader — self-hosted serving for warehouse-built data"
         />
         <meta
             property="og:description"
-            content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load."
+            content="Serve repeated product reads from governed snapshots on your own servers, not from warehouse compute on the request path."
         />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Offloader" />
@@ -31,16 +31,16 @@
         <meta property="og:image:height" content="1260" />
         <meta
             property="og:image:alt"
-            content="Offloader — the serving layer for customer-facing analytics."
+            content="Offloader — self-hosted serving for warehouse-built data."
         />
         <meta name="twitter:card" content="summary_large_image" />
         <meta
             name="twitter:title"
-            content="Offloader — the serving layer for customer-facing analytics"
+            content="Offloader — self-hosted serving for warehouse-built data"
         />
         <meta
             name="twitter:description"
-            content="Serve repeated product reads from a snapshot on your own servers, not from your warehouse on every page load."
+            content="Serve repeated product reads from governed snapshots on your own servers, not from warehouse compute on the request path."
         />
         <meta
             name="twitter:image"
@@ -48,7 +48,7 @@
         />
         <meta
             name="twitter:image:alt"
-            content="Offloader — the serving layer for customer-facing analytics."
+            content="Offloader — self-hosted serving for warehouse-built data."
         />
         <meta
             name="theme-color"
@@ -84,7 +84,7 @@
                 "name": "Offloader",
                 "applicationCategory": "DeveloperApplication",
                 "operatingSystem": "Docker, Linux",
-                "description": "The serving layer for customer-facing analytics: serve a product's repeated analytics reads from cheap pre-computed snapshots on your own servers, instead of querying the data warehouse on every request.",
+                "description": "A self-hosted serving layer for warehouse-built data: turn approved snapshots into governed REST endpoints on your own servers, instead of querying the data warehouse on every product request.",
                 "url": "https://offloader.dryga.com/",
                 "sameAs": "https://github.com/AndrewDryga/offloader"
             }
@@ -144,27 +144,28 @@
             <!-- HERO ───────────────────────────────────────────────────────── -->
             <section class="hero wrap" id="top">
                 <p class="eyebrow">
-                    The serving layer for customer-facing analytics
+                    The self-hosted serving layer for warehouse-built data
                 </p>
                 <h1 class="display">
-                    Stop paying your&nbsp;warehouse to answer the
-                    same&nbsp;question <em>a&nbsp;million&nbsp;times.</em>
+                    Stop paying your warehouse to
+                    <em>serve product requests.</em>
                 </h1>
 
                 <div class="hero-body">
                     <div class="hero-copy">
                         <p class="lede">
-                            Your app shows the same dashboards and charts to
-                            users all day. Every view re-runs an expensive query
-                            on your data warehouse — so you pay for it again,
-                            and users wait.
+                            Your product reads what the warehouse produces:
+                            usage meters, billing metrics, recommendations,
+                            leaderboards, customer analytics. When those reads
+                            stay on the warehouse request path, every product
+                            request pays warehouse latency and compute.
                             <strong
-                                >Offloader serves those reads from a cheap,
-                                pre-built copy on your own servers
-                                instead</strong
+                                >Offloader turns each published snapshot into
+                                fast, governed REST endpoints on your own
+                                servers</strong
                             >
-                            — the same numbers, at a fraction of the cost, and
-                            far faster.
+                            — the same data, honest freshness, and no warehouse
+                            query behind every call.
                         </p>
                         <div class="cta-row">
                             <a
@@ -180,7 +181,7 @@
                         </div>
                         <p class="hero-proof">
                             Self-hosted. Validated on
-                            <b>real production data</b> — dozens of live
+                            <b>real production data</b> — dozens of production
                             endpoints serving 8&nbsp;TB a month. No vendor cloud
                             — your private data never leaves your environment.
                         </p>
@@ -190,17 +191,60 @@
                         <div
                             class="ledger-tape"
                             role="img"
-                            aria-label="An illustrative bill at a typical serving-layer list rate of 70 cents per DBU — about half a cent of DBUs per read — run a million identical times a month: roughly five thousand dollars to your warehouse."
+                            aria-label="An illustrative bill at a typical serving-layer list rate of 70 cents per DBU — about half a cent of DBUs per product API read — run a million times a month: roughly five thousand dollars to your warehouse."
                         >
-                            <pre>QUERY   revenue_by_day(account, from, to)
-PRICE   <span class="tok">$0.70/DBU</span>   typical serving-layer rate
-COST    <span class="tok">$0.005</span>      ≈ DBUs one read burns
-RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical, this month
-        <span class="rule">──────────────────────────</span>
-<span class="bill-line">BILL    <span class="tok-cost js-cost" data-to="5000">$500</span>       to your warehouse</span></pre>
+                            <div class="receipt-lines" aria-hidden="true">
+                                <div class="receipt-row receipt-row-api">
+                                    <span class="receipt-label">API</span>
+                                    <span class="receipt-value"
+                                        >GET /accounts/:id/usage</span
+                                    >
+                                    <span class="receipt-note"></span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span class="receipt-label">SOURCE</span>
+                                    <span class="receipt-value"
+                                        >warehouse SQL</span
+                                    >
+                                    <span class="receipt-note"
+                                        >behind the endpoint</span
+                                    >
+                                </div>
+                                <div class="receipt-row">
+                                    <span class="receipt-label">COST</span>
+                                    <span class="receipt-value">$0.005</span>
+                                    <span class="receipt-note"
+                                        >≈ DBUs one read burns</span
+                                    >
+                                </div>
+                                <div class="receipt-row">
+                                    <span class="receipt-label">RUNS</span>
+                                    <span
+                                        class="receipt-value js-count"
+                                        data-to="1000000"
+                                        >100,000</span
+                                    >
+                                    <span class="receipt-note">this month</span>
+                                </div>
+                                <div
+                                    class="receipt-rule"
+                                    aria-hidden="true"
+                                ></div>
+                                <div class="receipt-row receipt-row-bill">
+                                    <span class="receipt-label">BILL</span>
+                                    <span
+                                        class="receipt-value tok-cost js-cost"
+                                        data-to="5000"
+                                        >$500</span
+                                    >
+                                    <span class="receipt-note"
+                                        >to your warehouse</span
+                                    >
+                                </div>
+                            </div>
                         </div>
                         <figcaption id="ledger-cap" class="ledger-cap">
-                            <span>Same answer, billed on repeat.</span>
+                            <span>Same endpoint, billed on repeat.</span>
                             <span class="illus"
                                 >Illustrative — use your own numbers</span
                             >
@@ -220,8 +264,8 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
                         <p class="section-sub">
                             Your pipeline publishes a snapshot on its own
                             schedule. Offloader serves the reads. The warehouse
-                            only ever touches the snapshot — never your live
-                            product traffic.
+                            only ever touches the snapshot — never the
+                            customer-facing request path.
                         </p>
                     </div>
 
@@ -255,21 +299,25 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
                                 >
                             </div>
                             <div class="hop hop-rev">
-                                <span class="hop-l">Cached REST</span>
+                                <span class="hop-l">Governed REST</span>
                                 <span class="arw" aria-hidden="true"></span>
                             </div>
                             <div class="node">
                                 <span class="node-k">Every request</span>
                                 <strong>Your app</strong>
                                 <span class="node-sub"
-                                    >dashboards · stats · front-end</span
+                                    >product API · front-end</span
                                 >
                             </div>
                         </div>
                         <figcaption id="flow-cap" class="flow-cap">
                             <span class="flow-mark" aria-hidden="true">→</span>
-                            Live reads are served entirely from the snapshot —
-                            <b>your warehouse never sees product traffic.</b>
+                            Product reads are served entirely from the snapshot
+                            —
+                            <b
+                                >your warehouse stays off the request
+                                path.</b
+                            >
                         </figcaption>
                     </figure>
 
@@ -335,23 +383,24 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
                     <div class="section-head">
                         <p class="kicker">What you serve</p>
                         <h2 id="uses-h" class="h2">
-                            The reads that blow up<br />your warehouse bill.
+                            The product reads your<br />warehouse should not
+                            serve.
                         </h2>
                         <p class="section-sub">
-                            High volume, the same shapes all day, per-user or
-                            public, minutes-fresh is fine. A CDN in front helps
-                            the cache hits — but every <em>miss</em> still hits
-                            a slow, metered warehouse. Offloader is the fast,
-                            cheap origin underneath.
+                            High volume, bounded shapes, per-tenant or public,
+                            minutes-fresh is fine. A CDN can still cache the
+                            edge. Offloader makes the origin a fast, governed,
+                            flat-cost service instead of warehouse compute.
                         </p>
                     </div>
 
                     <ul class="use-grid">
                         <li>
-                            <h3>Customer-facing analytics</h3>
+                            <h3>Customer analytics APIs</h3>
                             <p>
-                                The dashboards and charts you show your users —
-                                usage, performance, insights.
+                                <code>/accounts/:id/usage</code>,
+                                performance summaries, and insight endpoints
+                                your product calls while a customer waits.
                             </p>
                         </li>
                         <li>
@@ -366,28 +415,102 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
                             <p>
                                 “Recommended for you,” trending, and related
                                 items — computed in the warehouse, served per
-                                user at page load.
+                                user through a bounded product endpoint.
                             </p>
                         </li>
                         <li>
                             <h3>Public stats &amp; leaderboards</h3>
                             <p>
-                                Rankings, counts, and public profile pages that
-                                get hammered by traffic.
+                                <code>/leaderboards/current</code>, rankings,
+                                counts, and public profile pages that get
+                                hammered by traffic.
                             </p>
                         </li>
                         <li>
                             <h3>Embedded reports</h3>
                             <p>
-                                The report and export screens customers open
-                                again and again, each a repeated query.
+                                Customer report endpoints with known filters,
+                                date windows, and result limits — not ad-hoc
+                                SQL.
                             </p>
                         </li>
                         <li>
                             <h3>Search facets &amp; filters</h3>
                             <p>
-                                The live counts next to every filter — “In stock
-                                (1,240)” — recomputed on each load.
+                                <code>/search/facets</code> counts, slices, and
+                                filter totals that need freshness, not
+                                warehouse latency.
+                            </p>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- WHAT THIS REPLACES ─────────────────────────────────────────── -->
+            <section
+                class="band uses"
+                id="replaces"
+                aria-labelledby="replaces-h"
+            >
+                <div class="wrap">
+                    <div class="section-head">
+                        <p class="kicker">What this replaces</p>
+                        <h2 id="replaces-h" class="h2">
+                            The serving layer teams<br />usually build by hand.
+                        </h2>
+                        <p class="section-sub">
+                            Offloader is not a broader database platform. It is
+                            the narrow read path for approved warehouse outputs:
+                            contract, snapshot, materialize, serve, observe.
+                        </p>
+                    </div>
+
+                    <ul class="use-grid">
+                        <li>
+                            <h3>Warehouse-backed product endpoints</h3>
+                            <p>
+                                The API routes that currently call Snowflake,
+                                Databricks, or BigQuery while a customer waits.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Homegrown serving caches</h3>
+                            <p>
+                                Redis, Postgres, DuckDB, or custom cache jobs
+                                glued together without a manifest contract,
+                                rollback, or endpoint docs.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Read-only serving databases</h3>
+                            <p>
+                                A second system to load and operate when the
+                                workload is bounded, snapshot-fresh, and REST is
+                                the contract your app actually needs.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Manual governance in app code</h3>
+                            <p>
+                                Tenant filters, endpoint allowlists, and column
+                                limits scattered across handlers instead of
+                                compiled into the serving contract.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Public-data origin servers</h3>
+                            <p>
+                                High-volume stats and leaderboard origins that
+                                should be flat-cost and cache-friendly before a
+                                CDN ever sees them.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Spreadsheet-style exports in product</h3>
+                            <p>
+                                Customer report downloads where the shape is
+                                fixed, the source is analytical, and the request
+                                should not spin up warehouse compute.
                             </p>
                         </li>
                     </ul>
@@ -410,7 +533,7 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
                             <h3>Real scale, not a fixture</h3>
                             <p>
                                 Validated on real production datasets — dozens
-                                of live endpoints, cold-booted from an
+                                of production endpoints, cold-booted from an
                                 object-storage bucket and serving 8&nbsp;TB of
                                 traffic a month.
                             </p>
@@ -473,12 +596,14 @@ RUNS    <span class="tok js-count" data-to="1000000">100,000</span>   identical,
                             Priced on what we save you.<br />Not on requests.
                         </h2>
                         <p class="section-sub">
-                            Warehouse serving bills one of two bad ways:
+                            Warehouse-backed serving usually bills one of two
+                            bad ways:
                             <em>always-on compute</em> sized for your peak —
                             paid while it idles, still slow from a cold start —
                             or a <em>per-request meter</em>, where your busiest
-                            month is your most expensive. Offloader charges
-                            <strong>20% of the savings it creates</strong>. You
+                            month is your most expensive. For the workloads we
+                            can actually offload, Offloader charges
+                            <strong>20% of the measured savings</strong>. You
                             keep the other 80%.
                         </p>
                     </div>
@@ -522,17 +647,23 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                 <div>
                                     <h3>How the ongoing bill works</h3>
                                     <p>
-                                        A paid diagnostic sets the baseline once
-                                        — a rate per million requests, agreed
-                                        before you commit — so we never re-audit
-                                        your warehouse bill; your own request
-                                        count does the math. From there it’s 20%
-                                        of the measured saving, reconciled
-                                        quarterly, net of what Offloader costs
-                                        to run. No saving, no fee. For a
-                                        reserved-capacity warehouse the fee
-                                        starts only when you actually downsize
-                                        the tier.
+                                        The paid diagnostic exists because
+                                        “savings” is a slippery number. We agree
+                                        the offloadable workload, current cost,
+                                        request baseline, and realized versus
+                                        potential savings before you commit.
+                                        From there it’s 20% of the measured
+                                        saving, reconciled quarterly, net of
+                                        what Offloader costs to run. No saving,
+                                        no fee. For reserved-capacity warehouses
+                                        the fee starts only when you actually
+                                        downsize the tier.
+                                    </p>
+                                    <p>
+                                        Prefer a number finance can book? The
+                                        same diagnostic can quote a fixed annual
+                                        license instead — same product, no
+                                        reconciliation.
                                     </p>
                                     <p>
                                         <a href="roi.html"
@@ -591,9 +722,10 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                         </h2>
                         <p class="section-sub">
                             Offloader offloads <em>repeated, bounded</em> reads.
-                            It is not a warehouse, a BI tool, or a place to run
-                            ad-hoc SQL. If native acceleration already solves
-                            your problem, we’ll tell you.
+                            It is not a warehouse, a BI tool, a streaming
+                            database, or a place to run ad-hoc SQL. If native
+                            acceleration or your BI cache already solves the
+                            problem, we’ll tell you.
                         </p>
                     </div>
 
@@ -606,7 +738,13 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                 A fit when
                             </h3>
                             <ul>
-                                <li>The same query shapes repeat a lot.</li>
+                                <li>
+                                    Your app or API serves warehouse-built data
+                                    per request.
+                                </li>
+                                <li>
+                                    The same bounded query shapes repeat a lot.
+                                </li>
                                 <li>“A few minutes or hours old” is fine.</li>
                                 <li>You can export snapshots to S3 or GCS.</li>
                                 <li>
@@ -623,6 +761,11 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                 Not a fit when
                             </h3>
                             <ul>
+                                <li>
+                                    It’s an internal BI dashboard and the BI
+                                    tool’s cache or extracts already solve
+                                    refresh.
+                                </li>
                                 <li>Every query is different or ad-hoc.</li>
                                 <li>You need up-to-the-second data.</li>
                                 <li>You can’t produce snapshots.</li>
@@ -658,11 +801,12 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                     miss and knows nothing about who’s asking.
                                     Offloader answers reads
                                     <em>entirely</em> from the snapshot — the
-                                    warehouse is never on the live path —
-                                    through named, versioned endpoints with a
-                                    compiled-in tenant filter and a column
-                                    allowlist. There’s no arbitrary SQL to
-                                    cache, and no per-request warehouse bill.
+                                    warehouse is never on the production
+                                    request path — through named, versioned
+                                    endpoints with a compiled-in tenant filter
+                                    and a column allowlist. There’s no arbitrary
+                                    SQL to cache, and no per-request warehouse
+                                    bill.
                                 </p>
                             </div>
                         </details>
@@ -673,24 +817,63 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    A CDN only saves the <em>hits</em>. Even a
-                                    94% hit rate means
-                                    <strong
-                                        >6 of every 100 requests still
-                                        miss</strong
-                                    >
-                                    — on a high-volume endpoint that’s millions
-                                    a month, each one hitting the origin: billed
-                                    by the warehouse, and slow when it’s cold.
-                                    That’s why p95 stays in the seconds behind a
-                                    “well-cached” warehouse — your tail latency
-                                    is set by the misses, not the hits.
-                                    Offloader fixes the origin instead. Keep
-                                    your CDN — Offloader emits proper
+                                    A CDN only saves hits for responses it can
+                                    cache at the edge. It doesn’t give you a
+                                    governed per-tenant API origin, and every
+                                    miss still lands on whatever origin you
+                                    built. If that origin is warehouse-backed, a
+                                    high-volume product endpoint can still send
+                                    millions of reads a month to metered compute
+                                    and inherit its tail latency. Offloader
+                                    fixes the origin instead. Keep your CDN —
+                                    Offloader emits proper
                                     <code>ETag</code>/<code>Cache-Control</code>
                                     so it keeps caching — and now the misses
                                     land on a fast, flat-cost box you own
                                     instead of a metered warehouse.
+                                </p>
+                            </div>
+                        </details>
+                        <details class="faq-item">
+                            <summary>
+                                How is this different from Databricks Lakebase?
+                            </summary>
+                            <div class="faq-a">
+                                <p>
+                                    Lakebase is the strongest validation that
+                                    lakehouse data needs an operational serving
+                                    layer. It’s managed Postgres inside
+                                    Databricks — the right choice if you are
+                                    Databricks-native, need read-write tables or
+                                    Postgres clients, and want that managed
+                                    service. Offloader is one self-hosted,
+                                    read-only container serving approved
+                                    snapshots from any warehouse that exports
+                                    Parquet — Snowflake, BigQuery, Redshift,
+                                    Spark, or Databricks — through governed REST
+                                    endpoints with compiled-in tenant isolation.
+                                    If your product needs an API contract over
+                                    bounded reads instead of a general Postgres
+                                    database, that’s the trade.
+                                </p>
+                            </div>
+                        </details>
+                        <details class="faq-item">
+                            <summary>Couldn’t we build this ourselves?</summary>
+                            <div class="faq-a">
+                                <p>
+                                    The first version, yes: DuckDB behind an
+                                    HTTP handler is not the hard part. The hard
+                                    part is the year after that — a manifest
+                                    contract so half-written exports never
+                                    serve, schema gates, blue-green snapshot
+                                    swaps, tenant filters a request can’t
+                                    override, rollback, warm starts, generated
+                                    docs, diagnostics, and a defensible
+                                    before/after cost report. Offloader ships
+                                    that boring surface on day one, and the
+                                    source is public enough for your team to
+                                    audit what it would otherwise be rebuilding.
                                 </p>
                             </div>
                         </details>
@@ -703,8 +886,8 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                 <p>
                                     A dedicated serving database — ClickHouse,
                                     Tinybird, Rockset — is a second system to
-                                    load, sync, scale, and operate: a dual write
-                                    and a new source of truth to reconcile with
+                                    load, sync, scale, and operate: another
+                                    serving source of truth to reconcile with
                                     the warehouse. Offloader is a container and
                                     a bucket. Your warehouse stays the source of
                                     truth; you serve <em>its</em> snapshots,
@@ -789,8 +972,8 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                     small manifest. Databricks additionally
                                     discovers the latest snapshot for you.
                                     Offloader never connects to the warehouse
-                                    for live traffic; it only reads the
-                                    snapshots you publish.
+                                    on the production request path; it only
+                                    reads the snapshots you publish.
                                 </p>
                             </div>
                         </details>
@@ -844,7 +1027,9 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                     before committing. From there it’s 20% of
                                     the savings, net of what Offloader costs to
                                     run on your own infra — you keep the other
-                                    80%. No per-request meter.
+                                    80%. If reconciliation is the wrong fit, the
+                                    same diagnostic can quote a fixed annual
+                                    license. No per-request meter.
                                     <a href="#pricing">See pricing →</a>
                                 </p>
                             </div>
