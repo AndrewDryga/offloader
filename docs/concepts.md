@@ -6,25 +6,25 @@ assumed.
 
 ## The problem it solves
 
-Your product reads data the warehouse produces: usage meters, billing metrics,
-leaderboards, recommendations, customer analytics. Those reads often sit on the
-**production request path** — your backend needs an account's usage, a customer's
-billing totals, or a leaderboard slice while a user is waiting.
+Your product needs data the warehouse produces: usage meters, billing totals,
+leaderboards, recommendations, customer analytics. A user is often waiting for that
+answer. For example, your backend may need one account's usage, one customer's billing
+total, or one leaderboard page before it can return an API response.
 
-Warehouses (Snowflake, Databricks, BigQuery, …) are great at crunching huge data
-and publishing analytical outputs. They are a poor origin for high-volume,
-customer-facing reads when every request has to wait on warehouse compute or a
-hand-rolled serving cache. So you end up choosing between warehouse cost, slow
-tails, or another service your team has to maintain.
+Warehouses (Snowflake, Databricks, BigQuery, and similar systems) are good at the
+big job: crunching a lot of data and producing the answer set. They are a poor place
+to send every small product API read. Each request can pay warehouse cost, inherit
+warehouse latency, or depend on a cache your team built in a hurry.
 
-Here's the thing: those product APIs usually ask the **same bounded questions over
-and over** ("usage for account X over the last 30 days"), against data that only
-needs to be **a few minutes or hours fresh** — not up-to-the-second.
+Most of these APIs ask the same known questions over and over: "usage for account X
+over the last 30 days," "top 50 leaderboard rows," "billing totals for this customer."
+They usually need data that is 15-120 minutes fresh, not up-to-the-second.
 
 ## What Offloader does
 
-Offloader turns those pre-computed copies into **governed REST endpoints** instead
-of making the warehouse answer every product request.
+Offloader lets your pipeline publish those answers as snapshots, then serves REST
+endpoints from the snapshots on your own servers. The warehouse builds the data once.
+Your app reads it many times until the next snapshot is ready.
 
 ```flow warehouse-vs-offloader
   Before
@@ -32,27 +32,26 @@ of making the warehouse answer every product request.
                                $$$ · slow — billed per query
 
   After
-    Your app  ──governed REST──▶  Offloader  ──reads──▶  Snapshot
+    Your app  ──REST API──▶  Offloader  ──reads──▶  Snapshot
                                   your servers             S3 · GCS
                                   cheap · fast
 ```
 
-You publish periodic **snapshots** of the data to object storage. Offloader loads a
-snapshot into a fast local engine and answers your product's REST calls from it. When
-a newer snapshot appears, it swaps over — with no downtime. The warehouse is only
-touched by the pipeline that builds snapshots (on a schedule you control), not by
-customer-facing API traffic.
+You publish periodic **snapshots** of the data to object storage. Offloader checks the
+snapshot, loads it into a fast local engine, and answers your product's REST calls from
+it. When a newer snapshot appears, it switches to the new one without taking the API
+down. If the new snapshot is bad, the last good one keeps serving.
 
 It runs as a **single container on your own infrastructure**: there's no Offloader
-cloud, and your private data never leaves your environment.
+cloud, and private data stays in your environment by default.
 
 ## Is it a fit?
 
 | Good fit if… | Not a fit if… |
 | --- | --- |
-| Your app or API serves warehouse-built data per request | It's an internal BI dashboard and the BI tool's cache/extracts already solve refresh |
-| The same bounded query shapes repeat a lot | Every query is different / ad-hoc SQL |
-| "A few minutes/hours old" is fine | You need up-to-the-second data |
+| Your app calls the warehouse while a user is waiting | It's an internal BI dashboard and the BI tool's cache/extracts already solve refresh |
+| The same endpoint shapes repeat a lot | Every query is different / ad-hoc SQL |
+| 15-120 minute freshness is fine | You need up-to-the-second data |
 | You can export snapshots to S3/GCS | You can't produce snapshots |
 | You want to cut warehouse serving cost | Native warehouse acceleration already solves it |
 
@@ -65,14 +64,14 @@ You only need these dozen terms to read the rest of the docs.
 | **Object storage** | Cloud file storage — Amazon **S3** or Google **GCS**, where your snapshot files live. |
 | **Snapshot** | One frozen copy of a dataset at a point in time (Parquet files), e.g. "usage as of 3 PM today." |
 | **Parquet** | A compact columnar file format snapshots are stored in; you don't edit these by hand. |
-| **Manifest** | A small JSON file that says "this snapshot = these files, this schema, this version" — the pointer Offloader follows. |
+| **Manifest** | A small JSON file that says "this snapshot uses these files and this schema." Offloader follows that pointer. |
 | **Dataset** | A named table Offloader serves (e.g. `customer_usage`), plus the columns it expects. |
 | **Endpoint** | A named REST URL your app calls (e.g. `/v1/endpoints/customer_usage_summary`), defined by a small config file. |
 | **Project** | Your whole configuration: one `offloader.yml` plus `datasets/`, `endpoints/`, and `keys/` files. This is what Offloader loads at startup. |
-| **Materialize** | Loading a snapshot's Parquet into Offloader's local engine (DuckDB) so reads are fast. Happens automatically. |
-| **Refresh** | Checking for a newer snapshot and swapping to it. Automatic, on a schedule. |
-| **Freshness / watermark** | How old the data is; the `watermark` is the snapshot's timestamp. Every response tells you. |
-| **Tenant** | One customer/account in a multi-customer table; Offloader makes sure a caller only sees their own tenant's rows. |
+| **Materialize** | Load a snapshot's Parquet into Offloader's local engine (DuckDB) so reads are fast. Happens automatically. |
+| **Refresh** | Check for a newer snapshot and switch to it. Automatic, on a schedule. |
+| **Freshness / watermark** | How old the data is; the `watermark` is the snapshot's timestamp. Every response includes it. |
+| **Tenant** | One customer/account in a multi-customer table; Offloader limits a caller to its own rows. |
 | **API key** | A secret token a caller sends to use an endpoint; you can scope it to specific endpoints and one tenant. |
 
 Two more you'll see in operations:
@@ -87,15 +86,15 @@ Two more you'll see in operations:
         │ export
         ▼
   Object store             Parquet + manifest — S3 · GCS
-        │ materialize
+        │ load locally
         ▼
   Offloader · DuckDB       your servers; loads the latest snapshot
         ▲
         │ REST
-  Your app                 every request — fast · cheap
+  Your app                 every request — no warehouse call
 
-  ↻ A newer snapshot triggers an automatic, zero-downtime swap — the
-    warehouse is only touched by the export, never by customer-facing API traffic.
+  ↻ A newer snapshot is checked before it replaces the old one. The warehouse is
+    used by the export job, not by each customer request.
 ```
 
 ## The two ports

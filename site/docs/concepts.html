@@ -81,22 +81,22 @@ the handful of words the rest of the docs use — no prior…">
 the handful of words the rest of the docs use — no prior data-engineering knowledge
 assumed.</p>
 <h2 id="the-problem-it-solves">The problem it solves</h2>
-<p>Your product reads data the warehouse produces: usage meters, billing metrics,
-leaderboards, recommendations, customer analytics. Those reads often sit on the
-<strong>production request path</strong> — your backend needs an account&#39;s usage, a customer&#39;s
-billing totals, or a leaderboard slice while a user is waiting.</p>
-<p>Warehouses (Snowflake, Databricks, BigQuery, …) are great at crunching huge data
-and publishing analytical outputs. They are a poor origin for high-volume,
-customer-facing reads when every request has to wait on warehouse compute or a
-hand-rolled serving cache. So you end up choosing between warehouse cost, slow
-tails, or another service your team has to maintain.</p>
-<p>Here&#39;s the thing: those product APIs usually ask the <strong>same bounded questions over
-and over</strong> (&quot;usage for account X over the last 30 days&quot;), against data that only
-needs to be <strong>a few minutes or hours fresh</strong> — not up-to-the-second.</p>
+<p>Your product needs data the warehouse produces: usage meters, billing totals,
+leaderboards, recommendations, customer analytics. A user is often waiting for that
+answer. For example, your backend may need one account&#39;s usage, one customer&#39;s billing
+total, or one leaderboard page before it can return an API response.</p>
+<p>Warehouses (Snowflake, Databricks, BigQuery, and similar systems) are good at the
+big job: crunching a lot of data and producing the answer set. They are a poor place
+to send every small product API read. Each request can pay warehouse cost, inherit
+warehouse latency, or depend on a cache your team built in a hurry.</p>
+<p>Most of these APIs ask the same known questions over and over: &quot;usage for account X
+over the last 30 days,&quot; &quot;top 50 leaderboard rows,&quot; &quot;billing totals for this customer.&quot;
+They usually need data that is 15-120 minutes fresh, not up-to-the-second.</p>
 <h2 id="what-offloader-does">What Offloader does</h2>
-<p>Offloader turns those pre-computed copies into <strong>governed REST endpoints</strong> instead
-of making the warehouse answer every product request.</p>
-<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a production API. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
+<p>Offloader lets your pipeline publish those answers as snapshots, then serves REST
+endpoints from the snapshots on your own servers. The warehouse builds the data once.
+Your app reads it many times until the next snapshot is ready.</p>
+<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse. After: every request hits Offloader on your servers, which reads from a published snapshot in object storage.">
   <div class="flow-lane">
     <span class="lane-tag lane-before">Before</span>
     <div class="flow-track">
@@ -109,7 +109,7 @@ of making the warehouse answer every product request.</p>
     <span class="lane-tag lane-after">After</span>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">governed REST</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="hop"><span class="hop-l">REST API</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
@@ -117,13 +117,12 @@ of making the warehouse answer every product request.</p>
   </div>
 </figure>
 
-<p>You publish periodic <strong>snapshots</strong> of the data to object storage. Offloader loads a
-snapshot into a fast local engine and answers your product&#39;s REST calls from it. When
-a newer snapshot appears, it swaps over — with no downtime. The warehouse is only
-touched by the pipeline that builds snapshots (on a schedule you control), not by
-customer-facing API traffic.</p>
+<p>You publish periodic <strong>snapshots</strong> of the data to object storage. Offloader checks the
+snapshot, loads it into a fast local engine, and answers your product&#39;s REST calls from
+it. When a newer snapshot appears, it switches to the new one without taking the API
+down. If the new snapshot is bad, the last good one keeps serving.</p>
 <p>It runs as a <strong>single container on your own infrastructure</strong>: there&#39;s no Offloader
-cloud, and your private data never leaves your environment.</p>
+cloud, and private data stays in your environment by default.</p>
 <h2 id="is-it-a-fit">Is it a fit?</h2>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -134,15 +133,15 @@ cloud, and your private data never leaves your environment.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td>Your app or API serves warehouse-built data per request</td>
+<td>Your app calls the warehouse while a user is waiting</td>
 <td>It&#39;s an internal BI dashboard and the BI tool&#39;s cache/extracts already solve refresh</td>
 </tr>
 <tr>
-<td>The same bounded query shapes repeat a lot</td>
+<td>The same endpoint shapes repeat a lot</td>
 <td>Every query is different / ad-hoc SQL</td>
 </tr>
 <tr>
-<td>&quot;A few minutes/hours old&quot; is fine</td>
+<td>15-120 minute freshness is fine</td>
 <td>You need up-to-the-second data</td>
 </tr>
 <tr>
@@ -179,7 +178,7 @@ cloud, and your private data never leaves your environment.</p>
 </tr>
 <tr>
 <td><strong>Manifest</strong></td>
-<td>A small JSON file that says &quot;this snapshot = these files, this schema, this version&quot; — the pointer Offloader follows.</td>
+<td>A small JSON file that says &quot;this snapshot uses these files and this schema.&quot; Offloader follows that pointer.</td>
 </tr>
 <tr>
 <td><strong>Dataset</strong></td>
@@ -195,19 +194,19 @@ cloud, and your private data never leaves your environment.</p>
 </tr>
 <tr>
 <td><strong>Materialize</strong></td>
-<td>Loading a snapshot&#39;s Parquet into Offloader&#39;s local engine (DuckDB) so reads are fast. Happens automatically.</td>
+<td>Load a snapshot&#39;s Parquet into Offloader&#39;s local engine (DuckDB) so reads are fast. Happens automatically.</td>
 </tr>
 <tr>
 <td><strong>Refresh</strong></td>
-<td>Checking for a newer snapshot and swapping to it. Automatic, on a schedule.</td>
+<td>Check for a newer snapshot and switch to it. Automatic, on a schedule.</td>
 </tr>
 <tr>
 <td><strong>Freshness / watermark</strong></td>
-<td>How old the data is; the <code>watermark</code> is the snapshot&#39;s timestamp. Every response tells you.</td>
+<td>How old the data is; the <code>watermark</code> is the snapshot&#39;s timestamp. Every response includes it.</td>
 </tr>
 <tr>
 <td><strong>Tenant</strong></td>
-<td>One customer/account in a multi-customer table; Offloader makes sure a caller only sees their own tenant&#39;s rows.</td>
+<td>One customer/account in a multi-customer table; Offloader limits a caller to its own rows.</td>
 </tr>
 <tr>
 <td><strong>API key</strong></td>
@@ -221,17 +220,17 @@ cloud, and your private data never leaves your environment.</p>
 <li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the fast default) or straight from the snapshot files (<code>remote_scan</code>, for big/cold data). Most endpoints use the default.</li>
 </ul>
 <h2 id="how-the-pieces-fit">How the pieces fit</h2>
-<figure class="flow" aria-label="Your pipeline exports a snapshot (Parquet + manifest) to object storage on your schedule; Offloader loads the latest snapshot into DuckDB and serves REST; a newer snapshot triggers an automatic, zero-downtime swap.">
+<figure class="flow" aria-label="Your pipeline exports a snapshot to object storage; Offloader checks it, loads it into DuckDB, and serves REST; a newer valid snapshot replaces the old one.">
   <div class="flow-track">
     <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
     <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
-    <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="hop"><span class="hop-l">load locally</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
     <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
+    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">no warehouse call</span></div>
   </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by customer-facing API traffic.</figcaption>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot is checked before it replaces the old one — the warehouse is used by the export job, not by each customer request.</figcaption>
 </figure>
 
 <h2 id="the-two-ports">The two ports</h2>
@@ -258,7 +257,7 @@ cloud, and your private data never leaves your environment.</p>
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
-      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-tag">If your warehouse can publish Parquet, Offloader can serve it through REST.</p>
       <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">

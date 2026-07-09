@@ -4,21 +4,21 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>
-            Offloader — self-hosted serving for warehouse-built data
+            Offloader — serve warehouse data from your own API
         </title>
         <meta
             name="description"
-            content="Turn warehouse snapshots into fast, governed REST endpoints on your own servers — for product reads that should not stay on the warehouse request path."
+            content="Serve repeated product API reads from warehouse snapshots on your own servers, instead of sending every request back to warehouse compute."
         />
         <link rel="canonical" href="https://offloader.dryga.com/" />
         <meta name="color-scheme" content="light dark" />
         <meta
             property="og:title"
-            content="Offloader — self-hosted serving for warehouse-built data"
+            content="Offloader — serve warehouse data from your own API"
         />
         <meta
             property="og:description"
-            content="Serve repeated product reads from governed snapshots on your own servers, not from warehouse compute on the request path."
+            content="Keep Snowflake, Databricks, and BigQuery out of hot product API reads. Serve approved snapshots from your own REST endpoints instead."
         />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Offloader" />
@@ -31,16 +31,16 @@
         <meta property="og:image:height" content="1260" />
         <meta
             property="og:image:alt"
-            content="Offloader — self-hosted serving for warehouse-built data."
+            content="Offloader — serve warehouse data from your own API."
         />
         <meta name="twitter:card" content="summary_large_image" />
         <meta
             name="twitter:title"
-            content="Offloader — self-hosted serving for warehouse-built data"
+            content="Offloader — serve warehouse data from your own API"
         />
         <meta
             name="twitter:description"
-            content="Serve repeated product reads from governed snapshots on your own servers, not from warehouse compute on the request path."
+            content="Keep Snowflake, Databricks, and BigQuery out of hot product API reads. Serve approved snapshots from your own REST endpoints instead."
         />
         <meta
             name="twitter:image"
@@ -48,7 +48,7 @@
         />
         <meta
             name="twitter:image:alt"
-            content="Offloader — self-hosted serving for warehouse-built data."
+            content="Offloader — serve warehouse data from your own API."
         />
         <meta
             name="theme-color"
@@ -84,7 +84,7 @@
                 "name": "Offloader",
                 "applicationCategory": "DeveloperApplication",
                 "operatingSystem": "Docker, Linux",
-                "description": "A self-hosted serving layer for warehouse-built data: turn approved snapshots into governed REST endpoints on your own servers, instead of querying the data warehouse on every product request.",
+                "description": "A self-hosted service that turns approved warehouse snapshots into REST endpoints on your own servers, so repeated product API reads do not query warehouse compute on every request.",
                 "url": "https://offloader.dryga.com/",
                 "sameAs": "https://github.com/AndrewDryga/offloader"
             }
@@ -144,28 +144,23 @@
             <!-- HERO ───────────────────────────────────────────────────────── -->
             <section class="hero wrap" id="top">
                 <p class="eyebrow">
-                    The self-hosted serving layer for warehouse-built data
+                    Self-hosted REST endpoints for warehouse data
                 </p>
                 <h1 class="display">
-                    Stop paying your warehouse to
-                    <em>serve product requests.</em>
+                    Stop sending the same product API reads to
+                    <em>your warehouse.</em>
                 </h1>
 
                 <div class="hero-body">
                     <div class="hero-copy">
                         <p class="lede">
-                            Your product reads what the warehouse produces:
-                            usage meters, billing metrics, recommendations,
-                            leaderboards, customer analytics. When those reads
-                            stay on the warehouse request path, every product
-                            request pays warehouse latency and compute.
+                            Your warehouse builds the data. Your product should
+                            not query it on every request.
                             <strong
-                                >Offloader turns each published snapshot into
-                                fast, governed REST endpoints on your own
-                                servers</strong
+                                >Offloader serves snapshots from REST
+                                endpoints on your own servers</strong
                             >
-                            — the same data, honest freshness, and no warehouse
-                            query behind every call.
+                            — so repeat reads stay cheap until the next refresh.
                         </p>
                         <div class="cta-row">
                             <a
@@ -180,10 +175,11 @@
                             >
                         </div>
                         <p class="hero-proof">
-                            Self-hosted. Validated on
-                            <b>real production data</b> — dozens of production
-                            endpoints serving 8&nbsp;TB a month. No vendor cloud
-                            — your private data never leaves your environment.
+                            Runs in your environment. Validated on
+                            <b>real production data</b>: dozens of endpoints,
+                            ~136M requests a month, and 8&nbsp;TB served. No
+                            Offloader cloud — private data stays with you by
+                            default.
                         </p>
                     </div>
 
@@ -259,13 +255,13 @@
                     <div class="section-head">
                         <p class="kicker">How it works</p>
                         <h2 id="how-h" class="h2">
-                            Answer it once.<br />Serve it as long as it’s fresh.
+                            Build the data once.<br />Read it many times.
                         </h2>
                         <p class="section-sub">
-                            Your pipeline publishes a snapshot on its own
-                            schedule. Offloader serves the reads. The warehouse
-                            only ever touches the snapshot — never the
-                            customer-facing request path.
+                            Your pipeline exports the answer set to S3 or GCS.
+                            Offloader loads it and handles API reads until the
+                            next snapshot is ready. The warehouse is used by the
+                            export job, not by each customer request.
                         </p>
                     </div>
 
@@ -288,18 +284,16 @@
                                 <span class="node-sub">S3 · GCS</span>
                             </div>
                             <div class="hop">
-                                <span class="hop-l">materialize</span>
+                                <span class="hop-l">load locally</span>
                                 <span class="arw" aria-hidden="true"></span>
                             </div>
                             <div class="node node-hero">
                                 <span class="node-k">Self-hosted</span>
                                 <strong>Offloader · DuckDB</strong>
-                                <span class="node-sub"
-                                    >validated · zero-downtime swap</span
-                                >
+                                <span class="node-sub">checked · safe swap</span>
                             </div>
                             <div class="hop hop-rev">
-                                <span class="hop-l">Governed REST</span>
+                                <span class="hop-l">REST API</span>
                                 <span class="arw" aria-hidden="true"></span>
                             </div>
                             <div class="node">
@@ -315,8 +309,8 @@
                             Product reads are served entirely from the snapshot
                             —
                             <b
-                                >your warehouse stays off the request
-                                path.</b
+                                >your warehouse is not called for each API
+                                request.</b
                             >
                         </figcaption>
                     </figure>
@@ -326,36 +320,37 @@
                             <span class="step-n">01</span>
                             <h3>You publish a snapshot</h3>
                             <p class="step-desc">
-                                Export the dataset to Parquet in S3 or GCS with
-                                a small manifest — on your schedule, whatever
-                                freshness your data tolerates.
+                                Export the data to Parquet in S3 or GCS with a
+                                small manifest. Pick the freshness you need: 15
+                                minutes, hourly, daily.
                             </p>
                         </li>
                         <li>
                             <span class="step-n">02</span>
-                            <h3>Offloader materializes it</h3>
+                            <h3>Offloader checks and loads it</h3>
                             <p class="step-desc">
-                                The container loads the latest snapshot into an
-                                embedded DuckDB engine and validates it against
-                                your dataset’s contract before it ever serves.
+                                The container checks the files and schema, then
+                                loads the latest snapshot into DuckDB before it
+                                serves any request.
                             </p>
                         </li>
                         <li>
                             <span class="step-n">03</span>
                             <h3>Your app calls a REST endpoint</h3>
                             <p class="step-desc">
-                                Named, versioned, key-scoped endpoints — no
-                                arbitrary SQL. Reads are answered locally, fast,
-                                at product-traffic scale.
+                                Your app calls a named endpoint. Callers do not
+                                send SQL; API keys decide which endpoint,
+                                tenant, and columns they can read.
                             </p>
                         </li>
                         <li>
                             <span class="step-n">04</span>
                             <h3>A newer snapshot swaps in</h3>
                             <p class="step-desc">
-                                Zero-downtime, blue-green — even across a schema
-                                change. A bad snapshot never swaps in; the last
-                                good one keeps serving.
+                                When a newer snapshot passes validation,
+                                Offloader switches to it without taking the API
+                                down. If it fails, the last good snapshot keeps
+                                serving.
                             </p>
                         </li>
                     </ol>
@@ -383,14 +378,13 @@
                     <div class="section-head">
                         <p class="kicker">What you serve</p>
                         <h2 id="uses-h" class="h2">
-                            The product reads your<br />warehouse should not
-                            serve.
+                            API reads that are<br />expensive in the warehouse.
                         </h2>
                         <p class="section-sub">
-                            High volume, bounded shapes, per-tenant or public,
-                            minutes-fresh is fine. A CDN can still cache the
-                            edge. Offloader makes the origin a fast, governed,
-                            flat-cost service instead of warehouse compute.
+                            Good candidates have a fixed shape, repeat a lot,
+                            and can be 15-120 minutes fresh. Offloader becomes
+                            the origin your app or CDN calls instead of
+                            warehouse compute.
                         </p>
                     </div>
 
@@ -415,7 +409,7 @@
                             <p>
                                 “Recommended for you,” trending, and related
                                 items — computed in the warehouse, served per
-                                user through a bounded product endpoint.
+                                user through a fixed product endpoint.
                             </p>
                         </li>
                         <li>
@@ -456,12 +450,13 @@
                     <div class="section-head">
                         <p class="kicker">What this replaces</p>
                         <h2 id="replaces-h" class="h2">
-                            The serving layer teams<br />usually build by hand.
+                            The read service teams<br />usually build by hand.
                         </h2>
                         <p class="section-sub">
-                            Offloader is not a broader database platform. It is
-                            the narrow read path for approved warehouse outputs:
-                            contract, snapshot, materialize, serve, observe.
+                            Offloader is not a broad database platform. It is
+                            the small read service you would otherwise build
+                            yourself: define the endpoint, load the snapshot,
+                            serve the response, and track freshness and cost.
                         </p>
                     </div>
 
@@ -485,8 +480,8 @@
                             <h3>Read-only serving databases</h3>
                             <p>
                                 A second system to load and operate when the
-                                workload is bounded, snapshot-fresh, and REST is
-                                the contract your app actually needs.
+                                workload is read-only, snapshot-fresh, and a
+                                REST API is all your app actually needs.
                             </p>
                         </li>
                         <li>
@@ -593,18 +588,16 @@
                     <div class="section-head">
                         <p class="kicker">Pricing</p>
                         <h2 id="pricing-h" class="h2">
-                            Priced on what we save you.<br />Not on requests.
+                            Priced on measured savings.<br />Not on requests.
                         </h2>
                         <p class="section-sub">
-                            Warehouse-backed serving usually bills one of two
-                            bad ways:
-                            <em>always-on compute</em> sized for your peak —
-                            paid while it idles, still slow from a cold start —
-                            or a <em>per-request meter</em>, where your busiest
-                            month is your most expensive. For the workloads we
-                            can actually offload, Offloader charges
-                            <strong>20% of the measured savings</strong>. You
-                            keep the other 80%.
+                            First we measure the endpoints that can actually
+                            move off the warehouse. Then we compare the current
+                            warehouse cost with the cost of running Offloader.
+                            For workloads we can offload, the ongoing fee is
+                            <strong>20% of the measured saving</strong>. You
+                            keep the other 80%. If there is no saving, there is
+                            no ongoing fee.
                         </p>
                     </div>
 
@@ -648,16 +641,16 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                     <h3>How the ongoing bill works</h3>
                                     <p>
                                         The paid diagnostic exists because
-                                        “savings” is a slippery number. We agree
-                                        the offloadable workload, current cost,
-                                        request baseline, and realized versus
-                                        potential savings before you commit.
-                                        From there it’s 20% of the measured
-                                        saving, reconciled quarterly, net of
-                                        what Offloader costs to run. No saving,
-                                        no fee. For reserved-capacity warehouses
-                                        the fee starts only when you actually
-                                        downsize the tier.
+                                        “savings” has to survive finance review.
+                                        We agree which reads are offloadable,
+                                        what they cost today, how many requests
+                                        they serve, and which savings are real
+                                        versus only possible. After that, the
+                                        fee is 20% of measured savings,
+                                        reconciled quarterly, after subtracting
+                                        the cost of running Offloader. For
+                                        reserved-capacity warehouses, fees start
+                                        only after you actually downsize.
                                     </p>
                                     <p>
                                         Prefer a number finance can book? The
@@ -679,16 +672,13 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                                         Public data? Serve it from our edge.
                                     </h3>
                                     <p>
-                                        For product-facing public data at high
-                                        volume — the tables your team builds in
-                                        the warehouse and ships to your
-                                        front-end — we can also run it on
-                                        <strong>our global CDN edge</strong>:
-                                        serving cost approaches zero, latency
-                                        goes worldwide. It’s already public, so
-                                        it stays public — an optional managed
-                                        add-on, same share-of-savings model,
-                                        quoted per case.
+                                        If the data is already public, like
+                                        leaderboards, counts, or public profile
+                                        stats, we can also serve it from
+                                        <strong>our global CDN edge</strong>.
+                                        Private data stays out of that path.
+                                        This is optional, quoted per case, and
+                                        uses the same share-of-savings model.
                                     </p>
                                 </div>
                             </div>
@@ -705,7 +695,7 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                         <span class="pricing-cta-note"
                             >Books a call with me — pick a time that works; you
                             talk to a person, not a queue. Fixed scope; we
-                            measure your reducible spend before you
+                            measure the spend that can actually move before you
                             commit.</span
                         >
                     </div>
@@ -721,11 +711,11 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             Made for one job.<br />Honest about the rest.
                         </h2>
                         <p class="section-sub">
-                            Offloader offloads <em>repeated, bounded</em> reads.
-                            It is not a warehouse, a BI tool, a streaming
-                            database, or a place to run ad-hoc SQL. If native
-                            acceleration or your BI cache already solves the
-                            problem, we’ll tell you.
+                            Offloader handles repeated API reads with a known
+                            shape. It is not a warehouse, a BI tool, a
+                            streaming database, or a place to run ad-hoc SQL.
+                            If native acceleration or your BI cache already
+                            solves the problem, we’ll tell you.
                         </p>
                     </div>
 
@@ -739,17 +729,17 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </h3>
                             <ul>
                                 <li>
-                                    Your app or API serves warehouse-built data
-                                    per request.
+                                    Your app calls the warehouse while a user is
+                                    waiting.
                                 </li>
                                 <li>
-                                    The same bounded query shapes repeat a lot.
+                                    The same endpoint shapes repeat a lot.
                                 </li>
-                                <li>“A few minutes or hours old” is fine.</li>
+                                <li>15-120 minute freshness is fine.</li>
                                 <li>You can export snapshots to S3 or GCS.</li>
                                 <li>
-                                    You want to cut warehouse serving cost
-                                    without a rewrite.
+                                    You want to cut warehouse cost without
+                                    rewriting the product.
                                 </li>
                             </ul>
                         </div>
@@ -797,16 +787,14 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    No. A cache still calls the warehouse on a
-                                    miss and knows nothing about who’s asking.
-                                    Offloader answers reads
-                                    <em>entirely</em> from the snapshot — the
-                                    warehouse is never on the production
-                                    request path — through named, versioned
-                                    endpoints with a compiled-in tenant filter
-                                    and a column allowlist. There’s no arbitrary
-                                    SQL to cache, and no per-request warehouse
-                                    bill.
+                                    Not exactly. A normal cache still needs a
+                                    warehouse-backed origin for misses, and it
+                                    usually does not know which tenant or
+                                    columns a caller may read. Offloader answers
+                                    from the snapshot only. The endpoint is
+                                    named in config, the caller cannot send
+                                    arbitrary SQL, and tenant and column limits
+                                    are applied before the query runs.
                                 </p>
                             </div>
                         </details>
@@ -817,20 +805,17 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    A CDN only saves hits for responses it can
-                                    cache at the edge. It doesn’t give you a
-                                    governed per-tenant API origin, and every
-                                    miss still lands on whatever origin you
-                                    built. If that origin is warehouse-backed, a
-                                    high-volume product endpoint can still send
-                                    millions of reads a month to metered compute
-                                    and inherit its tail latency. Offloader
-                                    fixes the origin instead. Keep your CDN —
-                                    Offloader emits proper
+                                    Keep the CDN. It helps when many users ask
+                                    for the exact same response. The problem is
+                                    the origin behind the CDN. If a cache miss
+                                    still goes to the warehouse, a busy endpoint
+                                    can still send millions of reads to metered
+                                    compute. Offloader makes the origin a small
+                                    service you run. It emits proper
                                     <code>ETag</code>/<code>Cache-Control</code>
-                                    so it keeps caching — and now the misses
-                                    land on a fast, flat-cost box you own
-                                    instead of a metered warehouse.
+                                    headers, so the CDN keeps caching, and the
+                                    misses land on Offloader instead of the
+                                    warehouse.
                                 </p>
                             </div>
                         </details>
@@ -840,21 +825,18 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    Lakebase is the strongest validation that
-                                    lakehouse data needs an operational serving
-                                    layer. It’s managed Postgres inside
-                                    Databricks — the right choice if you are
-                                    Databricks-native, need read-write tables or
-                                    Postgres clients, and want that managed
-                                    service. Offloader is one self-hosted,
-                                    read-only container serving approved
-                                    snapshots from any warehouse that exports
-                                    Parquet — Snowflake, BigQuery, Redshift,
-                                    Spark, or Databricks — through governed REST
-                                    endpoints with compiled-in tenant isolation.
-                                    If your product needs an API contract over
-                                    bounded reads instead of a general Postgres
-                                    database, that’s the trade.
+                                    Lakebase is managed Postgres inside
+                                    Databricks. It can be the right answer if
+                                    you are all-in on Databricks, need
+                                    read-write tables, or want Postgres clients.
+                                    Offloader is narrower: one self-hosted,
+                                    read-only container that serves approved
+                                    Parquet snapshots from Snowflake, BigQuery,
+                                    Redshift, Spark, Databricks, or any pipeline
+                                    that can write the files. The API is REST,
+                                    not Postgres. The trade is narrower scope,
+                                    simpler deployment, and no managed database
+                                    bill for this read path.
                                 </p>
                             </div>
                         </details>
@@ -862,18 +844,16 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             <summary>Couldn’t we build this ourselves?</summary>
                             <div class="faq-a">
                                 <p>
-                                    The first version, yes: DuckDB behind an
-                                    HTTP handler is not the hard part. The hard
-                                    part is the year after that — a manifest
-                                    contract so half-written exports never
-                                    serve, schema gates, blue-green snapshot
-                                    swaps, tenant filters a request can’t
-                                    override, rollback, warm starts, generated
-                                    docs, diagnostics, and a defensible
-                                    before/after cost report. Offloader ships
-                                    that boring surface on day one, and the
-                                    source is public enough for your team to
-                                    audit what it would otherwise be rebuilding.
+                                    Yes, if the scope is small. DuckDB behind an
+                                    HTTP handler is not the hard part. The
+                                    expensive part is everything that makes it
+                                    safe to run: rejecting half-written exports,
+                                    checking schema changes, swapping snapshots
+                                    without downtime, preventing tenant bypass,
+                                    keeping the last good snapshot on failure,
+                                    generating docs, exposing diagnostics, and
+                                    proving the before/after cost. Offloader
+                                    gives you that surface on day one.
                                 </p>
                             </div>
                         </details>
@@ -884,20 +864,15 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    A dedicated serving database — ClickHouse,
-                                    Tinybird, Rockset — is a second system to
-                                    load, sync, scale, and operate: another
-                                    serving source of truth to reconcile with
-                                    the warehouse. Offloader is a container and
-                                    a bucket. Your warehouse stays the source of
-                                    truth; you serve <em>its</em> snapshots,
-                                    unchanged. Warehouse-native acceleration (BI
-                                    Engine, serverless SQL, materialized views)
-                                    keeps you on the vendor’s meter and its cold
-                                    starts — you’re still paying per query or
-                                    per compute-hour for the same high-volume
-                                    reads. Offloader moves those reads off the
-                                    meter, onto a flat-cost box you own.
+                                    Use a dedicated serving database when you
+                                    need live OLAP, ad-hoc queries, or a new
+                                    serving data model. Offloader is for the
+                                    narrower case: the warehouse already
+                                    produced the answer set, the API shape is
+                                    known, and the data can be snapshot-fresh.
+                                    Your warehouse remains the source of truth;
+                                    Offloader serves its snapshots from a
+                                    flat-cost box you own.
                                 </p>
                             </div>
                         </details>
@@ -906,13 +881,14 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             <summary>How fresh is the data?</summary>
                             <div class="faq-a">
                                 <p>
-                                    As fresh as you publish snapshots — minutes
-                                    to hours, your call. Every response carries
-                                    its <code>snapshot_id</code> and a freshness
-                                    watermark, so a client always knows exactly
-                                    what it read. If you need up-to-the-second
-                                    data, Offloader isn’t the right tool, and
-                                    we’ll tell you.
+                                    As fresh as your snapshot schedule. The
+                                    normal target is 15-120 minutes. Every
+                                    response includes its
+                                    <code>snapshot_id</code> and freshness
+                                    watermark, so clients know exactly how old
+                                    the data is. If you need up-to-the-second
+                                    data, use a streaming or transactional
+                                    serving path instead.
                                 </p>
                             </div>
                         </details>
@@ -922,11 +898,12 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    The tenant filter is inserted server-side
-                                    from the caller’s API key; a request cannot
-                                    widen it or read another tenant’s rows. Keys
-                                    are stored as SHA-256 hashes, endpoints are
-                                    allow-listed per key, and a public (<code
+                                    The API key decides what a caller can read.
+                                    The server inserts the tenant filter before
+                                    the query runs, so the caller cannot widen
+                                    it. Keys are stored as SHA-256 hashes,
+                                    endpoints are allow-listed per key, and a
+                                    public (<code
                                         >auth: none</code
                                     >) mode is only accepted when no endpoint is
                                     tenant-scoped. Your private data never
@@ -944,20 +921,16 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    Tenant <em>count</em> doesn’t matter: an
-                                    endpoint is one table plus a compiled-in
-                                    filter, so a million users share one
-                                    snapshot and each request reads only its own
-                                    slice. What matters is total snapshot
-                                    <em>bytes</em>. In the validation, the
-                                    entire set of datasets sat in about
+                                    Yes, if the total data size fits the serving
+                                    shape. A million users can share one
+                                    snapshot because each request reads only its
+                                    tenant slice. The thing to size is total
+                                    bytes, not tenant count. In validation, the
+                                    active datasets used about
                                     <strong>4&nbsp;GiB of RAM</strong> on one
-                                    instance; you cap it with a memory limit and
-                                    scale by running more stateless instances or
-                                    partitioning snapshots by time. If your
-                                    working set genuinely won’t fit a box,
-                                    that’s exactly the case we’ll tell you isn’t
-                                    a fit.
+                                    instance. If the working set will not fit a
+                                    reasonable box, we should disqualify it or
+                                    partition the snapshots.
                                 </p>
                             </div>
                         </details>
@@ -967,13 +940,12 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    Any that can export Parquet — Snowflake,
-                                    BigQuery, Redshift, a Spark job — via a
-                                    small manifest. Databricks additionally
-                                    discovers the latest snapshot for you.
-                                    Offloader never connects to the warehouse
-                                    on the production request path; it only
-                                    reads the snapshots you publish.
+                                    Any source that can publish Parquet plus a
+                                    small manifest: Snowflake, BigQuery,
+                                    Redshift, Spark, Databricks, or your own
+                                    pipeline. Offloader does not query the
+                                    warehouse when a user calls your API. It
+                                    reads only the snapshots you publish.
                                 </p>
                             </div>
                         </details>
@@ -1022,12 +994,13 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                             <summary>How does pricing actually work?</summary>
                             <div class="faq-a">
                                 <p>
-                                    A paid diagnostic measures your reducible
-                                    warehouse spend and you agree a baseline
-                                    before committing. From there it’s 20% of
-                                    the savings, net of what Offloader costs to
-                                    run on your own infra — you keep the other
-                                    80%. If reconciliation is the wrong fit, the
+                                    A paid diagnostic measures which reads can
+                                    move and what they cost today. You agree a
+                                    baseline before committing. From there it is
+                                    20% of measured savings, after subtracting
+                                    what Offloader costs to run on your
+                                    infrastructure. You keep the other 80%. If
+                                    quarterly reconciliation is annoying, the
                                     same diagnostic can quote a fixed annual
                                     license. No per-request meter.
                                     <a href="#pricing">See pricing →</a>
@@ -1103,16 +1076,13 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                     <div class="start-copy">
                         <p class="kicker">Get started</p>
                         <h2 id="start-h" class="h2">
-                            Run it in fifteen minutes.
+                            Run a real endpoint in fifteen minutes.
                         </h2>
                         <p>
-                            Install the CLI, then point
-                            <code>offloader serve</code> at our
-                            <b>public sample bucket</b> — config and data load
-                            from <code>gs://…</code> with <b>no credentials</b>,
-                            nothing to clone or build. Ready for your own data?
-                            Point it at your own bucket, or run the 15-minute
-                            quickstart locally.
+                            Install the CLI, start the public demo, and call an
+                            endpoint backed by a snapshot. No credentials,
+                            clone, or build step. When you’re ready, point the
+                            same flow at your own bucket.
                         </p>
                         <div class="cta-row">
                             <a
@@ -1126,8 +1096,8 @@ Our fee, 20% of that saving  <span class="tok neg">−$512</span> /mo
                         </div>
                         <p class="start-note">
                             Weighing a real migration? A paid diagnostic
-                            clusters your repeated reads and estimates what’s
-                            actually reducible — before you commit.
+                            groups your repeated reads and estimates what can
+                            actually move — before you commit.
                             <a href="roi.html">Estimate it yourself</a> or
                             <a
                                 href="https://calendly.com/andrew-dryga/offloader"
@@ -1161,12 +1131,13 @@ $ curl "localhost:8088/v1/endpoints/champion?champion_id=1"
                 <div class="wrap cta-band-inner">
                     <p class="kicker">Talk to a person</p>
                     <h2 id="cta-band-h" class="h2">
-                        See your number before you commit.
+                        See the number before you commit.
                     </h2>
                     <p class="cta-band-sub">
-                        A paid diagnostic measures what’s actually reducible on
-                        your warehouse bill and hands you a baseline — on a call
-                        with me, not a form to a queue. No saving, no pilot.
+                        A paid diagnostic measures which reads can move, what
+                        they cost today, and what Offloader would cost to run.
+                        You get a baseline you can defend before starting a
+                        pilot.
                     </p>
                     <div class="cta-row cta-band-row">
                         <a
@@ -1214,8 +1185,8 @@ $ curl "localhost:8088/v1/endpoints/champion?champion_id=1"
                         Offloader
                     </p>
                     <p class="foot-tag">
-                        If your warehouse can export Parquet, Offloader can
-                        serve it.
+                        If your warehouse can publish Parquet, Offloader can
+                        serve it through REST.
                     </p>
                     <p class="foot-copy">© 2026 Offloader</p>
                 </div>

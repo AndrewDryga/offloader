@@ -1,17 +1,17 @@
 # Documentation
 
-Start with **[What Offloader is, in plain language](concepts.md)**, then pick by what
-you want to do. Docs are versioned with the code, so a claim and the behavior that
-backs it move together.
+Start with **[What Offloader is, in plain language](concepts.md)**, then pick what
+you need next. Docs are versioned with the code, so claims and behavior move
+together.
 
 ## For customers
 
 | Doc | What it covers |
 | --- | --- |
-| **[concepts.md](concepts.md)** | What Offloader is, why you'd want it, and the words the other docs use. **Start here.** |
+| **[concepts.md](concepts.md)** | What Offloader is, when it fits, and the few terms the other docs use. **Start here.** |
 | [quickstart.md](quickstart.md) | Run it against the bundled example in ~15 minutes, no cloud needed. |
-| [developer-experience.md](developer-experience.md) | Config guide: define your datasets, endpoints, and keys; load config from a bucket. |
-| [config-reference.md](config-reference.md) | Field-by-field reference for every config file, with the exact allowed values. |
+| [developer-experience.md](developer-experience.md) | Config guide: define datasets, endpoints, and keys; load config from disk or a bucket. |
+| [config-reference.md](config-reference.md) | Field-by-field reference for every config file, accepted value, and example shape. |
 | [cli.md](cli.md) | The optional `offloader` helper: every command, its flags, and an example. |
 | [api.md](api.md) | The consumer API contract: request, the `data`/`meta` envelope, and the error-to-status table. |
 | [operator.md](operator.md) | Run it in production: deploy, size, upgrade, roll back, diagnose. |

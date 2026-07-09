@@ -6,14 +6,14 @@
         <title>ROI calculator — Offloader</title>
         <meta
             name="description"
-            content="Estimate what your product's repeated reads would cost on an Offloader fleet versus your warehouse — the fleet is sized from your traffic. Runs entirely in your browser; your numbers are never sent anywhere."
+            content="Estimate the cost of moving repeated product API reads from warehouse compute to an Offloader fleet you run. Runs entirely in your browser."
         />
         <link rel="canonical" href="https://offloader.dryga.com/roi.html" />
         <meta name="color-scheme" content="light dark" />
         <meta property="og:title" content="Offloader — ROI calculator" />
         <meta
             property="og:description"
-            content="What would your repeated product API reads cost on Offloader instead? Sizes the fleet from your traffic and shows the plain difference — computed in your browser."
+            content="Estimate what repeated product API reads could cost on Offloader instead of warehouse compute. Computed in your browser."
         />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Offloader" />
@@ -403,13 +403,13 @@
         <main id="main" tabindex="-1">
             <section class="wrap calc-intro">
                 <p class="kicker">ROI calculator</p>
-                <h1>What would these reads cost on Offloader instead?</h1>
+                <h1>Estimate the cost of moving these reads off the warehouse.</h1>
                 <p class="calc-lede">
-                    Offloading moves repeated product API reads off the
-                    warehouse request path and onto a small fleet you run. This
-                    sizes that fleet from your traffic and compares its cost to
-                    what those reads cost the warehouse today — the plain
-                    difference, not a sales promise.
+                    Put in the endpoints you might move: request volume,
+                    current warehouse cost, repeat rate, and CDN hit rate. The
+                    calculator sizes a small Offloader fleet and compares its
+                    cost with what those reads cost today. It is an estimate,
+                    not a promise.
                 </p>
                 <p class="privacy-pill">
                     <svg
@@ -451,7 +451,7 @@
                                 </div>
                                 <span class="hint"
                                     >Total reads for the endpoints you want to
-                                    offload: usage meters, billing metrics,
+                                    move: usage meters, billing metrics,
                                     leaderboards, facets, recommendations.</span
                                 >
                             </div>
@@ -470,8 +470,8 @@
                                     /><span>$/mo</span>
                                 </div>
                                 <span class="hint"
-                                    >What the warehouse bills you today to
-                                    answer them.</span
+                                    >Your best estimate of the warehouse compute
+                                    tied to those endpoint reads today.</span
                                 >
                             </div>
 
@@ -496,9 +496,9 @@
                                     >
                                 </div>
                                 <span class="hint"
-                                    >The same bounded endpoint shapes, run over
-                                    and over — that's what Offloader serves from
-                                    a snapshot. The rest stays on the
+                                    >The share of reads with the same known
+                                    shape, run over and over. Offloader serves
+                                    those from a snapshot. The rest stays on the
                                     warehouse.</span
                                 >
                             </div>
@@ -522,11 +522,9 @@
                                     >
                                 </div>
                                 <span class="hint"
-                                    >A CDN in front serves repeat responses at
-                                    the edge, so Offloader's fleet only handles
-                                    the misses — a higher hit rate means fewer
-                                    instances. Set to 0% if you don't front it
-                                    with a CDN.</span
+                                    >If a CDN serves repeat responses at the
+                                    edge, Offloader handles only the misses. Set
+                                    this to 0% if there is no CDN.</span
                                 >
                             </div>
 
@@ -539,9 +537,8 @@
                                             >Warehouse is on committed /
                                             flat-rate capacity
                                             <span class="hint"
-                                                >Moving the reads off won't
-                                                lower the bill until you
-                                                actually downsize the committed
+                                                >Moving reads off may not lower
+                                                the bill until you downsize that
                                                 tier.</span
                                             >
                                         </span>
@@ -577,12 +574,12 @@
                             <ul class="caveats" id="caveats"></ul>
                         </div>
                         <div class="result-cta">
-                            A rough estimate from your inputs and the validated
-                            benchmark. The
+                            A rough estimate from your inputs and the benchmark.
+                            The
                             <a href="index.html#pricing">paid diagnostic</a>
-                            turns this into a defensible baseline: workload,
-                            request volume, current cost, fleet cost, and
-                            realized versus potential savings.
+                            checks the actual workload, request volume, current
+                            cost, fleet cost, and which savings are real versus
+                            only possible.
                         </div>
                     </div>
                 </div>
@@ -592,52 +589,48 @@
                 <div class="section-head">
                     <p class="kicker">How this is computed</p>
                     <h2 style="font-size: var(--fs-h2)">
-                        Honest by construction
+                        What the estimate assumes
                     </h2>
                 </div>
                 <div class="explain-grid">
                     <div class="explain-card">
                         <h3>The plain difference</h3>
                         <p>
-                            Savings = the <b>repeatable share</b> of your
-                            warehouse cost − what the
-                            <b>Offloader fleet</b> costs to run. Three
-                            predictions bracket how much of that spend actually
-                            clears once those reads leave the warehouse request
-                            path.
+                            Savings = the repeatable part of your warehouse cost
+                            minus the cost of the Offloader fleet. The three
+                            scenarios show how much of that spend might actually
+                            clear once those reads move.
                         </p>
                     </div>
                     <div class="explain-card">
                         <h3>How the fleet is sized</h3>
                         <p>
-                            The repeatable requests that miss the CDN become a
-                            <b>peak</b> rate (product traffic runs ~4× its
-                            average at busy hours). Each instance sustains
-                            <code>~2,500 req/s</code> cached from the benchmark,
-                            so the fleet is however many instances that peak
-                            needs — minimum two for availability.
+                            The calculator converts monthly requests into a
+                            busy-hour rate, assumes traffic can peak at about
+                            4x the average, then sizes enough instances for that
+                            peak. It uses the measured
+                            <code>~2,500 req/s</code> per 4-vCPU instance from
+                            the benchmark, with a minimum of two instances for
+                            availability.
                         </p>
                     </div>
                     <div class="explain-card">
                         <h3>Only the repeatable reads</h3>
                         <p>
-                            Offloader serves the <b>repeatable</b> query shapes
-                            from a snapshot; ad-hoc, internal BI, and one-off
-                            reads stay on the warehouse. So the saving applies
-                            to the
-                            repeatable share of your bill — the rest is
-                            untouched.
+                            Offloader serves known endpoint shapes from a
+                            snapshot. Ad-hoc queries, internal BI, and one-off
+                            reads stay on the warehouse. The saving applies only
+                            to the repeatable share of the bill.
                         </p>
                     </div>
                     <div class="explain-card">
                         <h3>Where it won't overclaim</h3>
                         <p>
-                            Sizing is an <b>estimate</b> from a single-machine
-                            benchmark — confirm it with a pilot. On
-                            <b>committed capacity</b> the warehouse savings are
-                            <em>potential</em> until you downsize the tier. The
-                            diagnostic separates realized savings from savings
-                            that need a finance or capacity action.
+                            Sizing is an estimate from a benchmark, so confirm
+                            it with a pilot. On committed warehouse capacity,
+                            savings are only potential until you downsize the
+                            tier. The diagnostic separates real savings from
+                            savings that need a finance or capacity action.
                         </p>
                     </div>
                 </div>
@@ -652,10 +645,10 @@
                         Book the paid diagnostic.
                     </h2>
                     <p class="cta-band-sub">
-                        We size the fleet against your real traffic and data and
-                        establish the offloadable workload, baseline, and
-                        realized versus potential savings — a finance-grade
-                        number you can take to whoever signs off on the spend.
+                        We use your real traffic and query history to decide
+                        what can move, what it costs today, what the Offloader
+                        fleet would cost, and which savings finance can actually
+                        count.
                     </p>
                     <div class="cta-row cta-band-row">
                         <a
@@ -703,8 +696,8 @@
                         Offloader
                     </p>
                     <p class="foot-tag">
-                        If your warehouse can export Parquet, Offloader can
-                        serve it.
+                        If your warehouse can publish Parquet, Offloader can
+                        serve it through REST.
                     </p>
                     <p class="foot-copy">© 2026 Offloader</p>
                 </div>

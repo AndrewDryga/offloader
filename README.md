@@ -2,22 +2,23 @@
 
 [![CI](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewdryga/offloader/actions/workflows/ci.yml)
 
-The self-hosted serving layer for warehouse-built product data.
+Self-hosted REST endpoints for product data your warehouse produces.
 
-**In plain terms:** your product reads data the warehouse produces — usage meters,
-billing metrics, leaderboards, recommendations, customer analytics. If your backend
-answers those bounded reads from Snowflake, Databricks, BigQuery, or similar systems
-on the production request path, you pay warehouse latency and compute again and again.
-Offloader turns approved snapshots into governed REST endpoints on your own servers
-instead — cutting warehouse cost and speeding up responses. New to the idea? Start
-with **[What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)**.
+**In plain terms:** your warehouse computes data your product needs — usage meters,
+billing totals, leaderboards, recommendations, customer analytics. If your backend
+calls Snowflake, Databricks, BigQuery, or similar systems every time a user waits for
+that data, you pay warehouse cost and latency on every request.
 
-Offloader is a self-hostable container that moves repeated product-facing analytical
-reads off Databricks, Snowflake, BigQuery, and similar warehouses by serving approved
-object-storage snapshots through governed REST endpoints — on infrastructure you
-already operate. There is no Offloader cloud, and your private data never leaves your
-environment. (An optional managed CDN edge can serve already-public data — public only,
-opt-in; see [serving public data](https://offloader.dryga.com/docs/public-serving.html).)
+Offloader lets your pipeline publish that data as snapshots, then serves named REST
+endpoints from those snapshots on your own servers. The warehouse builds the data
+once; your app reads it cheaply until the next snapshot is ready. New to the idea?
+Start with **[What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)**.
+
+Offloader is a container you run. It reads approved Parquet/CSV snapshots from object
+storage, loads them into DuckDB, and exposes only the REST endpoints you configure.
+There is no Offloader cloud, and private data stays in your environment by default.
+An optional managed CDN edge can serve already-public data only; see
+[serving public data](https://offloader.dryga.com/docs/public-serving.html).
 
 Status: the server is **feature-complete and validated against real production
 data**. The commercial offer is a paid diagnostic plus offload pilot, not a broad data
@@ -43,11 +44,13 @@ Deeper: [Architecture](docs/architecture.md) · [Release process](docs/release.m
 
 Offloader is:
 
-- A self-hostable serving container for bounded production read APIs over
-  warehouse-built snapshots.
-- A manifest-backed snapshot materializer and query runtime.
-- A contract registry for REST APIs over approved serving datasets.
-- A freshness, observability, and finance-grade ROI reporting layer.
+- A container you run for named, read-only product API endpoints over warehouse
+  snapshots.
+- A snapshot loader: it follows manifests, validates files and schema, and loads
+  the active snapshot into DuckDB.
+- A REST endpoint registry: URLs, params, API keys, tenants, and allowed columns live
+  in config.
+- Freshness, metrics, diagnostics, and before/after ROI reporting.
 - A two-port service: one API port for product traffic, one admin/metrics port
   for customer-owned observability and access controls.
 
@@ -64,17 +67,17 @@ Offloader is not:
 
 ## What it replaces
 
-Offloader is for the serving layer teams usually build by hand after product
-traffic starts hitting warehouse-backed analytics:
+Offloader is for the read path teams usually build by hand after product API traffic
+starts hitting warehouse-backed data:
 
 - Product endpoints that query Snowflake, Databricks, BigQuery, or similar systems
   while a customer waits.
-- Homegrown Redis/Postgres/DuckDB cache services without a manifest contract,
-  rollback, generated docs, diagnostics, or safe snapshot swaps.
-- A second serving database when the workload is read-only, bounded, snapshot-fresh,
-  and REST is the contract your app actually needs.
+- Homegrown Redis/Postgres/DuckDB cache services without snapshot validation,
+  rollback, generated docs, diagnostics, or safe swaps.
+- A second serving database when the workload is read-only, fresh enough from
+  snapshots, and a REST API is all your app needs.
 - Tenant filters, endpoint allowlists, and column limits scattered across app
-  handlers instead of compiled into one serving contract.
+  handlers instead of enforced in one place.
 
 ## What it does
 
@@ -89,10 +92,10 @@ The engineer's-eye view (the plain-language version is in [concepts](https://off
   project (datasets, endpoints, keys) is fetched from the bucket at startup — config and
   data in the same place, nothing mounted. With `OFFLOADER_CONFIG_SYNC_INTERVAL` it also
   **hot-reloads** bucket changes with **zero downtime**, blue-green even across a schema change.
-- Follow a producer that publishes on its own schedule: a **Databricks
-  commit-protocol resolver** discovers the latest `_committed_<tid>` in GCS and
-  refreshes per-dataset, isolated so one slow/broken source never blocks the rest;
-  warm-start serves the on-disk snapshot instantly on restart.
+- Follow a producer that publishes on its own schedule: the Databricks
+  commit-protocol resolver discovers the latest `_committed_<tid>` in GCS and
+  refreshes per dataset. One slow or broken source does not block the rest; a
+  warm restart serves the on-disk snapshot right away.
 - Enforce API keys, endpoint allowlists, compiler-inserted tenant filters, and column
   allowlists — **or** run fully public (`auth: none`, accepted only when no endpoint
   is tenant-scoped).

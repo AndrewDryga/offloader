@@ -24,15 +24,15 @@ const GROUPS = [
   {
     name: "Start",
     items: [
-      ["concepts", "docs/concepts.md", "What Offloader is", "The plain-language explanation, and the vocabulary the rest of the docs use."],
+      ["concepts", "docs/concepts.md", "What Offloader is", "The short explanation, plus the few terms the rest of the docs use."],
       ["quickstart", "docs/quickstart.md", "Quickstart", "Boot the bundled example and serve a real endpoint in about 15 minutes."],
     ],
   },
   {
     name: "Configure",
     items: [
-      ["developer-experience", "docs/developer-experience.md", "Config guide", "Define your datasets, endpoints, and keys; load the config from a bucket."],
-      ["config-reference", "docs/config-reference.md", "Config reference", "Every field of every config file, with the exact value vocabularies."],
+      ["developer-experience", "docs/developer-experience.md", "Config guide", "Define datasets, endpoints, and keys; load config from disk or a bucket."],
+      ["config-reference", "docs/config-reference.md", "Config reference", "Every config field, accepted value, and example shape."],
       ["cli", "docs/cli.md", "CLI reference", "The optional `offloader` helper: every command, its flags, and an example."],
       ["api", "docs/api.md", "API reference", "The consumer request/response contract and the error-to-status-code table."],
     ],
@@ -73,7 +73,7 @@ const BY_SRC = new Map(FLAT.map((p) => [p.src, `${p.slug}.html`])); // repo-rel 
 // site output stays byte-identical to inlining the HTML. Editing a diagram means
 // updating BOTH the ASCII fence in the doc AND its HTML here, or the two surfaces drift.
 const FIGURES = {
-  "warehouse-vs-offloader": `<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse — billed per query and too slow for a production API. After: every request hits Offloader on your servers, which reads from a pre-computed snapshot in object storage.">
+  "warehouse-vs-offloader": `<figure class="flow flow-contrast" aria-label="Before: every request hits the data warehouse. After: every request hits Offloader on your servers, which reads from a published snapshot in object storage.">
   <div class="flow-lane">
     <span class="lane-tag lane-before">Before</span>
     <div class="flow-track">
@@ -86,24 +86,24 @@ const FIGURES = {
     <span class="lane-tag lane-after">After</span>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
-      <div class="hop"><span class="hop-l">governed REST</span><span class="arw" aria-hidden="true"></span></div>
+      <div class="hop"><span class="hop-l">REST API</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
     </div>
   </div>
 </figure>`,
-  "snapshot-pipeline": `<figure class="flow" aria-label="Your pipeline exports a snapshot (Parquet + manifest) to object storage on your schedule; Offloader loads the latest snapshot into DuckDB and serves REST; a newer snapshot triggers an automatic, zero-downtime swap.">
+  "snapshot-pipeline": `<figure class="flow" aria-label="Your pipeline exports a snapshot to object storage; Offloader checks it, loads it into DuckDB, and serves REST; a newer valid snapshot replaces the old one.">
   <div class="flow-track">
     <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
     <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
-    <div class="hop"><span class="hop-l">materialize</span><span class="arw" aria-hidden="true"></span></div>
+    <div class="hop"><span class="hop-l">load locally</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
     <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">fast · cheap</span></div>
+    <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">no warehouse call</span></div>
   </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot triggers an <b>automatic, zero-downtime swap</b> — the warehouse is only touched by the export, never by customer-facing API traffic.</figcaption>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot is checked before it replaces the old one — the warehouse is used by the export job, not by each customer request.</figcaption>
 </figure>`,
   "two-ports": `<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
   <div class="ports">
@@ -241,7 +241,7 @@ const FOOT = `<footer class="site-foot">
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="foot-word">${BRAND_MARK} Offloader</p>
-      <p class="foot-tag">If your warehouse can export Parquet, Offloader can serve it.</p>
+      <p class="foot-tag">If your warehouse can publish Parquet, Offloader can serve it through REST.</p>
       <p class="foot-copy">© 2026 Offloader</p>
     </div>
     <nav class="foot-nav" aria-label="Footer">
@@ -358,9 +358,9 @@ ${items}
 
 const indexMain = `    <header class="docs-hero">
       <p class="doc-kicker">Documentation</p>
-      <h1>Run Offloader, from first boot to production.</h1>
-      <p class="lede">Serve your product's repeated analytics reads from a snapshot on your own
-      servers — governed, fast, honest about freshness. New here? Start with
+      <h1>Run Offloader from first boot to production.</h1>
+      <p class="lede">Serve repeated product API reads from warehouse snapshots on your own
+      servers. New here? Start with
       <a href="concepts.html">what Offloader is</a>, then run the
       <a href="quickstart.html">15-minute quickstart</a>.</p>
     </header>
