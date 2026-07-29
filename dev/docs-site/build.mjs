@@ -205,7 +205,7 @@ function header(active) {
       <li><a href="../index.html#pricing">Pricing</a></li>
       <li><a href="../index.html#fit">Fit</a></li>
       <li><a href="index.html"${active === "docs" ? ' aria-current="true"' : ""}>Docs</a></li>
-      <li><a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
+      <li><a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
     </ul>
   </nav>
 </header>`;
@@ -265,7 +265,7 @@ const FOOT = `<footer class="site-foot">
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://calendly.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
         <a href="${REPO}">GitHub</a>
       </div>
     </nav>

@@ -49,7 +49,7 @@
       var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
       if (!a) return;
       var href = a.getAttribute("href") || "";
-      if (href.indexOf("calendly.com") !== -1) {
+      if (href.indexOf("cal.com") !== -1) {
         mp.track("book_call_click", { location: location.pathname, label: (a.textContent || "").trim().slice(0, 60) });
       } else if (href.indexOf("github.com") !== -1) {
         mp.track("github_click", { location: location.pathname });
