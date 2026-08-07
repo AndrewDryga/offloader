@@ -5,6 +5,7 @@ defmodule OffloaderWeb.PublicServingHTTPTest do
   use ExUnit.Case, async: false
   import Phoenix.ConnTest
 
+  alias Offloader.Metrics.Requests
   alias Offloader.Runtime
 
   @endpoint OffloaderWeb.ApiEndpoint
@@ -84,5 +85,27 @@ defmodule OffloaderWeb.PublicServingHTTPTest do
     [row] = json_response(conn, 200)["data"]
     assert Map.keys(row) == ["data"]
     assert row["data"]["num_games"] == 98_213
+  end
+
+  # Public mode is the only shape that reaches the controller with an unvalidated name:
+  # there is no key, so nothing 404s the request before it is served.
+  test "an unknown endpoint name cannot mint a metric series" do
+    Requests.reset()
+    invented = "scan_#{System.unique_integer([:positive])}"
+
+    assert json_response(get(build_conn(), "/v1/endpoints/#{invented}"), 404)
+
+    metrics = Requests.to_prometheus()
+    refute metrics =~ invented
+    # the volume signal survives under the sentinel — a scan is still visible
+    assert metrics =~ ~s(endpoint="<unresolved>")
+  end
+
+  test "a served endpoint is still labelled with its real name" do
+    Requests.reset()
+    assert json_response(get_champion("1"), 200)
+
+    assert Requests.to_prometheus() =~
+             ~s(offloader_requests_total{endpoint="champion",status="ok"})
   end
 end

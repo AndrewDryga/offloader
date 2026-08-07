@@ -375,12 +375,13 @@ defmodule OffloaderWeb.MCPHTTPTest do
 
     test "an unknown tool name cannot mint an unbounded metric series" do
       Offloader.Metrics.Requests.reset()
+      invented = "made_up_#{System.unique_integer([:positive])}"
 
-      rpc("tools/call", %{"name" => "made_up_#{System.unique_integer()}", "arguments" => %{}},
-        token: @acme
-      )
+      rpc("tools/call", %{"name" => invented, "arguments" => %{}}, token: @acme)
 
-      refute Offloader.Metrics.Requests.to_prometheus() =~ "made_up_"
+      metrics = Offloader.Metrics.Requests.to_prometheus()
+      refute metrics =~ invented
+      assert metrics =~ ~s(endpoint="<unresolved>")
     end
   end
 

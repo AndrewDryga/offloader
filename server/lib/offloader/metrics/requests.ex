@@ -10,7 +10,8 @@ defmodule Offloader.Metrics.Requests do
 
   Cardinality is bounded on purpose: labels are the endpoint NAME and a coarse status
   class (`ok` / `client_error` / `server_error` / `not_ready`) — never params, tenants,
-  or request ids.
+  or request ids. `record/3` is the only supported way to emit the event, because the
+  endpoint name reaching it is caller-supplied and bounding it is part of that contract.
   """
 
   use GenServer
@@ -19,6 +20,10 @@ defmodule Offloader.Metrics.Requests do
   @event [:offloader, :request, :stop]
   # Prometheus-style latency buckets in milliseconds (plus an implicit +Inf).
   @buckets [1, 2, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000]
+  # Stands in for a name that never resolved to an endpoint. Not a valid endpoint name
+  # (those are `[a-z0-9_]` only — `Offloader.Catalog.Identifier`), so it cannot collide
+  # with a real one.
+  @unresolved "<unresolved>"
 
   # ── public API ────────────────────────────────────────────────────────────────
 
@@ -58,6 +63,36 @@ defmodule Offloader.Metrics.Requests do
 
     :ok
   end
+
+  @doc """
+  Record a served request, from any serving surface. `start` is a
+  `System.monotonic_time/0` reading taken when the request began; `status` is the HTTP
+  status the outcome maps to (MCP maps its error families through `ApiError.status/1`,
+  since an MCP application error is carried inside a 200).
+
+  `name` is caller-supplied — the path segment on REST, the tool name or resource URI on
+  MCP — so it is used as a label only once the request proved the endpoint exists. A
+  request that never resolved one is labelled `#{@unresolved}` instead: the volume signal
+  survives (a spike in bad names is worth seeing) while a caller looping over invented
+  names cannot grow the table or the `/metrics` payload without bound.
+  """
+  @spec record(String.t(), pos_integer(), integer()) :: :ok
+  def record(name, status, start) do
+    duration_ms =
+      System.convert_time_unit(System.monotonic_time() - start, :native, :microsecond) / 1000
+
+    :telemetry.execute(
+      @event,
+      %{duration_ms: duration_ms},
+      %{endpoint: label(name, status), status: status_class(status)}
+    )
+  end
+
+  # 404 (unknown endpoint, or one this key may not use) and 401 (rejected before the name
+  # was ever looked up) are exactly the outcomes decided without validating the name
+  # against the catalog.
+  defp label(_name, status) when status in [401, 404], do: @unresolved
+  defp label(name, _status), do: name
 
   @doc "The status class for an HTTP status code (bounded label set)."
   @spec status_class(pos_integer()) :: atom()

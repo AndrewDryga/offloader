@@ -29,7 +29,7 @@ defmodule OffloaderWeb.EndpointController do
           Response.send_error(conn, error, request_id)
       end
 
-    record(name, conn.status, start)
+    Requests.record(name, conn.status || 500, start)
     conn
   end
 
@@ -79,17 +79,5 @@ defmodule OffloaderWeb.EndpointController do
     |> Enum.flat_map(&String.split(&1, ","))
     |> Enum.map(&String.trim/1)
     |> Enum.any?(&(&1 == "*" or &1 == etag or &1 == "W/" <> etag))
-  end
-
-  # Emit a bounded-cardinality request metric: endpoint name + status CLASS + latency.
-  defp record(name, status, start) do
-    duration_ms =
-      System.convert_time_unit(System.monotonic_time() - start, :native, :microsecond) / 1000
-
-    :telemetry.execute(
-      [:offloader, :request, :stop],
-      %{duration_ms: duration_ms},
-      %{endpoint: name, status: Requests.status_class(status || 500)}
-    )
   end
 end

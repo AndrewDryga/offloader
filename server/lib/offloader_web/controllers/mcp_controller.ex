@@ -279,35 +279,19 @@ defmodule OffloaderWeb.MCPController do
     result
   end
 
-  # Emit the same per-endpoint metric the REST path does, so an operator's latency and
-  # volume dashboards cover both surfaces instead of silently omitting agent traffic.
-  #
-  # Two deliberate choices. The status class comes from the error FAMILY, not the HTTP
-  # status: an MCP application error is HTTP 200, and folding those into `ok` would hide
-  # them. And `not_found`/`unauthorized` are NOT recorded — both are decided before the
-  # name is known to be real, so labelling them would let a caller mint an unbounded set
-  # of metric series from arbitrary tool names.
+  # Record into the same per-endpoint series the REST path uses, so an operator's latency
+  # and volume dashboards cover both surfaces instead of silently omitting agent traffic.
+  # The status comes from the error FAMILY, not the HTTP status: an MCP application error
+  # is carried inside a 200, and folding those into `ok` would hide them. `Requests.record/3`
+  # bounds the endpoint label from there.
   defp record(name, result, start) do
-    case result do
-      {:error, %ApiError{family: family}} when family in [:not_found, :unauthorized] ->
-        :ok
+    status =
+      case result do
+        {:ok, _tenant, _response} -> 200
+        {:error, %ApiError{} = api_error} -> ApiError.status(api_error)
+      end
 
-      _ ->
-        duration_ms =
-          System.convert_time_unit(System.monotonic_time() - start, :native, :microsecond) / 1000
-
-        status =
-          case result do
-            {:ok, _tenant, _response} -> 200
-            {:error, %ApiError{} = api_error} -> ApiError.status(api_error)
-          end
-
-        :telemetry.execute(
-          [:offloader, :request, :stop],
-          %{duration_ms: duration_ms},
-          %{endpoint: name, status: Requests.status_class(status)}
-        )
-    end
+    Requests.record(name, status, start)
   end
 
   # Mirrors `OffloaderWeb.Plugs.ApiAuth`: public mode serves with no tenant, otherwise
