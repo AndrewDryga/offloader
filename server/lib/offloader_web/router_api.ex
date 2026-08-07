@@ -21,6 +21,12 @@ defmodule OffloaderWeb.ApiRouter do
 
     # Explicitly public: an unauthenticated liveness probe for load balancers.
     get "/healthz", HealthController, :healthz
+
+    # MCP (revision 2026-07-28). Deliberately OUTSIDE :authenticated: the endpoint a
+    # request targets is named in the JSON-RPC body, not the path, so the controller
+    # authorizes per method against that name — discovery needs no key, and a read is
+    # authorized for exactly the endpoint it reads.
+    post "/mcp", MCPController, :handle
   end
 
   scope "/v1", OffloaderWeb do

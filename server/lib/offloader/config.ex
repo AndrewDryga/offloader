@@ -37,6 +37,14 @@ defmodule Offloader.Config do
   def cors_origins, do: Application.get_env(:offloader, :cors_origins)
 
   @doc """
+  Whether `POST /mcp` serves the endpoint registry over the Model Context Protocol
+  (`OFFLOADER_MCP_ENABLED`). Off by default: it is an additional consumer surface, so
+  an operator turns it on deliberately rather than acquiring one by upgrading.
+  """
+  @spec mcp_enabled?() :: boolean()
+  def mcp_enabled?, do: Application.get_env(:offloader, :mcp_enabled) == true
+
+  @doc """
   DuckDB read-connection pool size (`OFFLOADER_POOL_SIZE`), or nil for the engine
   default. More connections = more concurrent in-flight queries before callers queue.
   """

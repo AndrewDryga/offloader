@@ -120,6 +120,9 @@ config :offloader,
   duckdb_memory_limit: System.get_env("OFFLOADER_DUCKDB_MEMORY_LIMIT"),
   # Gates the admin /diagnostics route. Unset => diagnostics fail closed (403).
   admin_token: System.get_env("OFFLOADER_ADMIN_TOKEN"),
+  # Serve the endpoint registry over MCP at POST /mcp. Off unless explicitly enabled —
+  # it is an extra consumer surface, not something an upgrade should switch on.
+  mcp_enabled: System.get_env("OFFLOADER_MCP_ENABLED") in ["1", "true", "yes"],
   # Product-API CORS allow-list for browser front-ends: "*" or a comma-separated origin
   # list, or unset (no CORS headers).
   cors_origins:

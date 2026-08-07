@@ -71,6 +71,8 @@ Everything else has a sensible default:
 - `OFFLOADER_CONFIG_SYNC_INTERVAL` — seconds between bucket config re-checks (unset ⇒ off).
 - `OFFLOADER_CORS_ORIGINS` — allow a browser front-end to call the API cross-origin: `*` or a
   comma-separated origin list (unset ⇒ no CORS). See [serving public data](public-serving.md).
+- `OFFLOADER_MCP_ENABLED` — serve the same endpoints to AI agents at `POST /mcp`
+  (`true` ⇒ on; unset ⇒ off). See [AI agents (MCP)](mcp.md).
 - Tuning: `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
   `OFFLOADER_REMOTE_SCAN_CONCURRENCY` (max concurrent `remote_scan` reads, default
   `min(pool_size, 16)` — caps slow object-store reads so they can't starve the pool of fast

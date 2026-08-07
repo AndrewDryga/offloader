@@ -53,6 +53,7 @@ This is the stable contract; the config that produces it is in…">
       <p class="nav-group-h">Serve</p>
       <ul>
         <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="mcp.html">AI agents (MCP)</a></li>
         <li><a href="security-model.html">Security model</a></li>
       </ul>
     </div>
@@ -79,6 +80,8 @@ This is the stable contract; the config that produces it is in…">
 <h1 id="consumer-api">Consumer API</h1>
 <p>What a client — your product code or front-end — sees when it calls an Offloader endpoint.
 This is the stable contract; the config that produces it is in the <a href="config-reference.html">config reference</a>.</p>
+<p>For an AI agent reading the same endpoints, see <a href="mcp.html">AI agents (MCP)</a> — a different
+protocol over the identical contracts.</p>
 <h2 id="the-request">The request</h2>
 <pre tabindex="0"><code>GET /v1/endpoints/&lt;name&gt;?&lt;params&gt;
 Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) API

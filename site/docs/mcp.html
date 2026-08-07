@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serving your endpoints to AI agents (MCP) — Offloader docs</title>
+<meta name="description" content="Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls.
+This page adds a second door onto the same endpoints so an…">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#proof">Proof</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
+      <li><a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html">Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="cli.html">CLI reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="mcp.html" aria-current="page">AI agents (MCP)</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Serve</p>
+    <article class="prose">
+<h1 id="serving-your-endpoints-to-ai-agents-mcp">Serving your endpoints to AI agents (MCP)</h1>
+<p>Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls.
+This page adds a second door onto the <strong>same</strong> endpoints so an AI agent — Claude, an internal
+copilot, anything that speaks the Model Context Protocol — can read them too.</p>
+<p>Nothing new is exposed. An agent sees exactly the endpoints you configured, with the same
+params, the same column allowlist, and the same tenant filter. There is no way to send SQL.</p>
+<h2 id="turn-it-on">Turn it on</h2>
+<p>Off by default. Set one environment variable:</p>
+<pre tabindex="0"><code class="language-sh">OFFLOADER_MCP_ENABLED=true
+</code></pre>
+<p>The agent then points at one URL on the normal API port:</p>
+<pre tabindex="0"><code>POST https://api.example.com/mcp
+</code></pre>
+<p>That&#39;s the whole setup. Offloader speaks MCP revision <strong><code>2026-07-28</code></strong>, which is stateless —
+there is no connection to open, no session to keep alive, and no separate event stream. Each
+request stands alone, which is what makes the rest of this page possible.</p>
+<h2 id="what-an-agent-sees">What an agent sees</h2>
+<p>Every endpoint you&#39;ve configured shows up twice, because the protocol has two ways to read data
+and they behave differently:</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Agent calls</th>
+<th>Cacheable?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Tool</strong></td>
+<td><code>tools/call</code> with your params as arguments</td>
+<td>No — the protocol defines no cache fields for tool results</td>
+</tr>
+<tr>
+<td><strong>Resource</strong></td>
+<td><code>resources/read</code> with an <code>offloader://</code> URI</td>
+<td><strong>Yes</strong></td>
+</tr>
+</tbody></table>
+</div>
+<p>Both run the identical query. Publish both and the agent picks; an agent framework will usually
+reach for the tool, while a high-volume deployment wants the resource.</p>
+<p>A tool is generated from the endpoint contract, so its description and its input schema already
+match what the server enforces:</p>
+<pre tabindex="0"><code class="language-jsonc">{
+  &quot;name&quot;: &quot;customer_usage_summary&quot;,
+  &quot;description&quot;: &quot;Total active users, API calls, and average storage per account over a date range. Returns rows with: account_id, active_users_total, api_calls_total, storage_gb_avg. Data comes from a snapshot and may be up to 120 minutes old.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: { &quot;account_id&quot;: {…}, &quot;from&quot;: {…}, &quot;to&quot;: {…}, &quot;limit&quot;: {…}, &quot;offset&quot;: {…}, &quot;columns&quot;: {…} },
+    &quot;required&quot;: [&quot;from&quot;, &quot;to&quot;],
+    &quot;additionalProperties&quot;: false
+  }
+}
+</code></pre>
+<p>The same endpoint as a resource template, with its params as an RFC 6570 query expansion:</p>
+<pre tabindex="0"><code>offloader://customer_usage_summary{?account_id,from,to,limit,offset,columns}
+</code></pre>
+<p>Filled in, that&#39;s a resource URI the agent reads:</p>
+<pre tabindex="0"><code>offloader://customer_usage_summary?from=2026-05-30&amp;to=2026-06-01
+</code></pre>
+<p>The response body is the same JSON the REST endpoint returns — the <code>data</code> array plus the <code>meta</code>
+block with <code>snapshot_id</code> and <code>freshness</code>. Nothing is reshaped for MCP.</p>
+<h2 id="caching-at-the-edge">Caching at the edge</h2>
+<p>This is the part worth understanding, because it decides how much traffic ever reaches your
+server.</p>
+<p>A <code>resources/read</code> result carries two fields the protocol defines for caching:</p>
+<ul>
+<li><strong><code>ttlMs</code></strong> — how long the result stays fresh. Derived from the endpoint&#39;s
+<code>freshness.max_staleness_minutes</code>, capped at one hour.</li>
+<li><strong><code>cacheScope</code></strong> — <code>&quot;public&quot;</code> if a <strong>shared</strong> cache (a CDN) may hold it, <code>&quot;private&quot;</code> if not.</li>
+</ul>
+<p><code>cacheScope</code> is <code>&quot;public&quot;</code> only when the response has no tenant attached — that is, when you run
+<code>auth: none</code> and the endpoint is not tenant-scoped. It is exactly the same decision the REST path
+makes when it chooses between <code>Cache-Control: public, max-age=…</code> and <code>private, no-store</code>, taken in
+one place so the two can never drift. <strong>A tenant-scoped read is never advertised as shareable.</strong></p>
+<p>Offloader also restates that decision as a normal HTTP <code>Cache-Control</code> header on the MCP response,
+because a CDN can&#39;t read a field out of a JSON-RPC body.</p>
+<h3 id="how-a-cdn-keys-the-cache">How a CDN keys the cache</h3>
+<p>MCP is a POST to a single URL, so at first glance there&#39;s nothing to cache on. The <code>2026-07-28</code>
+revision solves this by requiring the client to mirror the important parts of the body into HTTP
+headers:</p>
+<pre tabindex="0"><code class="language-http">POST /mcp HTTP/1.1
+MCP-Protocol-Version: 2026-07-28
+Mcp-Method: resources/read
+Mcp-Name: offloader://customer_usage_summary?from=2026-05-30&amp;to=2026-06-01
+</code></pre>
+<p><code>Mcp-Name</code> carries the <strong>whole resource URI</strong> — endpoint and params together. That single header
+is a complete cache key, so an edge can cache, route, and rate-limit without parsing the body at
+all.</p>
+<p>Offloader <strong>requires</strong> those headers and rejects a request whose header disagrees with its body
+(<code>-32020 HeaderMismatch</code>). That strictness is the point: a cache that keys on <code>Mcp-Name</code> is only
+safe if the server refuses to execute anything else.</p>
+<blockquote>
+<p>Caching POST responses is not a CDN default. You&#39;ll need a cache rule on the <code>/mcp</code> route keyed
+on <code>Mcp-Name</code> (plus <code>Authorization</code>, if you serve authenticated traffic — though authenticated
+reads are <code>private</code> and shouldn&#39;t be shared-cached at all).</p>
+</blockquote>
+<h2 id="authentication">Authentication</h2>
+<p>Identical to the REST path, because it&#39;s the same key model:</p>
+<ul>
+<li><strong><code>auth: none</code> project</strong> — no token needed; every endpoint is visible.</li>
+<li><strong>Otherwise</strong> — send <code>Authorization: Bearer &lt;api-key&gt;</code>. The key&#39;s endpoint allowlist and its
+bound tenant apply exactly as they do over REST.</li>
+</ul>
+<p>Discovery is scoped to the key. <code>tools/list</code> and <code>resources/templates/list</code> return <strong>only</strong> the
+endpoints that key grants, so an agent never learns that an endpoint it can&#39;t call exists. Calling
+one anyway returns the same <code>not found</code> an unknown endpoint returns.</p>
+<p><code>server/discover</code> answers without a key: it reports the protocol version and capabilities, never
+data or endpoint names.</p>
+<h2 id="supported-methods">Supported methods</h2>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>server/discover</code></td>
+<td>Protocol version + capabilities. No key required.</td>
+</tr>
+<tr>
+<td><code>tools/list</code></td>
+<td>Your endpoints as tools, scoped to the key.</td>
+</tr>
+<tr>
+<td><code>tools/call</code></td>
+<td>Run one endpoint.</td>
+</tr>
+<tr>
+<td><code>resources/list</code></td>
+<td>Endpoints readable with no arguments.</td>
+</tr>
+<tr>
+<td><code>resources/templates/list</code></td>
+<td>Every endpoint as a URI template, scoped to the key.</td>
+</tr>
+<tr>
+<td><code>resources/read</code></td>
+<td>Run one endpoint by URI. The cacheable path.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Not implemented: <code>prompts/*</code>, <code>subscriptions/listen</code>, sampling, elicitation, and roots. Offloader
+serves data and never needs to ask the client for anything. A snapshot swap is picked up when
+<code>ttlMs</code> expires rather than pushed as a notification.</p>
+<h2 id="errors">Errors</h2>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>What comes back</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Missing or bad bearer token</td>
+<td>HTTP 401</td>
+</tr>
+<tr>
+<td>Service still starting</td>
+<td>HTTP 503</td>
+</tr>
+<tr>
+<td>Missing/mismatched <code>Mcp-Method</code>, <code>Mcp-Name</code>, or version header</td>
+<td>HTTP 400, code <code>-32020</code></td>
+</tr>
+<tr>
+<td>Protocol version we don&#39;t speak</td>
+<td>HTTP 400, code <code>-32022</code>, with the versions we do</td>
+</tr>
+<tr>
+<td>Unknown method</td>
+<td>HTTP 404, code <code>-32601</code></td>
+</tr>
+<tr>
+<td>Bad param, or an endpoint the key can&#39;t reach — on <code>tools/call</code></td>
+<td>HTTP 200, <code>isError: true</code></td>
+</tr>
+<tr>
+<td>Same, on <code>resources/read</code></td>
+<td>HTTP 200, code <code>-32602</code></td>
+</tr>
+</tbody></table>
+</div>
+<p>Application errors come back as tool errors on purpose: the model can read the message and fix its
+own call, which it can&#39;t do with a protocol-level failure.</p>
+<h2 id="one-thing-to-think-about-before-enabling-it">One thing to think about before enabling it</h2>
+<p>Rows you serve land in a model&#39;s context, and a model reads its context as instructions. If any
+column contains text a third party can write — a support ticket, a product review, a user-supplied
+name — treat that the same way you&#39;d treat rendering it as HTML. Offloader tells the model to treat
+returned rows as data rather than instructions, but that is a hint, not a boundary. If it matters,
+keep those columns out of the endpoint&#39;s allowlist.</p>
+<p>This is a genuine difference from the REST path, where responses go to your application code
+instead of into a model&#39;s context.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="public-serving.html"><span>Previous</span><b>Public data & CDN</b></a>
+      <a class="pg next" href="security-model.html"><span>Next</span><b>Security model</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+      <p class="foot-tag">If your warehouse can publish Parquet, Offloader can serve it through REST.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <div>
+        <h3>Product</h3>
+        <a href="../index.html#how">How it works</a>
+        <a href="../index.html#pricing">Pricing</a>
+        <a href="../index.html#faq">FAQ</a>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <a href="concepts.html">Concepts</a>
+        <a href="quickstart.html">Quickstart</a>
+        <a href="cli.html">CLI reference</a>
+        <a href="security-model.html">Security</a>
+      </div>
+      <div>
+        <h3>Evaluate</h3>
+        <a href="../roi.html">ROI calculator</a>
+        <a href="benchmarks.html">Benchmarks</a>
+      </div>
+      <div>
+        <h3>Talk to us</h3>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+      </div>
+    </nav>
+  </div>
+</footer>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
+</body>
+</html>

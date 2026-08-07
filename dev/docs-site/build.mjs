@@ -41,6 +41,7 @@ const GROUPS = [
     name: "Serve",
     items: [
       ["public-serving", "docs/public-serving.md", "Public data & CDN", "Serve public product data at the edge: cache headers, ETags, CORS."],
+      ["mcp", "docs/mcp.md", "AI agents (MCP)", "Serve the same endpoints to AI agents over the Model Context Protocol."],
       ["security-model", "docs/security-model.md", "Security model", "What Offloader enforces for you, and what stays your responsibility."],
     ],
   },

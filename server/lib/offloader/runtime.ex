@@ -87,6 +87,37 @@ defmodule Offloader.Runtime do
     end
   end
 
+  @doc """
+  The endpoints a caller may see, and the tenant their responses would be bound to.
+
+  A discovery listing (MCP `tools/list`, `resources/*/list`) must not reveal an
+  endpoint the caller could not call, so the token is authenticated once here and the
+  catalog is filtered to exactly the endpoints that key grants — the same allowlist
+  `authorize/3` enforces per call. In public mode every endpoint is visible with no
+  tenant. Returns endpoints sorted by name for a stable listing.
+  """
+  @spec visible_endpoints(GenServer.server(), String.t() | nil) ::
+          {:ok, [Catalog.Endpoint.t()], String.t() | nil} | {:error, ApiError.t()}
+  def visible_endpoints(server \\ __MODULE__, token) do
+    case context(server) do
+      nil ->
+        {:error, ApiError.new(:not_ready, "service is starting")}
+
+      %{catalog: %{auth_mode: "none"} = catalog} ->
+        {:ok, sorted_endpoints(catalog, fn _ep -> true end), nil}
+
+      ctx ->
+        with {:ok, key} <- Auth.authenticate(ctx.catalog.keys, token) do
+          granted = MapSet.new(key.endpoints)
+          {:ok, sorted_endpoints(ctx.catalog, &MapSet.member?(granted, &1.name)), key.tenant}
+        end
+    end
+  end
+
+  defp sorted_endpoints(catalog, keep?) do
+    catalog.endpoints |> Map.values() |> Enum.filter(keep?) |> Enum.sort_by(& &1.name)
+  end
+
   @doc "Serve an endpoint for a tenant. Returns {:ok, response_map} or {:error, %ApiError{}}."
   @spec serve(GenServer.server(), String.t(), String.t() | nil, map(), String.t()) ::
           {:ok, map()} | {:error, ApiError.t()}

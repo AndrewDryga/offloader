@@ -3,6 +3,9 @@
 What a client — your product code or front-end — sees when it calls an Offloader endpoint.
 This is the stable contract; the config that produces it is in the [config reference](config-reference.md).
 
+For an AI agent reading the same endpoints, see [AI agents (MCP)](mcp.md) — a different
+protocol over the identical contracts.
+
 ## The request
 
 ```

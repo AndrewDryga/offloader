@@ -11,7 +11,7 @@ defmodule OffloaderWeb.EndpointController do
 
   alias Offloader.{ApiError, Runtime}
   alias Offloader.Metrics.Requests
-  alias OffloaderWeb.Response
+  alias OffloaderWeb.{CachePolicy, Response}
 
   def show(conn, %{"name" => name} = params) do
     request_id = conn.assigns.request_id
@@ -36,12 +36,10 @@ defmodule OffloaderWeb.EndpointController do
   # Cache behaviour splits on auth mode. A PUBLIC (auth: none) response is immutable for its
   # `snapshot_id`, so it's safe to cache at a CDN/browser: emit an ETag + Cache-Control and
   # answer `If-None-Match` with a cheap 304. An AUTHED response is per-tenant, so it must never
-  # sit in a shared cache: `private, no-store`. The tenant guard is load-bearing: `public?()`
-  # is a fresh catalog read that can race a hot reload flipping auth required→none, and a
-  # response produced WITH a tenant filter must never be stamped publicly cacheable — so the
-  # decision is tied to the tenant that actually produced these bytes, not just global state.
+  # sit in a shared cache: `private, no-store`. `CachePolicy` owns that decision (and the
+  # reasoning behind its tenant guard) so the MCP surface advertises the same one.
   defp serve_ok(conn, response, name, request) do
-    if conn.assigns.tenant == nil and Runtime.public?() do
+    if CachePolicy.shared?(conn.assigns.tenant) do
       etag = etag_for(name, request, response)
 
       conn =
@@ -49,7 +47,7 @@ defmodule OffloaderWeb.EndpointController do
         |> put_resp_header("etag", etag)
         |> put_resp_header(
           "cache-control",
-          "public, max-age=#{cache_ttl(response)}, stale-while-revalidate=60"
+          "public, max-age=#{CachePolicy.ttl_seconds(response)}, stale-while-revalidate=60"
         )
 
       if etag_matches?(conn, etag) do
@@ -81,14 +79,6 @@ defmodule OffloaderWeb.EndpointController do
     |> Enum.flat_map(&String.split(&1, ","))
     |> Enum.map(&String.trim/1)
     |> Enum.any?(&(&1 == "*" or &1 == etag or &1 == "W/" <> etag))
-  end
-
-  # A safe max-age from the endpoint's freshness window (capped); ETag revalidation covers the rest.
-  defp cache_ttl(response) do
-    case get_in(response, [:meta, :freshness, :max_staleness_minutes]) do
-      m when is_integer(m) and m > 0 -> min(m * 60, 3600)
-      _ -> 60
-    end
   end
 
   # Emit a bounded-cardinality request metric: endpoint name + status CLASS + latency.

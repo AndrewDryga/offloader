@@ -14,7 +14,8 @@ defmodule OffloaderWeb.ApiEndpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :json],
     pass: ["*/*"],
-    # A GET-only API has no business parsing large bodies; don't be a memory amplifier.
+    # Bodies are small by construction — reads are GET query params, and an MCP
+    # JSON-RPC call is a handful of arguments. Cap them so this isn't a memory amplifier.
     length: 1_000_000,
     json_decoder: Phoenix.json_library()
 

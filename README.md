@@ -35,6 +35,7 @@ Then, by what you want to do:
 - **Define your endpoints** — [Config guide](https://offloader.dryga.com/docs/developer-experience.html): what the `offloader.yml` + `datasets/`/`endpoints/`/`keys/` files look like.
 - **Tooling** — [CLI reference](https://offloader.dryga.com/docs/cli.html): the optional `offloader` helper, every command and flag.
 - **Run it in production** — [Operator guide](https://offloader.dryga.com/docs/operator.html) · [Deployment](https://offloader.dryga.com/docs/deployment.html).
+- **Serve it to AI agents** — [AI agents (MCP)](https://offloader.dryga.com/docs/mcp.html): the same endpoints over the Model Context Protocol, opt-in.
 - **Security** — [Security model](https://offloader.dryga.com/docs/security-model.html): what's protected, and what you own.
 - **Cost case** — [ROI calculator](https://offloader.dryga.com/roi.html) · [Benchmarks](https://offloader.dryga.com/docs/benchmarks.html).
 
@@ -108,6 +109,10 @@ The engineer's-eye view (the plain-language version is in [concepts](https://off
   data with the [benchmark harness](https://offloader.dryga.com/docs/benchmarks.html).
 - Expose generated docs/OpenAPI + a client `/schema`, Prometheus metrics (pool,
   refresh, per-endpoint latency), and redacted diagnostics on a separate admin port.
+- Optionally serve the **same endpoints to AI agents** over the Model Context Protocol
+  (revision `2026-07-28`) at `POST /mcp` — generated from the same registry, with the same
+  key scoping and tenant filters, and no SQL surface. Off unless `OFFLOADER_MCP_ENABLED=true`;
+  see [AI agents (MCP)](https://offloader.dryga.com/docs/mcp.html).
 - Preserve the previous good snapshot on refresh failure (`rollback`), and ship a
   signed container image via CI on every version tag.
 

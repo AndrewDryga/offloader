@@ -54,6 +54,7 @@ What Offloader is, in…">
       <p class="nav-group-h">Serve</p>
       <ul>
         <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="mcp.html">AI agents (MCP)</a></li>
         <li><a href="security-model.html">Security model</a></li>
       </ul>
     </div>
@@ -132,6 +133,8 @@ offloader scaffold-dataset --from sample.csv --id events --out my-project/datase
 <li><code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> — seconds between bucket config re-checks (unset ⇒ off).</li>
 <li><code>OFFLOADER_CORS_ORIGINS</code> — allow a browser front-end to call the API cross-origin: <code>*</code> or a
 comma-separated origin list (unset ⇒ no CORS). See <a href="public-serving.html">serving public data</a>.</li>
+<li><code>OFFLOADER_MCP_ENABLED</code> — serve the same endpoints to AI agents at <code>POST /mcp</code>
+(<code>true</code> ⇒ on; unset ⇒ off). See <a href="mcp.html">AI agents (MCP)</a>.</li>
 <li>Tuning: <code>OFFLOADER_POOL_SIZE</code> (DuckDB read connections, default 16),
 <code>OFFLOADER_REMOTE_SCAN_CONCURRENCY</code> (max concurrent <code>remote_scan</code> reads, default
 <code>min(pool_size, 16)</code> — caps slow object-store reads so they can&#39;t starve the pool of fast
