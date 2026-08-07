@@ -7,7 +7,7 @@ defmodule Offloader.MixProject do
   def project do
     [
       app: :offloader,
-      version: "0.1.5",
+      version: "0.1.9",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       # An explicit floor (the tool's default is 90) so `mix test --cover` is a real
