@@ -512,6 +512,72 @@
                 </div>
             </section>
 
+            <!-- AI AGENTS (MCP) ──────────────────────────────────────────────── -->
+            <section class="band uses" id="agents" aria-labelledby="agents-h">
+                <div class="wrap">
+                    <div class="section-head">
+                        <p class="kicker">Also for AI agents</p>
+                        <h2 id="agents-h" class="h2">
+                            The same endpoints,<br />readable by an agent.
+                        </h2>
+                        <p class="section-sub">
+                            Your app reads these endpoints over REST. Set one
+                            environment variable and an AI assistant can read
+                            the same ones — through the same API keys, the same
+                            tenant rules, and the same fixed queries. It is a
+                            second door onto what you already serve, not another
+                            thing to define. Offloader speaks the Model Context
+                            Protocol; see
+                            <a href="docs/mcp.html">the agent guide</a>.
+                        </p>
+                    </div>
+
+                    <ul class="use-grid">
+                        <li>
+                            <h3>Nothing new is exposed</h3>
+                            <p>
+                                An agent sees the endpoints you configured, with
+                                the same parameters and the same allowed
+                                columns. There is no way to send SQL.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Your keys still decide</h3>
+                            <p>
+                                An API key sets which endpoints an agent may
+                                list and read, and whose rows come back. An
+                                endpoint a key cannot use never shows up.
+                            </p>
+                        </li>
+                        <li>
+                            <h3>Public reads still cache</h3>
+                            <p>
+                                A public read carries its whole cache key in one
+                                header, so a CDN can answer it without touching
+                                your server. Per-customer reads are never marked
+                                shareable.
+                            </p>
+                        </li>
+                    </ul>
+
+                    <figure class="artifact">
+                        <figcaption class="artifact-cap">
+                            One read — the cache key rides in the header
+                        </figcaption>
+                        <pre class="code"><span class="k">POST</span> /mcp
+<span class="k">MCP-Protocol-Version</span>: <span class="s">2026-07-28</span>
+<span class="k">Mcp-Method</span>: <span class="s">resources/read</span>
+<span class="hl k">Mcp-Name</span>:   <span class="hl s">offloader://customer_usage_summary?from=2026-05-30</span>   <span class="cmt">// a CDN caches on this alone</span>
+
+{
+  <span class="k">"contents"</span>:   [ … the same rows your REST endpoint returns … ],
+  <span class="hl k">"ttlMs"</span>:      <span class="hl n">7200000</span>,     <span class="cmt">// good for two hours</span>
+  <span class="hl k">"cacheScope"</span>: <span class="hl s">"public"</span>     <span class="cmt">// "private" as soon as a customer is involved</span>
+}</pre>
+                    </figure>
+                </div>
+            </section>
+
             <!-- PROOF ────────────────────────────────────────────────────────── -->
             <section class="band proof" id="proof" aria-labelledby="proof-h">
                 <div class="wrap">
@@ -1202,6 +1268,7 @@ $ curl "localhost:8088/v1/endpoints/champion?champion_id=1"
                         <a href="docs/concepts.html">Concepts</a>
                         <a href="docs/quickstart.html">Quickstart</a>
                         <a href="docs/cli.html">CLI reference</a>
+                        <a href="docs/mcp.html">AI agents (MCP)</a>
                         <a href="docs/security-model.html">Security</a>
                     </div>
                     <div>

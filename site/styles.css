@@ -314,6 +314,9 @@ strong { font-weight: 600; }
 .use-grid p { font-size: 0.94rem; line-height: 1.55; color: var(--ink-2); max-width: 34ch; }
 @media (max-width: 860px) { .use-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .use-grid { grid-template-columns: 1fr; } }
+/* the grid is the last child in most sections, so it carries no bottom margin; where a
+   code artifact follows it, pick up the same rhythm .steps/.flow use before one */
+.use-grid + .artifact { margin-top: clamp(2.75rem, 5vw, 4.25rem); }
 
 /* ── fit ────────────────────────────────────────────────────────────── */
 .fit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.5rem, 4vw, 3.5rem); }
