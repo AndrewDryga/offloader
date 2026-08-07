@@ -49,7 +49,7 @@ Endpoint compiler -> REST JSON response
 
 | Port | Purpose | Access control |
 | --- | --- | --- |
-| API port | Product endpoint traffic. | Endpoint API keys, endpoint allowlists, tenant filters, and column allowlists. |
+| API port | Product endpoint traffic: REST (`/v1/endpoints/:name`), plus [MCP](mcp.md) (`/mcp`) when `OFFLOADER_MCP_ENABLED` is set — a protocol adapter over the same compiled endpoints, off by default. | Endpoint API keys, endpoint allowlists, tenant filters, and column allowlists. |
 | Admin port | `/live`, `/ready`, `/status`, `/metrics`, `/diagnostics`, generated docs/schema, support-bundle export. | Not a user-management surface. You restrict access with your own network, proxy, IAM, SSO, or firewall. |
 
 Offloader has no built-in RBAC, SSO, org/team management, or hosted fleet management. If you want

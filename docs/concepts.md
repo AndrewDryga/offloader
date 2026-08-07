@@ -101,7 +101,7 @@ Two more you'll see in operations:
 
 Offloader listens on two ports, on purpose:
 
-- **API port (4000)** — where your product traffic goes. Protected by API keys (unless you run it fully public). This is the only port your app or the internet should reach.
+- **API port (4000)** — where your product traffic goes. Protected by API keys (unless you run it fully public). This is the only port your app or the internet should reach. If you turn it on, [AI agents](mcp.md) read the same endpoints through this port too, under the same keys.
 - **Admin port (4001)** — health checks, metrics, generated docs, diagnostics. For your operators only. **Keep it private** (internal network / firewall) — Offloader doesn't do logins; you control who reaches this port.
 
 ## Where to go next
@@ -109,4 +109,5 @@ Offloader listens on two ports, on purpose:
 - **[Quickstart](quickstart.md)** — run it against a bundled example in ~15 minutes, no cloud needed.
 - **[Define your own endpoints](developer-experience.md)** — what the config files look like.
 - **[Run it in production](operator.md)** — deploy, size, upgrade, roll back.
+- **[Serve it to AI agents](mcp.md)** — the same endpoints, readable by an assistant.
 - **[Security](security-model.md)** — what's protected, and what you're responsible for.

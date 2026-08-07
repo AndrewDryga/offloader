@@ -198,6 +198,11 @@ Keep it private (loopback, an internal network, a proxy, or your IAM) — it ser
 diagnostics/metrics/docs and is not an identity product. The API port is where product
 traffic goes, fronted by your ingress + TLS. Tests prove the admin surface is not
 reachable on the API port.</p>
+<p>The <a href="mcp.html">agent surface</a> is <strong>off unless you set <code>OFFLOADER_MCP_ENABLED=true</code></strong> — an upgrade
+never switches it on. Enabled, it adds <code>POST /mcp</code> to the API port under the same keys and tenant
+rules, so it needs no separate exposure decision. Its reads land in the same per-endpoint
+<code>offloader_requests_total</code> and latency metrics as REST reads, so existing dashboards and alerts
+cover it without change.</p>
 <h2 id="support-bundle-handling">Support bundle handling</h2>
 <p>When you need help, produce a <strong>redacted</strong> bundle:</p>
 <pre tabindex="0"><code class="language-sh">offloader support-bundle --config /etc/offloader/offloader.yml \

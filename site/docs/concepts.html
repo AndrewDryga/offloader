@@ -237,7 +237,7 @@ cloud, and private data stays in your environment by default.</p>
 <h2 id="the-two-ports">The two ports</h2>
 <p>Offloader listens on two ports, on purpose:</p>
 <ul>
-<li><strong>API port (4000)</strong> — where your product traffic goes. Protected by API keys (unless you run it fully public). This is the only port your app or the internet should reach.</li>
+<li><strong>API port (4000)</strong> — where your product traffic goes. Protected by API keys (unless you run it fully public). This is the only port your app or the internet should reach. If you turn it on, <a href="mcp.html">AI agents</a> read the same endpoints through this port too, under the same keys.</li>
 <li><strong>Admin port (4001)</strong> — health checks, metrics, generated docs, diagnostics. For your operators only. <strong>Keep it private</strong> (internal network / firewall) — Offloader doesn&#39;t do logins; you control who reaches this port.</li>
 </ul>
 <h2 id="where-to-go-next">Where to go next</h2>
@@ -245,6 +245,7 @@ cloud, and private data stays in your environment by default.</p>
 <li><strong><a href="quickstart.html">Quickstart</a></strong> — run it against a bundled example in ~15 minutes, no cloud needed.</li>
 <li><strong><a href="developer-experience.html">Define your own endpoints</a></strong> — what the config files look like.</li>
 <li><strong><a href="operator.html">Run it in production</a></strong> — deploy, size, upgrade, roll back.</li>
+<li><strong><a href="mcp.html">Serve it to AI agents</a></strong> — the same endpoints, readable by an assistant.</li>
 <li><strong><a href="security-model.html">Security</a></strong> — what&#39;s protected, and what you&#39;re responsible for.</li>
 </ul>
 </article>

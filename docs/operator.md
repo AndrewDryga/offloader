@@ -121,6 +121,12 @@ diagnostics/metrics/docs and is not an identity product. The API port is where p
 traffic goes, fronted by your ingress + TLS. Tests prove the admin surface is not
 reachable on the API port.
 
+The [agent surface](mcp.md) is **off unless you set `OFFLOADER_MCP_ENABLED=true`** — an upgrade
+never switches it on. Enabled, it adds `POST /mcp` to the API port under the same keys and tenant
+rules, so it needs no separate exposure decision. Its reads land in the same per-endpoint
+`offloader_requests_total` and latency metrics as REST reads, so existing dashboards and alerts
+cover it without change.
+
 ## Support bundle handling
 
 When you need help, produce a **redacted** bundle:

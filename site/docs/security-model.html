@@ -116,6 +116,10 @@ that <strong>you</strong> keep private. Offloader is not a login or identity pro
 </tr>
 </tbody></table>
 </div>
+<p>If you switch on the <a href="mcp.html">agent surface</a> (<code>OFFLOADER_MCP_ENABLED</code>, off by default), it shares
+the API port and the row above: an agent is just another consumer holding an API key, reading the
+same endpoints. It gets no wider reach than that key already had — including which endpoints it
+can even see listed.</p>
 <p>An API key is a bearer token you mint with <code>offloader keys create</code>. Only its <strong>SHA-256 hash</strong>
 is stored in config — never the token itself. Revoke a key by changing its status; it&#39;s denied
 immediately.</p>
@@ -128,6 +132,9 @@ its declared columns, and that allowlist is checked before the query ever runs.<
 <p>Errors don&#39;t leak information either. Calling a forbidden endpoint returns the
 <strong>same</strong> response as calling one that doesn&#39;t exist, so a probing caller can&#39;t
 map out what&#39;s there.</p>
+<p>These are properties of the serving path, not of one protocol, so they hold identically for
+an agent reading over <a href="mcp.html">MCP</a>: the same compiled query, the same key check, the same
+inserted tenant filter, the same column allowlist.</p>
 <p>Secrets stay out of the open. Logs, metrics, diagnostics, and support bundles
 never include API keys, tokens, credentialed URLs, or raw request params by
 default — bundles are redacted and list exactly what&#39;s inside. And the intended
@@ -140,6 +147,14 @@ means loopback, an internal network, a proxy, or your IAM is your call. You put
 <strong>TLS and ingress</strong> in front of the API port. And you own the <strong>snapshot
 pipeline</strong> that publishes data to object storage, along with the object-store
 permissions themselves.</p>
+<p>A fourth applies only if you enable the <a href="mcp.html">agent surface</a>: <strong>what your columns
+contain.</strong> Rows served to an agent land in a model&#39;s context, and a model reads its
+context as instructions. If a column holds text an outsider can write — a support ticket,
+a review, a profile name — treat serving it to an agent the way you&#39;d treat rendering it
+as HTML. Offloader tells the model to read rows as data rather than instructions, but that
+is a hint, not a boundary; the enforceable control is the endpoint&#39;s column allowlist. This
+is a real difference from REST, where responses go to your code instead of into a model&#39;s
+context.</p>
 <p>Offloader does <strong>not</strong> provide RBAC, SSO, org/team management, or a hosted control plane. If you
 need enterprise access controls, run the admin port behind the ones you already use.</p>
 <h2 id="co-hosting-config-in-the-bucket">Co-hosting config in the bucket</h2>
@@ -153,6 +168,10 @@ bucket/prefix</strong> than the bulk data if you want to limit who can read the 
 bypass attempts, tenant-override attempts, column
 selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
 port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.</p>
+<p>The agent surface is held to the same bar: tenant values smuggled through a resource URI or a
+tool argument, discovery scoped so a key never sees an endpoint it can&#39;t call, two keys reading
+the same endpoint getting disjoint rows, and a per-customer read never being advertised as
+cacheable by a shared CDN.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="mcp.html"><span>Previous</span><b>AI agents (MCP)</b></a>

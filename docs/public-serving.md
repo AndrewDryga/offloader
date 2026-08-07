@@ -51,6 +51,12 @@ container materializes once per snapshot; the edge does the fan-out.
 > nothing private leaves your environment. Everything on this page works with **your own** CDN too;
 > the managed option is just convenience.
 
+The [agent surface](mcp.md) inherits this. A public read over MCP is marked `cacheScope: "public"`
+from the same decision that produces `Cache-Control` here, and carries its entire cache key in one
+request header — so the same CDN can serve agent reads too. It needs its own cache rule, because
+MCP is a POST; see [AI agents](mcp.md#caching-at-the-edge). A per-tenant read is `private` on both
+paths and belongs in no shared cache.
+
 ## 4. Calling from a browser (CORS)
 
 A same-origin front-end (served behind the same CDN/domain) needs nothing. For a **cross-origin**

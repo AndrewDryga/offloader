@@ -25,6 +25,11 @@ that **you** keep private. Offloader is not a login or identity product.
 | **API (4000)** | your product / consumers | only the endpoints their key is granted, only their tenant's rows, only allowed columns | the API key + rules Offloader enforces (below) |
 | **Admin (4001)** | your operators | health, metrics, generated docs, diagnostics | **you** — network / firewall / proxy / IAM. Keep it off the public internet. |
 
+If you switch on the [agent surface](mcp.md) (`OFFLOADER_MCP_ENABLED`, off by default), it shares
+the API port and the row above: an agent is just another consumer holding an API key, reading the
+same endpoints. It gets no wider reach than that key already had — including which endpoints it
+can even see listed.
+
 An API key is a bearer token you mint with `offloader keys create`. Only its **SHA-256 hash**
 is stored in config — never the token itself. Revoke a key by changing its status; it's denied
 immediately.
@@ -41,6 +46,10 @@ Errors don't leak information either. Calling a forbidden endpoint returns the
 **same** response as calling one that doesn't exist, so a probing caller can't
 map out what's there.
 
+These are properties of the serving path, not of one protocol, so they hold identically for
+an agent reading over [MCP](mcp.md): the same compiled query, the same key check, the same
+inserted tenant filter, the same column allowlist.
+
 Secrets stay out of the open. Logs, metrics, diagnostics, and support bundles
 never include API keys, tokens, credentialed URLs, or raw request params by
 default — bundles are redacted and list exactly what's inside. And the intended
@@ -55,6 +64,15 @@ means loopback, an internal network, a proxy, or your IAM is your call. You put
 **TLS and ingress** in front of the API port. And you own the **snapshot
 pipeline** that publishes data to object storage, along with the object-store
 permissions themselves.
+
+A fourth applies only if you enable the [agent surface](mcp.md): **what your columns
+contain.** Rows served to an agent land in a model's context, and a model reads its
+context as instructions. If a column holds text an outsider can write — a support ticket,
+a review, a profile name — treat serving it to an agent the way you'd treat rendering it
+as HTML. Offloader tells the model to read rows as data rather than instructions, but that
+is a hint, not a boundary; the enforceable control is the endpoint's column allowlist. This
+is a real difference from REST, where responses go to your code instead of into a model's
+context.
 
 Offloader does **not** provide RBAC, SSO, org/team management, or a hosted control plane. If you
 need enterprise access controls, run the admin port behind the ones you already use.
@@ -73,3 +91,8 @@ An adversarial security test suite exercises the invariants above on every build
 bypass attempts, tenant-override attempts, column
 selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
 port, secret redaction in logs and bundles, and safe rollback of a failed snapshot.
+
+The agent surface is held to the same bar: tenant values smuggled through a resource URI or a
+tool argument, discovery scoped so a key never sees an endpoint it can't call, two keys reading
+the same endpoint getting disjoint rows, and a per-customer read never being advertised as
+cacheable by a shared CDN.

@@ -118,6 +118,11 @@ add-on — quoted per case, on the same share-of-savings basis. Because the data
 nothing private leaves your environment. Everything on this page works with <strong>your own</strong> CDN too;
 the managed option is just convenience.</p>
 </blockquote>
+<p>The <a href="mcp.html">agent surface</a> inherits this. A public read over MCP is marked <code>cacheScope: &quot;public&quot;</code>
+from the same decision that produces <code>Cache-Control</code> here, and carries its entire cache key in one
+request header — so the same CDN can serve agent reads too. It needs its own cache rule, because
+MCP is a POST; see <a href="mcp.html#caching-at-the-edge">AI agents</a>. A per-tenant read is <code>private</code> on both
+paths and belongs in no shared cache.</p>
 <h2 id="4-calling-from-a-browser-cors">4. Calling from a browser (CORS)</h2>
 <p>A same-origin front-end (served behind the same CDN/domain) needs nothing. For a <strong>cross-origin</strong>
 browser call, set the allowed origins:</p>
