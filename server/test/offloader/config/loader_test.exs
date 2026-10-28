@@ -68,6 +68,14 @@ defmodule Offloader.Config.LoaderTest do
     end)
   end
 
+  defp eventually(fun, deadline \\ System.monotonic_time(:millisecond) + 5_000) do
+    cond do
+      fun.() -> true
+      System.monotonic_time(:millisecond) > deadline -> false
+      true -> Process.sleep(20) && eventually(fun, deadline)
+    end
+  end
+
   defp tmp_cache do
     dir = Path.join(System.tmp_dir!(), "offl_cfg_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
@@ -200,6 +208,187 @@ defmodule Offloader.Config.LoaderTest do
 
       assert {:error, {:unsafe_config_path, _}} = Loader.load("gs://my-bucket/proj", cache)
       refute File.exists?(Path.join(cache, "evil.yml"))
+    end
+  end
+
+  describe "config generations" do
+    # The whole example tree, data included, listed in name order as GCS does.
+    defp project_objects(prefix) do
+      Path.wildcard(Path.join(@example, "**/*.{yml,yaml,json,csv}"))
+      |> Enum.reduce({[], %{}}, fn path, {objs, bodies} ->
+        name = "#{prefix}/#{Path.relative_to(path, @example)}"
+        body = File.read!(path)
+        obj = %{"name" => name, "size" => Integer.to_string(byte_size(body)), "updated" => "t"}
+        {[obj | objs], Map.put(bodies, name, body)}
+      end)
+      |> then(fn {objs, bodies} -> {Enum.sort_by(objs, & &1["name"]), bodies} end)
+    end
+
+    defp config_file(cache, rel), do: File.read!(Path.join([cache, "config", rel]))
+    defp generations(cache), do: File.ls!(Path.join(cache, "configs"))
+
+    test "a failed fetch leaves the current config untouched and keeps no partial copy" do
+      {objects, bodies} = project_objects("proj")
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      assert {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
+      csv = Path.join(cache, "config/data/customer_usage/customer_usage.csv")
+      before = File.read!(csv)
+
+      # The first object in list order fails, after the old copy would already be wiped.
+      Agent.update(
+        FakeGcs,
+        &%{&1 | bodies: Map.delete(bodies, "proj/data/customer_usage/customer_usage.csv")}
+      )
+
+      assert {:error, {:fetch_failed, _, _}} = Loader.load("gs://my-bucket/proj", cache)
+
+      assert File.read(csv) == {:ok, before}
+      assert length(generations(cache)) == 1
+    end
+
+    test "an invalid revision is never activated" do
+      {objects, bodies} = project_objects("proj")
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      assert {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
+
+      bodies =
+        bodies
+        |> Map.update!(
+          "proj/data/customer_usage/manifest.json",
+          &String.replace(&1, "r0007", "r0099")
+        )
+        |> Map.update!("proj/offloader.yml", &(&1 <> "\nbogus_key: 1\n"))
+
+      Agent.update(FakeGcs, &%{&1 | bodies: bodies})
+      assert {:error, {:config_invalid, _}} = Loader.load("gs://my-bucket/proj", cache)
+
+      assert config_file(cache, "data/customer_usage/manifest.json") =~ "r0007"
+      assert length(generations(cache)) == 1
+    end
+
+    test "a valid revision becomes current; the catalog reads it through the stable path" do
+      {objects, bodies} = project_objects("proj")
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      assert {:ok, first} = Loader.load("gs://my-bucket/proj", cache)
+
+      bodies =
+        Map.update!(
+          bodies,
+          "proj/data/customer_usage/manifest.json",
+          &String.replace(&1, "r0007", "r0099")
+        )
+
+      Agent.update(FakeGcs, &%{&1 | bodies: bodies})
+      assert {:ok, second} = Loader.load("gs://my-bucket/proj", cache)
+
+      assert first.config_dir == Path.join(cache, "config")
+      assert second.config_dir == first.config_dir
+      assert config_file(cache, "data/customer_usage/manifest.json") =~ "r0099"
+      assert length(generations(cache)) == 2
+    end
+
+    test "prune keeps the current generation, the newest two, and any a snapshot still reads" do
+      cache = tmp_cache()
+      root = Path.join(cache, "configs")
+      for g <- ~w(1-a 2-b 3-c 4-d 5-e), do: File.mkdir_p!(Path.join([root, g, "data"]))
+      File.ln_s!("configs/3-c", Path.join(cache, "config"))
+      in_use = Offloader.Manifest.real_path(Path.join([root, "1-a", "data"]))
+
+      :ok = Loader.prune(cache, [in_use, nil])
+
+      assert Enum.sort(generations(cache)) == ~w(1-a 3-c 4-d 5-e)
+    end
+
+    @csv "proj/data/customer_usage/customer_usage.csv"
+
+    # remote_scan reads the snapshot's files from the config tree on every request.
+    defp remote_scan_project do
+      {objects, bodies} = project_objects("proj")
+      replace = &String.replace(&1, "serving_mode: local_table", "serving_mode: remote_scan")
+      {objects, Map.new(bodies, fn {name, body} -> {name, replace.(body)} end)}
+    end
+
+    defp boot(cache) do
+      {:ok, rt} =
+        Offloader.Runtime.start_link(
+          name: nil,
+          config_path: "gs://my-bucket/proj",
+          cache_dir: cache
+        )
+
+      on_exit(fn -> Offloader.TestSupport.stop_if_alive(rt) end)
+      rt
+    end
+
+    # A distinct `from` per call, so the response cache never answers instead of the files.
+    defp serve(rt, from) do
+      params = %{"from" => from, "to" => "2026-06-01"}
+      Offloader.Runtime.serve(rt, "customer_usage_summary", "tenant_acme", params, "r")
+    end
+
+    test "a remote_scan snapshot keeps serving through a failed fetch and an invalid revision" do
+      {objects, bodies} = remote_scan_project()
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      rt = boot(cache)
+
+      invalid =
+        bodies
+        |> Map.update!(
+          "proj/data/customer_usage/manifest.json",
+          &String.replace(&1, "r0007", "r0099")
+        )
+        |> Map.update!("proj/offloader.yml", &(&1 <> "\nbogus_key: 1\n"))
+
+      Agent.update(FakeGcs, &%{&1 | bodies: invalid})
+      assert {:error, {:config_invalid, _}} = Loader.load("gs://my-bucket/proj", cache)
+      Agent.update(FakeGcs, &%{&1 | bodies: Map.delete(bodies, @csv)})
+      assert {:error, {:fetch_failed, _, _}} = Loader.load("gs://my-bucket/proj", cache)
+
+      assert {:ok, %{meta: %{serving_mode: "remote_scan"}}} = serve(rt, "2026-05-30")
+      assert {:ok, "2026-06-01T00:00:00Z_r0007"} = Offloader.Runtime.refresh(rt, "customer_usage")
+    end
+
+    test "a generation stays while a serving snapshot reads it, even after the bucket drops it" do
+      {objects, bodies} = remote_scan_project()
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      rt = boot(cache)
+      [first] = generations(cache)
+
+      # The YAML is unchanged, so the snapshot (and its file list) stays; only the bucket
+      # lost the CSV. Three revisions push the first generation out of the newest two.
+      Agent.update(FakeGcs, fn s ->
+        %{
+          s
+          | objects: Enum.reject(objects, &(&1["name"] == @csv)),
+            bodies: Map.delete(bodies, @csv)
+        }
+      end)
+
+      for _ <- 1..3, do: assert({:ok, _} = Loader.load("gs://my-bucket/proj", cache))
+      {:ok, catalog} = Loader.load("gs://my-bucket/proj", cache)
+      :ok = Offloader.Runtime.reload(rt, catalog)
+
+      assert eventually(fn -> length(generations(cache)) == 3 end)
+      assert first in generations(cache)
+      refute File.exists?(Path.join(cache, "config/data/customer_usage/customer_usage.csv"))
+      assert {:ok, _} = serve(rt, "2026-05-31")
+    end
+
+    test "a single config tree from an older version is replaced by the generation link" do
+      {objects, bodies} = project_objects("proj")
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      File.mkdir_p!(Path.join(cache, "config/datasets"))
+      File.write!(Path.join(cache, "config/stale.yml"), "old")
+
+      assert {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
+      assert {:ok, %File.Stat{type: :symlink}} = File.lstat(Path.join(cache, "config"))
+      refute File.exists?(Path.join(cache, "config/stale.yml"))
     end
   end
 

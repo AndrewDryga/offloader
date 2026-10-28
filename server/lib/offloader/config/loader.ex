@@ -4,9 +4,18 @@ defmodule Offloader.Config.Loader do
 
   A local path loads as-is (today's behaviour). A `gs://bucket/prefix/` path fetches the
   whole project tree (`offloader.yml` + `datasets/` + `endpoints/` + the keys file) from GCS
-  into `<cache_dir>/config/` over the bearer token chain (`Offloader.Gcs.Client` — the same
-  client the Databricks resolver lists with), then loads that local copy. Remote config is
-  GCS-only for v1.
+  over the bearer token chain (`Offloader.Gcs.Client` — the same client the Databricks
+  resolver lists with), then loads that local copy.
+
+  ## Generations
+
+  Each fetch lands in a NEW directory, `<cache_dir>/configs/<generation>/`, and is validated
+  there. Only a valid tree becomes current: `<cache_dir>/config` is a symlink, renamed over in
+  one atomic step to point at it. A failed fetch or an invalid revision is deleted and never
+  touches the tree the running catalog reads. The catalog always reads through the stable
+  `config` path, so a static dataset's identity does not change with each fetch, while a
+  snapshot records the real generation directory of its manifest (`Manifest.load/1`) and keeps
+  reading the files it was built from. `prune/2` deletes a generation once nothing uses it.
 
   The fetch is bounded (file count + total bytes) and retried a few times for transient GCS
   errors, so a momentary blip at boot doesn't crash the container. Credentials never touch
@@ -17,7 +26,8 @@ defmodule Offloader.Config.Loader do
 
   alias Offloader.Catalog
 
-  @config_subdir "config"
+  @config_link "config"
+  @generations "configs"
   @max_files 500
   @max_bytes 32 * 1024 * 1024
   @yaml_exts [".yml", ".yaml"]
@@ -26,17 +36,103 @@ defmodule Offloader.Config.Loader do
 
   @doc """
   Load + validate the project at `config_path` (a local path or `gs://…`), fetching a remote
-  tree into `<cache_dir>/config/` first. Returns the validated catalog or a reason (the same
-  shape `Runtime.init` already turns into `{:stop, …}`).
+  tree into a new config generation first and making it current only once it validates.
+  Returns the validated catalog or a reason (the same shape `Runtime.init` already turns into
+  `{:stop, …}`).
   """
   @spec load(String.t(), String.t()) :: {:ok, Catalog.t()} | {:error, term()}
   def load(config_path, cache_dir) when is_binary(config_path) and is_binary(cache_dir) do
-    with {:ok, offloader_yml} <- resolve(config_path, cache_dir) do
-      case Catalog.load(offloader_yml) do
-        {:ok, catalog} -> {:ok, catalog}
-        {:error, errors} -> {:error, {:config_invalid, errors}}
-      end
+    case resolve(config_path) do
+      {:remote, client, bucket, prefix} -> load_generation(client, bucket, prefix, cache_dir)
+      {:local, offloader_yml} -> validate(offloader_yml)
+      {:error, _} = error -> error
     end
+  end
+
+  defp validate(offloader_yml) do
+    case Catalog.load(offloader_yml) do
+      {:ok, catalog} -> {:ok, catalog}
+      {:error, errors} -> {:error, {:config_invalid, errors}}
+    end
+  end
+
+  defp load_generation(client, bucket, prefix, cache_dir) do
+    dir = Path.join([cache_dir, @generations, generation_name()])
+
+    with :ok <- fetch_remote(client, bucket, prefix, dir),
+         {:ok, catalog} <- validate(Path.join(dir, "offloader.yml")),
+         {:ok, link} <- activate(dir, cache_dir) do
+      {:ok, %{catalog | config_dir: link}}
+    else
+      error ->
+        File.rm_rf(dir)
+        error
+    end
+  end
+
+  # Sorts by creation time, and unique even for two fetches in the same millisecond.
+  defp generation_name,
+    do:
+      "#{System.os_time(:millisecond)}-#{Base.encode16(:crypto.strong_rand_bytes(4), case: :lower)}"
+
+  # Point <cache_dir>/config at `dir` by renaming a fresh symlink over it. rename(2) replaces
+  # the old link atomically, so a reader resolves either the old generation or the new one.
+  # An older version kept a plain directory there; it is removed first.
+  defp activate(dir, cache_dir) do
+    link = Path.join(cache_dir, @config_link)
+    tmp = link <> ".next"
+    _ = File.rm(tmp)
+
+    with :ok <- remove_plain_dir(link),
+         :ok <- File.ln_s(Path.join(@generations, Path.basename(dir)), tmp),
+         :ok <- File.rename(tmp, link) do
+      {:ok, link}
+    end
+  end
+
+  defp remove_plain_dir(path) do
+    case File.lstat(path) do
+      {:ok, %File.Stat{type: :directory}} ->
+        case File.rm_rf(path) do
+          {:ok, _} -> :ok
+          {:error, reason, _file} -> {:error, reason}
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  @doc """
+  Delete the config generations nothing uses: every one under `<cache_dir>/configs` except the
+  current one, the newest two (a fetch may be writing one, or a refresh reading the one just
+  replaced), and any holding a directory in `in_use` (the real `dir` of a snapshot that is
+  serving or kept for rollback). A no-op for a local config.
+  """
+  @spec prune(String.t(), [String.t() | nil]) :: :ok
+  def prune(cache_dir, in_use) do
+    root = Path.join(cache_dir, @generations)
+
+    with {:ok, names} <- File.ls(root) do
+      real_root = Offloader.Manifest.real_path(root) <> "/"
+
+      used =
+        for dir <- in_use,
+            is_binary(dir) and String.starts_with?(dir, real_root),
+            do: dir |> String.replace_prefix(real_root, "") |> Path.split() |> hd()
+
+      current =
+        case File.read_link(Path.join(cache_dir, @config_link)) do
+          {:ok, target} -> [Path.basename(target)]
+          {:error, _} -> []
+        end
+
+      keep = current ++ Enum.take(Enum.sort(names), -2) ++ used
+
+      for name <- names, name not in keep, do: File.rm_rf(Path.join(root, name))
+    end
+
+    :ok
   end
 
   @doc """
@@ -97,31 +193,23 @@ defmodule Offloader.Config.Loader do
 
   defp hash(term), do: :crypto.hash(:sha256, :erlang.term_to_binary(term))
 
-  # ── resolve config_path → a local offloader.yml ────────────────────────────────
+  # ── resolve config_path → a remote tree or a local offloader.yml ──────────────
 
-  defp resolve("gs://" <> _ = url, cache_dir) do
-    with {:ok, {bucket, prefix}} <- parse_gs(url),
-         dir = Path.join(cache_dir, @config_subdir),
-         :ok <- fetch_remote(gcs_client(), bucket, prefix, dir) do
-      {:ok, Path.join(dir, "offloader.yml")}
-    end
+  defp resolve("gs://" <> _ = url) do
+    with {:ok, {bucket, prefix}} <- parse_gs(url), do: {:remote, gcs_client(), bucket, prefix}
   end
 
-  defp resolve("s3://" <> _ = url, cache_dir) do
-    with {:ok, {bucket, prefix}} <- parse_s3(url),
-         dir = Path.join(cache_dir, @config_subdir),
-         :ok <- fetch_remote(s3_client(), bucket, prefix, dir) do
-      {:ok, Path.join(dir, "offloader.yml")}
-    end
+  defp resolve("s3://" <> _ = url) do
+    with {:ok, {bucket, prefix}} <- parse_s3(url), do: {:remote, s3_client(), bucket, prefix}
   end
 
-  defp resolve(path, _cache_dir) do
+  defp resolve(path) do
     case URI.parse(path) do
       %URI{scheme: scheme} when scheme in ["https", "http"] ->
         {:error, {:unsupported_config_scheme, scheme}}
 
       _ ->
-        {:ok, path}
+        {:local, path}
     end
   end
 
@@ -169,7 +257,7 @@ defmodule Offloader.Config.Loader do
     end
   end
 
-  # Wipe the local config dir first so a file removed upstream doesn't linger and get loaded.
+  # `dir` is this fetch's own new generation; a retry starts it over from empty.
   defp download_all(client, bucket, list_prefix, items, dir) do
     File.rm_rf!(dir)
     File.mkdir_p!(dir)
@@ -180,7 +268,7 @@ defmodule Offloader.Config.Loader do
         rel = String.replace_prefix(name, list_prefix, "")
 
         cond do
-          # Defense in depth: a crafted object name must never write outside <cache>/config.
+          # Defense in depth: a crafted object name must never write outside its generation.
           not safe_rel?(rel) ->
             {:halt, {:error, {:unsafe_config_path, rel}}}
 

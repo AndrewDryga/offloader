@@ -234,8 +234,11 @@ using it; keep <code>local_table</code> as the default for hot endpoints.</p>
 <h2 id="config-from-object-storage-optional">Config from object storage (optional)</h2>
 <p><code>OFFLOADER_CONFIG</code> may be a <strong><code>gs://bucket/prefix/</code> or <code>s3://bucket/prefix/</code> URL</strong> instead of a
 mounted path. At boot Offloader fetches the whole project tree (<code>offloader.yml</code>, <code>datasets/</code>,
-<code>endpoints/</code>, the keys file) into <code>&lt;cache_dir&gt;/config/</code> and loads it from there — so the container
-is fully stateless: env vars in, config and data both in the bucket, nothing mounted. With
+<code>endpoints/</code>, the keys file) and loads it from local disk — so the container
+is fully stateless: env vars in, config and data both in the bucket, nothing mounted.
+Each fetch goes into its own directory under <code>&lt;cache_dir&gt;/configs/</code> and becomes current
+(<code>&lt;cache_dir&gt;/config</code> points at it) only after it validates. A snapshot keeps reading the copy it
+was built from, so a later fetch that drops or changes those files does not affect it. With
 <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set it watches the project&#39;s YAML files and
 <strong>hot-reloads configuration changes with no restart</strong>
 (see <a href="#hot-config-auto-sync">Hot config auto-sync</a> below).</p>
@@ -292,7 +295,8 @@ dataset&#39;s table and endpoints flip together atomically. A staged build that 
 (e.g. the producer hasn&#39;t published matching data yet) keeps the old version serving and is
 retried — nothing it serves ever breaks.</li>
 <li>A bad sync (network, invalid YAML, validation error) is logged and the <strong>running config is kept</strong> —
-a broken bucket revision never takes the service down.</li>
+a broken bucket revision never takes the service down, and its files never replace the ones the
+running config reads.</li>
 <li><code>/metrics</code> exposes <code>offloader_config_sync_enabled</code> and <code>offloader_config_sync_ok</code> (alert on the
 latter == 0); admin <code>/diagnostics</code> shows the last sync result + timestamps.</li>
 </ul>

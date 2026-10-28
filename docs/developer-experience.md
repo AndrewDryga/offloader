@@ -167,8 +167,11 @@ using it; keep `local_table` as the default for hot endpoints.
 
 `OFFLOADER_CONFIG` may be a **`gs://bucket/prefix/` or `s3://bucket/prefix/` URL** instead of a
 mounted path. At boot Offloader fetches the whole project tree (`offloader.yml`, `datasets/`,
-`endpoints/`, the keys file) into `<cache_dir>/config/` and loads it from there — so the container
-is fully stateless: env vars in, config and data both in the bucket, nothing mounted. With
+`endpoints/`, the keys file) and loads it from local disk — so the container
+is fully stateless: env vars in, config and data both in the bucket, nothing mounted.
+Each fetch goes into its own directory under `<cache_dir>/configs/` and becomes current
+(`<cache_dir>/config` points at it) only after it validates. A snapshot keeps reading the copy it
+was built from, so a later fetch that drops or changes those files does not affect it. With
 `OFFLOADER_CONFIG_SYNC_INTERVAL` set it watches the project's YAML files and
 **hot-reloads configuration changes with no restart**
 (see [Hot config auto-sync](#hot-config-auto-sync) below).
@@ -230,7 +233,8 @@ on that interval and hot-reloads config changes **with no restart**:
   (e.g. the producer hasn't published matching data yet) keeps the old version serving and is
   retried — nothing it serves ever breaks.
 - A bad sync (network, invalid YAML, validation error) is logged and the **running config is kept** —
-  a broken bucket revision never takes the service down.
+  a broken bucket revision never takes the service down, and its files never replace the ones the
+  running config reads.
 - `/metrics` exposes `offloader_config_sync_enabled` and `offloader_config_sync_ok` (alert on the
   latter == 0); admin `/diagnostics` shows the last sync result + timestamps.
 

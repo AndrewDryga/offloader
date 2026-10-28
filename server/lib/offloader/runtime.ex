@@ -281,6 +281,7 @@ defmodule Offloader.Runtime do
         |> publish()
         |> initial_refresh()
         |> sweep_orphan_tables()
+        |> prune_config_generations()
         |> start_workers()
 
       {:ok, state}
@@ -448,6 +449,24 @@ defmodule Offloader.Runtime do
     state
   end
 
+  # Delete fetched config trees no snapshot reads any more (Config.Loader.prune/2). Off the
+  # mailbox, like table drops; a generation can only become unused at boot or on a reload.
+  defp prune_config_generations(state) do
+    in_use =
+      for {_id, entry} <- state.snapshots,
+          snap <- [entry.active, Map.get(entry, :previous)],
+          snap != nil,
+          do: snap.dir
+
+    cache_dir = state.cache_dir
+
+    Task.Supervisor.start_child(Offloader.TaskSupervisor, fn ->
+      Config.Loader.prune(cache_dir, in_use)
+    end)
+
+    state
+  end
+
   defp how(%{source: nil} = dataset, state),
     do: {:static, Path.join(state.catalog.config_dir, dataset.manifest)}
 
@@ -526,7 +545,7 @@ defmodule Offloader.Runtime do
       "config reload applied (#{map_size(new.datasets)} datasets, #{map_size(new.endpoints)} endpoints)"
     )
 
-    republish(state)
+    state |> republish() |> prune_config_generations()
   end
 
   defp teardown_removed(state, []), do: state
