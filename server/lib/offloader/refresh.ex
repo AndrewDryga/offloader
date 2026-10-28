@@ -83,10 +83,15 @@ defmodule Offloader.Refresh do
     end
   end
 
-  @doc "The materialization table name for a dataset + snapshot."
-  @spec snapshot_table(String.t(), String.t()) :: String.t()
-  def snapshot_table(dataset_id, snapshot_id),
-    do: "snap_" <> dataset_id <> "_" <> String.replace(snapshot_id, ~r/[^a-zA-Z0-9_]/, "_")
+  @doc """
+  A fresh table name for one materialization of a dataset. Every build gets its own table,
+  so a build can never overwrite a table that is serving: not a forced refresh of the live
+  snapshot, not two snapshot ids that sanitize to the same name, and not a staging build
+  after a restart. The `snap_` prefix marks the tables Offloader owns.
+  """
+  @spec new_table(String.t()) :: String.t()
+  def new_table(dataset_id),
+    do: "snap_" <> dataset_id <> "_" <> Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)
 
   @doc """
   Materialize the dataset's latest snapshot into `table` WITHOUT swapping the live view — the
@@ -182,7 +187,7 @@ defmodule Offloader.Refresh do
   end
 
   defp materialize_and_swap(engine, dataset, manifest) do
-    table = snapshot_table(dataset.id, manifest.snapshot_id)
+    table = new_table(dataset.id)
 
     with {:materialize, {:ok, _}} <-
            {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},

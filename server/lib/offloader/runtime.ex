@@ -546,9 +546,9 @@ defmodule Offloader.Runtime do
     dataset = state.pending[id].new_dataset
     how = how(dataset, state)
     engine = state.engine
-    # A table unique to this build generation, distinct from the live snapshot table — the
-    # build never touches what's currently serving.
-    table = Refresh.snapshot_table(id, "stg#{gen}")
+    # A fresh table for this build, distinct from every live table even across restarts (the
+    # generation counter restarts at 0 on boot), so the build never touches what is serving.
+    table = Refresh.new_table(id)
 
     # async_nolink monitors the build, so a task that dies before delivering a result surfaces
     # as a :DOWN and self-heals (retry) instead of wedging the dataset in `pending` forever.

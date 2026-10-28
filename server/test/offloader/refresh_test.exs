@@ -126,6 +126,31 @@ defmodule Offloader.RefreshTest do
     assert served_snapshot(rt) == @good_snapshot
   end
 
+  # The table name used to come from the snapshot id, so forcing a refresh of the snapshot
+  # already serving rebuilt the live table in place, and "previous" pointed at that same table.
+  test "a forced refresh of the live snapshot builds a new table and keeps the old one", %{
+    rt: rt
+  } do
+    old = Runtime.snapshot_active(rt, "customer_usage")
+    assert {:ok, @good_snapshot} = Runtime.refresh(rt, "customer_usage")
+
+    new = Runtime.snapshot_active(rt, "customer_usage")
+    assert new.snapshot_id == old.snapshot_id
+    refute new.table == old.table
+    assert Runtime.snapshot_state(rt, "customer_usage").previous.table == old.table
+
+    assert {:ok, @good_snapshot} = Runtime.rollback(rt, "customer_usage")
+    assert Runtime.snapshot_active(rt, "customer_usage").table == old.table
+    assert served_snapshot(rt) == @good_snapshot
+  end
+
+  # Staging builds after a restart rely on this: a name can never repeat a live table's.
+  test "every materialization gets a fresh table name" do
+    names = for _ <- 1..50, do: Refresh.new_table("customer_usage")
+    assert length(Enum.uniq(names)) == 50
+    assert Enum.all?(names, &String.starts_with?(&1, "snap_customer_usage_"))
+  end
+
   test "rollback with no previous snapshot is an error", %{rt: rt} do
     assert {:error, :no_previous} = Runtime.rollback(rt, "customer_usage")
   end
