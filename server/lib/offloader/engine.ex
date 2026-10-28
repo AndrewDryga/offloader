@@ -130,6 +130,10 @@ defmodule Offloader.Engine do
   def known_columns(server, table),
     do: writer_call(server, {:known_columns, table}, @writer_timeout)
 
+  @doc "Every snapshot table in the database (base tables named `snap_…`)."
+  @spec snapshot_tables(GenServer.server()) :: {:ok, [String.t()]} | {:error, Error.t()}
+  def snapshot_tables(server), do: writer_call(server, :snapshot_tables, @writer_timeout)
+
   @doc "A materialized table's columns as `{name, duckdb_type}` pairs, in order."
   @spec describe(GenServer.server(), String.t()) ::
           {:ok, [{String.t(), String.t()}]} | {:error, Error.t()}
@@ -291,6 +295,18 @@ defmodule Offloader.Engine do
   def handle_call({:known_columns, table}, _from, state) do
     case run(state.writer, "SELECT * FROM #{quote_ident(table)} LIMIT 0", [], :unknown_table) do
       {:ok, result} -> {:reply, {:ok, Duckdbex.columns(result)}, state}
+      {:error, %Error{}} = err -> {:reply, err, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:snapshot_tables, _from, state) do
+    sql =
+      "SELECT table_name FROM information_schema.tables " <>
+        "WHERE table_type = 'BASE TABLE' AND starts_with(table_name, 'snap_')"
+
+    case run(state.writer, sql, [], :list_failed) do
+      {:ok, result} -> {:reply, {:ok, result |> Duckdbex.fetch_all() |> List.flatten()}, state}
       {:error, %Error{}} = err -> {:reply, err, state}
     end
   end

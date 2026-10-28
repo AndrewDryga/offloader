@@ -269,6 +269,7 @@ defmodule Offloader.Runtime do
         state
         |> seed_from_sidecar()
         |> initial_refresh()
+        |> sweep_orphan_tables()
         |> start_workers()
 
       {:ok, state}
@@ -419,6 +420,31 @@ defmodule Offloader.Runtime do
     end)
   end
 
+  # Drop every snapshot table nothing references: tables an older version or a crash left
+  # behind (a crash between persisting and dropping leaks one). Boot runs this before any
+  # worker or staging build exists, so no table here can be mid-build.
+  defp sweep_orphan_tables(state) do
+    referenced =
+      for {_id, entry} <- state.snapshots,
+          snap <- [entry.active, Map.get(entry, :previous)],
+          snap != nil,
+          into: MapSet.new(),
+          do: snap.table
+
+    case Engine.snapshot_tables(state.engine) do
+      {:ok, tables} ->
+        for table <- tables, not MapSet.member?(referenced, table) do
+          Logger.info("dropping unreferenced snapshot table #{table}")
+          Engine.drop(state.engine, table)
+        end
+
+      {:error, error} ->
+        Logger.warning("could not list snapshot tables: #{inspect(error)}")
+    end
+
+    state
+  end
+
   defp how(%{source: nil} = dataset, state),
     do: {:static, Path.join(state.catalog.config_dir, dataset.manifest)}
 
@@ -500,21 +526,28 @@ defmodule Offloader.Runtime do
     republish(state)
   end
 
+  defp teardown_removed(state, []), do: state
+
   defp teardown_removed(state, ids) do
-    for id <- ids, reduce: state do
-      acc ->
+    {state, retired} =
+      Enum.reduce(ids, {state, []}, fn id, {acc, retired} ->
         acc = terminate_worker(acc, id)
         entry = current_entry(acc, id)
-        drop_table_async(acc.engine, entry.active, nil)
-        drop_table_async(acc.engine, entry.previous, nil)
         :ets.delete(acc.snapshots_table, id)
 
-        %{
+        acc = %{
           acc
           | snapshots: Map.delete(acc.snapshots, id),
             pending: Map.delete(acc.pending, id)
         }
-    end
+
+        {acc, [entry.active, entry.previous | retired]}
+      end)
+
+    # Persist the removal before dropping its tables (see apply_outcome).
+    write_sidecar(state)
+    Enum.each(retired, &drop_table_async(state.engine, &1, nil))
+    state
   end
 
   defp add_new(state, new, ids) do
@@ -643,16 +676,23 @@ defmodule Offloader.Runtime do
     case Engine.swap(published.engine, id, snap.table) do
       :ok ->
         entry = current_entry(published, id)
-        drop_table_async(published.engine, entry.active, snap)
-        drop_table_async(published.engine, entry.previous, snap)
 
-        published
-        |> put_snapshot(id, %{active: snap, previous: nil, last_attempted: ok_attempt(snap)})
-        |> flush_cache()
-        |> start_worker_for(pending.new_dataset)
-        |> tap(fn _ ->
-          Logger.info("config reload: schema cutover complete for #{id} → #{snap.snapshot_id}")
-        end)
+        state =
+          published
+          |> put_snapshot(id, %{
+            active: snap,
+            previous: nil,
+            last_attempted: ok_attempt(snap),
+            quarantined: nil
+          })
+          |> flush_cache()
+
+        # Persist the new table before retiring the old-schema ones (see apply_outcome).
+        write_sidecar(state)
+        drop_table_async(state.engine, entry.active, snap)
+        drop_table_async(state.engine, entry.previous, snap)
+        Logger.info("config reload: schema cutover complete for #{id} → #{snap.snapshot_id}")
+        start_worker_for(state, pending.new_dataset)
 
       {:error, error} ->
         # The view never flipped. Revert to the old contract (don't keep serving new-endpoint-

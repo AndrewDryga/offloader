@@ -185,6 +185,58 @@ defmodule Offloader.WarmStartTest do
     end
   end
 
+  defp table?(rt, table),
+    do:
+      match?({:ok, _}, Offloader.Engine.known_columns(Runtime.__test_context__(rt).engine, table))
+
+  # Reverse the contract's column order on disk: a schema change, so a reload cuts over.
+  defp reverse_schema(project) do
+    edit(dataset_yml(project), fn yml ->
+      {schema, other} =
+        yml |> String.split("\n") |> Enum.split_with(&String.starts_with?(&1, "  - { name:"))
+
+      Enum.join(Enum.reject(other, &(&1 == "")) ++ Enum.reverse(schema), "\n") <> "\n"
+    end)
+  end
+
+  describe "a schema cutover survives a restart" do
+    test "a restart serves the cut-over table, and the old table is gone" do
+      {project, cache} = {project(), tmp("cache")}
+      rt = start(project, cache)
+      old_table = Runtime.snapshot_active(rt, "customer_usage").table
+
+      reverse_schema(project)
+      {:ok, catalog} = Catalog.load(Path.join(project, "offloader.yml"))
+      :ok = Runtime.reload(rt, catalog)
+
+      assert eventually(fn ->
+               Runtime.snapshot_active(rt, "customer_usage").table != old_table
+             end)
+
+      new_table = Runtime.snapshot_active(rt, "customer_usage").table
+
+      rt = restart(rt, project, cache)
+      assert status(rt) == :unchanged
+      assert Runtime.snapshot_active(rt, "customer_usage").table == new_table
+      refute table?(rt, old_table)
+    end
+
+    test "a snapshot table nothing references is dropped at boot" do
+      {project, cache} = {project(), tmp("cache")}
+      rt = start(project, cache)
+      engine = Runtime.__test_context__(rt).engine
+
+      {:ok, manifest} =
+        Offloader.Manifest.load(Path.join(project, "data/customer_usage/manifest.json"))
+
+      {:ok, _} = Offloader.Engine.materialize(engine, "snap_customer_usage_stray", manifest)
+
+      rt = restart(rt, project, cache)
+      refute table?(rt, "snap_customer_usage_stray")
+      assert Runtime.ready?(rt)
+    end
+  end
+
   test "the fingerprint changes with the source and with every part of the contract" do
     {:ok, catalog} = Catalog.load(Path.join(@example, "offloader.yml"))
     dataset = catalog.datasets["customer_usage"]
