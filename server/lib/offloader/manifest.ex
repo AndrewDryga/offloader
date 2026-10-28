@@ -53,33 +53,11 @@ defmodule Offloader.Manifest do
   @spec load(String.t()) :: {:ok, t()} | {:error, [Error.t()]}
   def load(path) do
     rel = Path.basename(path)
-    # Read through the real directory and record it as `dir`, so the manifest and the files it
-    # names come from one config generation even if `<cache>/config` moves to a newer one.
-    dir = real_path(Path.dirname(path))
 
-    with {:ok, body} <- read(Path.join(dir, rel), rel),
+    with {:ok, body} <- read(path, rel),
          {:ok, raw} <- decode(body, rel) do
-      validate(raw, dir, rel)
+      validate(raw, Path.dirname(path), rel)
     end
-  end
-
-  @doc """
-  `path` made absolute, with each symlink along it replaced by its target. Comparing two
-  paths resolved this way tells whether one lies inside the other.
-  """
-  @spec real_path(String.t()) :: String.t()
-  def real_path(path) do
-    path
-    |> Path.expand()
-    |> Path.split()
-    |> Enum.reduce(fn part, dir ->
-      path = Path.join(dir, part)
-
-      case File.read_link(path) do
-        {:ok, target} -> Path.expand(target, dir)
-        {:error, _} -> path
-      end
-    end)
   end
 
   @doc """

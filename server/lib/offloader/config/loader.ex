@@ -14,8 +14,8 @@ defmodule Offloader.Config.Loader do
   one atomic step to point at it. A failed fetch or an invalid revision is deleted and never
   touches the tree the running catalog reads. The catalog always reads through the stable
   `config` path, so a static dataset's identity does not change with each fetch, while a
-  snapshot records the real generation directory of its manifest (`Manifest.load/1`) and keeps
-  reading the files it was built from. `prune/2` deletes a generation once nothing uses it.
+  refresh loads its manifest through `pin/1`, so the snapshot keeps reading the files it was
+  built from. `prune/2` deletes a generation once nothing uses it.
 
   The fetch is bounded (file count + total bytes) and retried a few times for transient GCS
   errors, so a momentary blip at boot doesn't crash the container. Credentials never touch
@@ -77,16 +77,22 @@ defmodule Offloader.Config.Loader do
 
   # Point <cache_dir>/config at `dir` by renaming a fresh symlink over it. rename(2) replaces
   # the old link atomically, so a reader resolves either the old generation or the new one.
-  # An older version kept a plain directory there; it is removed first.
+  # The temporary link is named after the generation, so two activations can't collide. An
+  # older version kept a plain directory there; it is removed first.
   defp activate(dir, cache_dir) do
     link = Path.join(cache_dir, @config_link)
-    tmp = link <> ".next"
-    _ = File.rm(tmp)
+    tmp = "#{link}.#{Path.basename(dir)}"
 
     with :ok <- remove_plain_dir(link),
-         :ok <- File.ln_s(Path.join(@generations, Path.basename(dir)), tmp),
-         :ok <- File.rename(tmp, link) do
-      {:ok, link}
+         :ok <- File.ln_s(Path.join(@generations, Path.basename(dir)), tmp) do
+      case File.rename(tmp, link) do
+        :ok ->
+          {:ok, link}
+
+        error ->
+          File.rm(tmp)
+          error
+      end
     end
   end
 
@@ -104,9 +110,39 @@ defmodule Offloader.Config.Loader do
   end
 
   @doc """
+  `path` with the `config` link this module manages replaced by the generation it points at,
+  so a snapshot built from it keeps reading the same files after a newer config is activated.
+  Any other path comes back unchanged, including one through another tool's symlink (git-sync,
+  a Kubernetes ConfigMap): that tool deletes old targets, so it must keep being followed.
+  """
+  @spec pin(String.t()) :: String.t()
+  def pin(path) do
+    parts = Path.split(path)
+
+    Enum.find_value(1..length(parts)//1, path, fn n ->
+      link = Path.join(Enum.take(parts, n))
+
+      case File.read_link(link) do
+        {:ok, @generations <> "/" <> _ = target} ->
+          Path.join([Path.dirname(link), target | Enum.drop(parts, n)])
+
+        _ ->
+          nil
+      end
+    end)
+  end
+
+  @doc "True when `dir` lies in a config generation under `cache_dir` that no longer exists."
+  @spec generation_missing?(String.t(), String.t() | nil) :: boolean()
+  def generation_missing?(cache_dir, dir) do
+    is_binary(dir) and String.starts_with?(dir, Path.join(cache_dir, @generations) <> "/") and
+      not File.dir?(dir)
+  end
+
+  @doc """
   Delete the config generations nothing uses: every one under `<cache_dir>/configs` except the
   current one, the newest two (a fetch may be writing one, or a refresh reading the one just
-  replaced), and any holding a directory in `in_use` (the real `dir` of a snapshot that is
+  replaced), and any holding a directory in `in_use` (the pinned `dir` of a snapshot that is
   serving or kept for rollback). A no-op for a local config.
   """
   @spec prune(String.t(), [String.t() | nil]) :: :ok
@@ -114,12 +150,10 @@ defmodule Offloader.Config.Loader do
     root = Path.join(cache_dir, @generations)
 
     with {:ok, names} <- File.ls(root) do
-      real_root = Offloader.Manifest.real_path(root) <> "/"
-
       used =
         for dir <- in_use,
-            is_binary(dir) and String.starts_with?(dir, real_root),
-            do: dir |> String.replace_prefix(real_root, "") |> Path.split() |> hd()
+            is_binary(dir) and String.starts_with?(dir, root <> "/"),
+            do: dir |> String.replace_prefix(root <> "/", "") |> Path.split() |> hd()
 
       current =
         case File.read_link(Path.join(cache_dir, @config_link)) do
@@ -257,10 +291,10 @@ defmodule Offloader.Config.Loader do
     end
   end
 
-  # `dir` is this fetch's own new generation; a retry starts it over from empty.
+  # `dir` is this fetch's own new generation; a retry starts it over from empty. A file that
+  # can't be written is an error like a failed get, so the caller discards the generation.
   defp download_all(client, bucket, list_prefix, items, dir) do
-    File.rm_rf!(dir)
-    File.mkdir_p!(dir)
+    File.rm_rf(dir)
 
     result =
       Enum.reduce_while(items, :ok, fn item, _acc ->
@@ -268,20 +302,20 @@ defmodule Offloader.Config.Loader do
         rel = String.replace_prefix(name, list_prefix, "")
 
         cond do
+          # A folder made in the GCS console is an empty object named `…/`: nothing to write.
+          rel == "" or String.ends_with?(rel, "/") ->
+            {:cont, :ok}
+
           # Defense in depth: a crafted object name must never write outside its generation.
           not safe_rel?(rel) ->
             {:halt, {:error, {:unsafe_config_path, rel}}}
 
           true ->
-            case client.get_object(bucket, name) do
-              {:ok, body} ->
-                path = Path.join(dir, rel)
-                File.mkdir_p!(Path.dirname(path))
-                File.write!(path, body)
-                {:cont, :ok}
-
-              {:error, reason} ->
-                {:halt, {:error, {:fetch_failed, rel, reason}}}
+            with {:ok, body} <- fetch_object(client, bucket, name, rel),
+                 :ok <- write_file(Path.join(dir, rel), body, rel) do
+              {:cont, :ok}
+            else
+              error -> {:halt, error}
             end
         end
       end)
@@ -292,6 +326,22 @@ defmodule Offloader.Config.Loader do
       )
 
       :ok
+    end
+  end
+
+  defp fetch_object(client, bucket, name, rel) do
+    case client.get_object(bucket, name) do
+      {:ok, body} -> {:ok, body}
+      {:error, reason} -> {:error, {:fetch_failed, rel, reason}}
+    end
+  end
+
+  defp write_file(path, body, rel) do
+    with :ok <- File.mkdir_p(Path.dirname(path)),
+         :ok <- File.write(path, body) do
+      :ok
+    else
+      {:error, reason} -> {:error, {:write_failed, rel, reason}}
     end
   end
 
@@ -323,6 +373,7 @@ defmodule Offloader.Config.Loader do
   defp transient?({:gcs_api_error, status}) when is_integer(status), do: status >= 500
   defp transient?({:s3_api_error, status}) when is_integer(status), do: status >= 500
   defp transient?({:fetch_failed, _rel, reason}), do: transient?(reason)
+  defp transient?({:write_failed, _rel, _reason}), do: false
   defp transient?(_), do: true
 
   # ── helpers ────────────────────────────────────────────────────────────────────

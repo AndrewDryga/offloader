@@ -181,8 +181,10 @@ defmodule Offloader.Refresh do
 
   # ── resolve the candidate manifest ─────────────────────────────────────────────
 
+  # Through the config generation current right now, so the manifest, the files it names and
+  # the snapshot's `dir` all come from one fetched config even if a newer one lands meanwhile.
   defp resolve(_dataset, {:static, path}) do
-    case Manifest.load(path) do
+    case Manifest.load(Offloader.Config.Loader.pin(path)) do
       {:ok, manifest} -> {:ok, manifest}
       {:error, errors} -> {:rejected, nil, summarize(errors)}
     end

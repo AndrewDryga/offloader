@@ -72,6 +72,7 @@ defmodule Offloader.Runtime do
   @sidecar "snapshots.json"
   # Bump when the sidecar's shape changes; an unknown version boots cold.
   @sidecar_version 2
+  @config_replaced "the config it was built from was replaced while it built; building again"
   # How long to wait before re-staging a schema cutover whose build wasn't ready yet
   # (the producer may not have published matching data at the moment config changed).
   @stage_retry_ms 30_000
@@ -449,8 +450,9 @@ defmodule Offloader.Runtime do
     state
   end
 
-  # Delete fetched config trees no snapshot reads any more (Config.Loader.prune/2). Off the
-  # mailbox, like table drops; a generation can only become unused at boot or on a reload.
+  # Delete fetched config trees no snapshot reads any more (Config.Loader.prune/2). Inline, so
+  # the in-use set can't go stale before the delete: a refresh applied in between would make a
+  # deleted generation live. It is a few small files, and only runs at boot and on a reload.
   defp prune_config_generations(state) do
     in_use =
       for {_id, entry} <- state.snapshots,
@@ -458,12 +460,7 @@ defmodule Offloader.Runtime do
           snap != nil,
           do: snap.dir
 
-    cache_dir = state.cache_dir
-
-    Task.Supervisor.start_child(Offloader.TaskSupervisor, fn ->
-      Config.Loader.prune(cache_dir, in_use)
-    end)
-
+    Config.Loader.prune(state.cache_dir, in_use)
     state
   end
 
@@ -666,18 +663,27 @@ defmodule Offloader.Runtime do
       %{gen: ^gen} = pending ->
         case result do
           {:staged, snap} ->
-            cutover(state, id, pending, snap)
+            if Config.Loader.generation_missing?(state.cache_dir, snap.dir) do
+              drop_staged(state, result)
+              not_ready(state, id, pending, @config_replaced)
+            else
+              cutover(state, id, pending, snap)
+            end
 
           {_status, attempt} ->
-            Logger.warning("staged schema cutover for #{id} not ready yet: #{attempt.error}")
-            Process.send_after(self(), {:retry_stage, id, gen}, @stage_retry_ms)
-            put_pending(state, id, %{pending | status: {:error, attempt.error}})
+            not_ready(state, id, pending, attempt.error)
         end
 
       _ ->
         # superseded by a newer reload (or the dataset was removed): drop the built table.
         drop_staged(state, result)
     end
+  end
+
+  defp not_ready(state, id, pending, error) do
+    Logger.warning("staged schema cutover for #{id} not ready yet: #{error}")
+    Process.send_after(self(), {:retry_stage, id, pending.gen}, @stage_retry_ms)
+    put_pending(state, id, %{pending | status: {:error, error}})
   end
 
   # The cutover. The new contract and its table go live in ONE publish, so a request reads either
@@ -801,7 +807,24 @@ defmodule Offloader.Runtime do
 
   # ── applying refresh outcomes (single writer) ───────────────────────────────────
 
+  # A build whose config generation was pruned while it ran (newer configs landed meanwhile)
+  # has lost its files, so it never goes live: drop it and build again from the current config.
   defp apply_outcome(state, dataset_id, {:swapped, snap, attempt}) do
+    if Config.Loader.generation_missing?(state.cache_dir, snap.dir) do
+      drop_table_async(state.engine, snap, nil)
+      attempt = %{attempt | status: :failed, error: @config_replaced}
+      state |> apply_outcome(dataset_id, {:failed, attempt}) |> trigger_refresh(dataset_id)
+    else
+      swap_in(state, dataset_id, snap, attempt)
+    end
+  end
+
+  defp apply_outcome(state, dataset_id, {_status, attempt}) do
+    entry = current_entry(state, dataset_id)
+    put_snapshot(state, dataset_id, %{entry | last_attempted: attempt})
+  end
+
+  defp swap_in(state, dataset_id, snap, attempt) do
     entry = current_entry(state, dataset_id)
 
     # Retain exactly one previous snapshot for rollback, and retire the one before it. A
@@ -830,11 +853,6 @@ defmodule Offloader.Runtime do
     write_sidecar(state)
     drop_table_async(state.engine, entry.previous, entry.active)
     state
-  end
-
-  defp apply_outcome(state, dataset_id, {_status, attempt}) do
-    entry = current_entry(state, dataset_id)
-    put_snapshot(state, dataset_id, %{entry | last_attempted: attempt})
   end
 
   defp do_rollback(state, dataset_id) do

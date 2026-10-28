@@ -295,7 +295,7 @@ defmodule Offloader.Config.LoaderTest do
       root = Path.join(cache, "configs")
       for g <- ~w(1-a 2-b 3-c 4-d 5-e), do: File.mkdir_p!(Path.join([root, g, "data"]))
       File.ln_s!("configs/3-c", Path.join(cache, "config"))
-      in_use = Offloader.Manifest.real_path(Path.join([root, "1-a", "data"]))
+      in_use = Path.join([root, "1-a", "data"])
 
       :ok = Loader.prune(cache, [in_use, nil])
 
@@ -379,6 +379,55 @@ defmodule Offloader.Config.LoaderTest do
       assert {:ok, _} = serve(rt, "2026-05-31")
     end
 
+    test "a build whose generation is pruned while it runs never goes live" do
+      {objects, bodies} = remote_scan_project()
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      rt = boot(cache)
+      {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
+      building = cache |> generations() |> Enum.sort() |> List.last()
+
+      # The refresh builds from `building`, then waits for the paused Runtime. Meanwhile a newer
+      # config lands and `building` is deleted, as a prune after two newer configs would.
+      :ok = :sys.suspend(rt)
+      refresh = Task.async(fn -> Offloader.Runtime.refresh(rt, "customer_usage") end)
+
+      assert eventually(fn ->
+               match?({:message_queue_len, n} when n > 0, Process.info(rt, :message_queue_len))
+             end)
+
+      {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
+      File.rm_rf!(Path.join([cache, "configs", building]))
+      :ok = :sys.resume(rt)
+      Task.await(refresh)
+
+      assert File.dir?(Offloader.Runtime.snapshot_active(rt, "customer_usage").dir)
+      assert {:ok, _} = serve(rt, "2026-05-31")
+    end
+
+    test "a GCS folder placeholder object is skipped" do
+      {objects, bodies} = project_objects("proj")
+      placeholder = %{"name" => "proj/data/", "size" => "0", "updated" => "t"}
+      objects = Enum.sort_by([placeholder | objects], & &1["name"])
+      with_fake(objects: objects, bodies: Map.put(bodies, "proj/data/", ""))
+
+      assert {:ok, _} = Loader.load("gs://my-bucket/proj", tmp_cache())
+    end
+
+    test "a tree that can't be written is discarded" do
+      {objects, bodies} = project_objects("proj")
+      # A file named `datasets` blocks the `datasets/` directory the next object needs.
+      blocker = %{"name" => "proj/datasets", "size" => "1", "updated" => "t"}
+      objects = Enum.sort_by([blocker | objects], & &1["name"])
+      with_fake(objects: objects, bodies: Map.put(bodies, "proj/datasets", "x"))
+      cache = tmp_cache()
+
+      assert {:error, {:write_failed, "datasets/customer_usage.yml", _}} =
+               Loader.load("gs://my-bucket/proj", cache)
+
+      assert generations(cache) == []
+    end
+
     test "a single config tree from an older version is replaced by the generation link" do
       {objects, bodies} = project_objects("proj")
       with_fake(objects: objects, bodies: bodies)
@@ -389,6 +438,58 @@ defmodule Offloader.Config.LoaderTest do
       assert {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
       assert {:ok, %File.Stat{type: :symlink}} = File.lstat(Path.join(cache, "config"))
       refute File.exists?(Path.join(cache, "config/stale.yml"))
+    end
+  end
+
+  describe "local config behind someone else's symlink" do
+    # git-sync and Kubernetes ConfigMap volumes swap a link to a new directory and then delete
+    # the old one. A snapshot must keep following the link, not pin the deleted target.
+    defp release(root, name) do
+      dir = Path.join(root, name)
+      File.cp_r!(@example, dir)
+
+      for file <- Path.wildcard(Path.join(dir, "endpoints/*.yml")) do
+        body = File.read!(file)
+
+        File.write!(
+          file,
+          String.replace(body, "serving_mode: local_table", "serving_mode: remote_scan")
+        )
+      end
+
+      dir
+    end
+
+    defp point(root, name) do
+      File.ln_s!(name, Path.join(root, "current.next"))
+      File.rename!(Path.join(root, "current.next"), Path.join(root, "current"))
+    end
+
+    test "a remote_scan snapshot keeps serving after the link moves and the old target goes" do
+      root = tmp_cache()
+      old = release(root, "v1")
+      point(root, "v1")
+
+      {:ok, rt} =
+        Offloader.Runtime.start_link(
+          name: nil,
+          config_path: Path.join(root, "current/offloader.yml"),
+          cache_dir: Path.join(root, "cache")
+        )
+
+      on_exit(fn -> Offloader.TestSupport.stop_if_alive(rt) end)
+      params = &%{"from" => &1, "to" => "2026-06-01"}
+
+      serve =
+        &Offloader.Runtime.serve(rt, "customer_usage_summary", "tenant_acme", params.(&1), "r")
+
+      assert {:ok, _} = serve.("2026-05-30")
+
+      release(root, "v2")
+      point(root, "v2")
+      File.rm_rf!(old)
+
+      assert {:ok, _} = serve.("2026-05-31")
     end
   end
 
