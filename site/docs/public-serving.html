@@ -110,11 +110,14 @@ endpoints_dir: endpoints
 <pre tabindex="0"><code class="language-sh">curl &quot;https://api.example.com/v1/endpoints/champion?champion_id=1&quot;
 </code></pre>
 <h2 id="2-it39s-cacheable-by-construction">2. It&#39;s cacheable by construction</h2>
-<p>An Offloader response is <strong>immutable for its <code>snapshot_id</code></strong> — the same params against the same
-snapshot always return the same bytes, and a new snapshot changes them. So public responses carry:</p>
+<p>An Offloader response is <strong>immutable for its <code>snapshot_id</code></strong>: the same params against the same
+snapshot always return the same data, and a new snapshot changes it. Only per-request metadata,
+such as <code>request_id</code> and <code>generated_at</code>, differs between responses. So public responses carry:</p>
 <ul>
-<li><strong><code>ETag</code></strong> — a fingerprint of <code>(endpoint, params, snapshot_id)</code>. A client or CDN revalidates with
-<code>If-None-Match</code>; if nothing changed, Offloader returns a bodyless <strong><code>304 Not Modified</code></strong> — near-free.</li>
+<li><strong><code>ETag</code></strong> — a weak validator (<code>W/&quot;…&quot;</code>) for <code>(endpoint, contract version, params, snapshot_id)</code>.
+It is weak because the per-request metadata makes each body slightly different. A client or CDN
+revalidates with <code>If-None-Match</code>; if nothing changed, Offloader returns a bodyless
+<strong><code>304 Not Modified</code></strong>, which costs almost nothing.</li>
 <li><strong><code>Cache-Control: public, max-age=&lt;n&gt;, stale-while-revalidate=60</code></strong> — <code>max-age</code> is derived from the
 endpoint&#39;s <code>freshness.max_staleness_minutes</code> (capped at 1 hour), so a cache holds the response
 exactly as long as it&#39;s considered fresh, then revalidates by ETag.</li>

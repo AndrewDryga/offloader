@@ -62,22 +62,27 @@ defmodule OffloaderWeb.EndpointController do
     end
   end
 
-  # Strong ETag over exactly what determines the bytes: endpoint (name AND contract version —
-  # a hot reload can change the projection without a new snapshot), params, and the snapshot.
+  # A weak ETag over what determines the data: endpoint (name AND contract version, since a
+  # hot reload can change the projection without a new snapshot), params, and the snapshot.
+  # It is weak because the body also carries per-request meta (request_id, generated_at,
+  # age_seconds), so two responses with this tag are equivalent but not byte-identical
+  # (RFC 9110 §8.8.1). If-None-Match uses weak comparison, so 304s work the same.
   defp etag_for(name, request, response) do
     sid = get_in(response, [:meta, :snapshot_id]) || ""
     version = get_in(response, [:meta, :version]) || 0
     digest = :crypto.hash(:sha256, :erlang.term_to_binary({name, version, request, sid}))
-    "\"" <> (digest |> Base.encode16(case: :lower) |> binary_part(0, 20)) <> "\""
+    "W/\"" <> (digest |> Base.encode16(case: :lower) |> binary_part(0, 20)) <> "\""
   end
 
-  # Parse the If-None-Match list properly: exact entries only (a weak `W/` prefix still
-  # matches — bytes-equal is stronger than weak equality), never a substring scan.
+  # Weak comparison over the If-None-Match list (RFC 9110 §8.8.3.2): exact entries only,
+  # ignoring a W/ prefix on either side, never a substring scan.
   defp etag_matches?(conn, etag) do
+    opaque = String.replace_prefix(etag, "W/", "")
+
     conn
     |> get_req_header("if-none-match")
     |> Enum.flat_map(&String.split(&1, ","))
     |> Enum.map(&String.trim/1)
-    |> Enum.any?(&(&1 == "*" or &1 == etag or &1 == "W/" <> etag))
+    |> Enum.any?(&(&1 == "*" or String.replace_prefix(&1, "W/", "") == opaque))
   end
 end

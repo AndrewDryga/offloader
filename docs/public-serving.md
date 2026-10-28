@@ -26,11 +26,14 @@ curl "https://api.example.com/v1/endpoints/champion?champion_id=1"
 
 ## 2. It's cacheable by construction
 
-An Offloader response is **immutable for its `snapshot_id`** — the same params against the same
-snapshot always return the same bytes, and a new snapshot changes them. So public responses carry:
+An Offloader response is **immutable for its `snapshot_id`**: the same params against the same
+snapshot always return the same data, and a new snapshot changes it. Only per-request metadata,
+such as `request_id` and `generated_at`, differs between responses. So public responses carry:
 
-- **`ETag`** — a fingerprint of `(endpoint, params, snapshot_id)`. A client or CDN revalidates with
-  `If-None-Match`; if nothing changed, Offloader returns a bodyless **`304 Not Modified`** — near-free.
+- **`ETag`** — a weak validator (`W/"…"`) for `(endpoint, contract version, params, snapshot_id)`.
+  It is weak because the per-request metadata makes each body slightly different. A client or CDN
+  revalidates with `If-None-Match`; if nothing changed, Offloader returns a bodyless
+  **`304 Not Modified`**, which costs almost nothing.
 - **`Cache-Control: public, max-age=<n>, stale-while-revalidate=60`** — `max-age` is derived from the
   endpoint's `freshness.max_staleness_minutes` (capped at 1 hour), so a cache holds the response
   exactly as long as it's considered fresh, then revalidates by ETag.

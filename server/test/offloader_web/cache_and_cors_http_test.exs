@@ -29,11 +29,11 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
   describe "public (auth: none) responses are edge-cacheable" do
     setup do: boot(@public)
 
-    test "carry an ETag + a public Cache-Control derived from freshness" do
+    test "carry a weak ETag + a public Cache-Control derived from freshness" do
       conn = champion(1)
       assert conn.status == 200
       assert [etag] = get_resp_header(conn, "etag")
-      assert etag =~ ~r/^"[0-9a-f]{20}"$/
+      assert etag =~ ~r/^W\/"[0-9a-f]{20}"$/
       assert [cc] = get_resp_header(conn, "cache-control")
       assert cc =~ "public"
       assert cc =~ "max-age="
@@ -51,6 +51,27 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
       assert conn.status == 304
       assert conn.resp_body == ""
       assert get_resp_header(conn, "etag") == [etag]
+    end
+
+    # The bodies differ (request_id, generated_at), so sharing a validator is only honest
+    # as a weak one: RFC 9110 reserves strong ETags for byte-identical representations.
+    test "responses that differ only in per-request meta share a weak ETag" do
+      first = champion(1)
+      second = champion(1)
+      refute first.resp_body == second.resp_body
+      assert get_resp_header(first, "etag") == get_resp_header(second, "etag")
+      assert [<<"W/", _::binary>>] = get_resp_header(first, "etag")
+    end
+
+    test "If-None-Match uses weak comparison, with or without the W/ prefix" do
+      [etag] = get_resp_header(champion(1), "etag")
+
+      conn =
+        build_conn()
+        |> put_req_header("if-none-match", String.replace_prefix(etag, "W/", ""))
+        |> get("/v1/endpoints/champion?champion_id=1")
+
+      assert conn.status == 304
     end
 
     test "a different request gets a different ETag" do
