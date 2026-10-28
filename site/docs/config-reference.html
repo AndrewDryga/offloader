@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Config reference — Offloader docs</title>
-<meta name="description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces
-(dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
+<meta name="description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces (dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
 <link rel="canonical" href="https://offloader.dryga.com/docs/config-reference.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/config-reference.html">
 <meta property="og:title" content="Config reference — Offloader docs">
-<meta property="og:description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces
-(dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
+<meta property="og:description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces (dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -253,8 +251,9 @@ under a versioned path, change the dataset YAML&#39;s <code>manifest:</code> val
 The changed dataset definition triggers validation and refresh.</p>
 <p>Publish the data files and manifest before changing the YAML. Config sync detects
 YAML changes; overwriting only a manifest JSON or Parquet file does not trigger
-it. An unchanged dataset definition is not refreshed merely because another
-project setting changed. If config sync is disabled, the updated project is
+it. An unrelated YAML edit does not refresh an unchanged dataset. Changing an endpoint&#39;s
+filter columns can refresh its dataset, because Offloader sorts the dataset&#39;s table by
+those columns. If config sync is disabled, the updated project is
 loaded on the next server start.</p>
 <h3 id="source-a-self-updating-remote-source"><code>source:</code> — a self-updating remote source</h3>
 <p>Instead of a manifest you maintain, a <code>source:</code> <strong>discovers</strong> the latest snapshot itself on each
@@ -357,7 +356,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 <td><code>serving_mode</code></td>
 <td><code>local_table</code> | <code>remote_scan</code></td>
 <td>no</td>
-<td>Default <code>local_table</code> (materialized, fast). <code>remote_scan</code> reads the snapshot files per request — for cold/huge/low-QPS endpoints.</td>
+<td>Default <code>local_table</code> (materialized, fast). <code>remote_scan</code> queries the snapshot files instead of the local table. Use it for selective or low-traffic endpoints. Refresh still loads the dataset into DuckDB, so it doesn&#39;t save local disk.</td>
 </tr>
 <tr>
 <td><code>tenant</code></td>
@@ -582,7 +581,7 @@ with <code>offloader keys create</code> (it prints the token once and its hash).
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

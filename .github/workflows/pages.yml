@@ -14,8 +14,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One deploy at a time. Let an in-flight deploy FINISH and queue the next (GitHub Pages'
 # recommended setting): cancelling a deploy mid-flight fails it as "try again later", so two
@@ -26,17 +24,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # The docs renderer's npm code runs in this job, which has a read-only token. The deploy
+  # job holds the Pages permissions and runs no npm code.
+  verify:
+    name: verify generated docs and sitemap
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: npm ci --prefix dev/docs-site
+      - run: npm run check --prefix dev/docs-site
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Verify generated docs and sitemap
-        run: |
-          npm ci --prefix dev/docs-site
-          npm run check --prefix dev/docs-site
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Upload site/ as the Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

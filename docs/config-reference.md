@@ -101,8 +101,9 @@ The changed dataset definition triggers validation and refresh.
 
 Publish the data files and manifest before changing the YAML. Config sync detects
 YAML changes; overwriting only a manifest JSON or Parquet file does not trigger
-it. An unchanged dataset definition is not refreshed merely because another
-project setting changed. If config sync is disabled, the updated project is
+it. An unrelated YAML edit does not refresh an unchanged dataset. Changing an endpoint's
+filter columns can refresh its dataset, because Offloader sorts the dataset's table by
+those columns. If config sync is disabled, the updated project is
 loaded on the next server start.
 
 ### `source:` — a self-updating remote source
@@ -153,7 +154,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 | `dataset` | string | yes | The `id` of the dataset it reads. |
 | `owner` | string | no | Team/contact. |
 | `description` | string | no | Free text; shows in the generated docs. |
-| `serving_mode` | `local_table` \| `remote_scan` | no | Default `local_table` (materialized, fast). `remote_scan` reads the snapshot files per request — for cold/huge/low-QPS endpoints. |
+| `serving_mode` | `local_table` \| `remote_scan` | no | Default `local_table` (materialized, fast). `remote_scan` queries the snapshot files instead of the local table. Use it for selective or low-traffic endpoints. Refresh still loads the dataset into DuckDB, so it doesn't save local disk. |
 | `tenant` | `{column}` | no | Binds the tenant filter to this column (must match the dataset's `tenant_column`). Inserted server-side; a caller cannot override it. |
 | `freshness` | `{max_staleness_minutes}` | no | Marks a response `stale: true` past this age. Informational — the response still serves. |
 | `params` | list | no | The query params a caller may send (below). |

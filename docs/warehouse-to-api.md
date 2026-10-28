@@ -1,12 +1,12 @@
 # Serve a warehouse-backed API from snapshots
 
-Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
-If those answers can be a few minutes or hours old, you can serve them from a
-snapshot instead of querying the warehouse on every request.
+If your API can return data that is minutes or hours old, serve it from a
+warehouse snapshot instead of querying the warehouse on every request.
 
-This guide uses a customer usage endpoint to show what moving to Offloader
-involves. Your pipeline exports the data; Offloader serves it through a REST API
-on your own servers.
+Customer dashboards that show usage totals, billing totals, or leaderboards are
+typical candidates. This guide walks through moving one customer usage endpoint to
+Offloader. Your pipeline exports the data, and Offloader serves it through a REST
+API on your own servers.
 
 **Before you start:** choose one existing endpoint and decide how old its data
 can be. The [quickstart](quickstart.md) supplies the container and sample data for
@@ -38,7 +38,7 @@ before serving it. How you publish updates depends on the dataset configuration.
 
 ### If you use `manifest:`
 
-A static manifest lives inside the project. Offloader does not poll it by default.
+A static manifest lives inside the project. Offloader does not poll it for updates.
 To publish an update through config sync:
 
 1. Write the new data files and a manifest with a new `snapshot_id`.

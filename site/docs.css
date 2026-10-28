@@ -128,7 +128,16 @@
 
 /* tables — bordered, mono header labels, horizontal scroll on small screens */
 /* wrap the scroll on a container, NOT on the table (display:block would strip row/cell roles) */
-.prose .table-scroll { margin: 1.5rem 0; overflow-x: auto; }
+/* Scroll cue: a shadow shows on each side that still hides columns. Page-colored covers
+   move with the table and hide a side's shadow once you scroll to that edge. */
+.prose .table-scroll {
+  margin: 1.5rem 0; overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--paper) 30%, transparent) left / 2.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--paper) 30%, transparent) right / 2.5rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--ink) 22%, transparent), transparent) left / 0.9rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--ink) 22%, transparent), transparent) right / 0.9rem 100% no-repeat scroll;
+}
 .prose .table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .prose table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .prose thead th {

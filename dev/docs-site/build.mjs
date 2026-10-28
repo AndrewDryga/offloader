@@ -5,7 +5,7 @@
 // system (site/styles.css tokens + site/docs.css). Server-rendered and crawlable —
 // no client-side markdown, no framework.
 //
-//   cd dev/docs-site && npm install && npm run build
+//   cd dev/docs-site && npm ci && npm run build   # `npm run check` verifies without writing
 //
 // The generated site/docs/*.html is committed; re-run this after editing any doc.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from "node:fs";
@@ -192,14 +192,17 @@ function makeScrollRegionsFocusable(html) {
 function addContents(html) {
   const headings = [...html.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)];
   if (headings.length < 3) return html;
-  const links = headings.map(([, id, text]) => `<li><a href="#${id}">${text.replace(/<a[^>]*>|<\/a>/g, "")}</a></li>`).join("\n");
+  const links = headings.map(([, id, text]) => `<li><a href="#${id}">${text.replace(/<a\b[^>]*>|<\/a>/g, "")}</a></li>`).join("\n");
   const contents = `<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul>${links}</ul></nav></details>\n`;
   return html.replace(/<h2 /, contents + "<h2 ");
 }
 
+// Plain text for <title> and meta tags. Undo marked's HTML escaping in one pass, so esc()
+// escapes the text only once (an apostrophe stays an apostrophe), and join it into one line.
+const ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" };
 const firstText = (html, tag) => {
   const m = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
-  return m ? m[1].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() : "";
+  return m ? m[1].replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]).replace(/\s+/g, " ").trim() : "";
 };
 
 function truncate(s, n) {
@@ -283,7 +286,7 @@ const FOOT = `<footer class="site-foot">
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="${REPO}">GitHub</a>
       </div>
     </nav>
@@ -413,7 +416,7 @@ const unexpected = existsSync(OUT)
   ? readdirSync(OUT).filter((name) => name.endsWith(".html") && !outputs.has(join(OUT, name)))
   : [];
 if (unexpected.length) {
-  console.error(`docs-site: unlisted public HTML: ${unexpected.join(", ")}. Review before removing or adding to the inventory.`);
+  console.error(`docs-site: unlisted public HTML: ${unexpected.join(", ")}. Nothing was written. Delete the file (its URL will 404) or add the page to GROUPS.`);
   process.exitCode = 1;
 }
 if (CHECK) {

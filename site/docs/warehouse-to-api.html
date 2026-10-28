@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Serve a warehouse-backed API from snapshots — Offloader docs</title>
-<meta name="description" content="Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
-If those answers can be a few minutes or hours old, you can serve them…">
+<meta name="description" content="If your API can return data that is minutes or hours old, serve it from a warehouse snapshot instead of querying the warehouse on every request.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/warehouse-to-api.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/warehouse-to-api.html">
 <meta property="og:title" content="Serve a warehouse-backed API from snapshots — Offloader docs">
-<meta property="og:description" content="Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
-If those answers can be a few minutes or hours old, you can serve them…">
+<meta property="og:description" content="If your API can return data that is minutes or hours old, serve it from a warehouse snapshot instead of querying the warehouse on every request.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -89,12 +87,12 @@ If those answers can be a few minutes or hours old, you can serve them…">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
 <h1 id="serve-a-warehouse-backed-api-from-snapshots">Serve a warehouse-backed API from snapshots</h1>
-<p>Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
-If those answers can be a few minutes or hours old, you can serve them from a
-snapshot instead of querying the warehouse on every request.</p>
-<p>This guide uses a customer usage endpoint to show what moving to Offloader
-involves. Your pipeline exports the data; Offloader serves it through a REST API
-on your own servers.</p>
+<p>If your API can return data that is minutes or hours old, serve it from a
+warehouse snapshot instead of querying the warehouse on every request.</p>
+<p>Customer dashboards that show usage totals, billing totals, or leaderboards are
+typical candidates. This guide walks through moving one customer usage endpoint to
+Offloader. Your pipeline exports the data, and Offloader serves it through a REST
+API on your own servers.</p>
 <p><strong>Before you start:</strong> choose one existing endpoint and decide how old its data
 can be. The <a href="quickstart.html">quickstart</a> supplies the container and sample data for
 trying the API locally with Docker and Git.</p>
@@ -120,7 +118,7 @@ export directory contains several versions.</p>
 <p>Your pipeline owns the export schedule. Offloader loads the result and checks it
 before serving it. How you publish updates depends on the dataset configuration.</p>
 <h3 id="if-you-use-manifest">If you use <code>manifest:</code></h3>
-<p>A static manifest lives inside the project. Offloader does not poll it by default.
+<p>A static manifest lives inside the project. Offloader does not poll it for updates.
 To publish an update through config sync:</p>
 <ol>
 <li>Write the new data files and a manifest with a new <code>snapshot_id</code>.</li>
@@ -204,7 +202,7 @@ exposing it. If snapshots do not fit, compare
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

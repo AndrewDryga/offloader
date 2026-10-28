@@ -1,9 +1,12 @@
 # Warehouse queries, a cache, or snapshots?
 
-Start with what your product needs: how fresh the data must be, which requests
-repeat, and what those requests cost. A cache may be enough. A snapshot API can
-remove warehouse queries from the request path, but adds exports and a service
-you need to run.
+Use direct warehouse queries for fresh or ad-hoc data, a response cache for
+repeated requests, and snapshots when many requests can share one dataset.
+
+The right choice depends on how fresh the data must be, which requests repeat,
+and what those requests cost. A cache may be enough. A snapshot API can remove
+warehouse queries from the request path, but adds exports and a service you need
+to run.
 
 | | Direct queries | Response cache | Offloader snapshots |
 | --- | --- | --- | --- |

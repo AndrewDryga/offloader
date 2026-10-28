@@ -4,6 +4,18 @@ Buyers ask for supply-chain basics — pinned artifacts, an SBOM, a vulnerabilit
 signed/attested images, and checksums. This is the release process; run it locally or in CI.
 Offloader doesn't claim SOC2 — it ships concrete artifacts instead.
 
+## Before tagging
+
+Bump the version everywhere it is pinned (`server/mix.exs`, the deploy examples, the docs),
+then regenerate the docs site. CI and the Pages deploy fail when `site/docs/*.html` or
+`site/sitemap.xml` no longer match their sources, so never edit the generated HTML by hand:
+
+```sh
+git grep -nF '<previous version>'       # update every hit
+npm run build --prefix dev/docs-site    # regenerate site/docs/*.html and site/sitemap.xml
+make docs-check                         # check that the generated files match
+```
+
 ## Run it
 
 ```sh

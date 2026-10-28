@@ -4,17 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Config guide — publish your datasets and endpoints — Offloader docs</title>
-<meta name="description" content="The reference for the config files Offloader loads. New to the ideas here (dataset,
-endpoint, snapshot, manifest, project)? Read
-How Offloader works first.">
+<meta name="description" content="The reference for the config files Offloader loads. New to the ideas here (dataset, endpoint, snapshot, manifest, project)? Read How Offloader works first.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/developer-experience.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/developer-experience.html">
 <meta property="og:title" content="Config guide — publish your datasets and endpoints — Offloader docs">
-<meta property="og:description" content="The reference for the config files Offloader loads. New to the ideas here (dataset,
-endpoint, snapshot, manifest, project)? Read
-How Offloader works first.">
+<meta property="og:description" content="The reference for the config files Offloader loads. New to the ideas here (dataset, endpoint, snapshot, manifest, project)? Read How Offloader works first.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -275,11 +271,13 @@ tokens, never the tokens</strong> (see <code>security-model.md</code>), so bucke
 the endpoint/tenant access map, not usable credentials. A <strong>public</strong> deployment (<code>auth: none</code>)
 has no keys file at all — the cleanest stateless setup. For an authed deployment, put the config
 under a <strong>separate, tighter-ACL bucket/prefix</strong> from the bulk data if you want to limit who can
-read the hashes.</li>
+read the hashes. Protect write access to the config prefix like admin credentials. Anyone
+who can write there can add a key for any tenant or change what an endpoint returns, and
+config sync applies the change.</li>
 </ul>
 <h3 id="hot-config-auto-sync">Hot config auto-sync</h3>
 <p>Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> (unset/0 = off) and Offloader re-checks the config
-on that interval and hot-reloads changes <strong>with no restart</strong>:</p>
+on that interval and hot-reloads config changes <strong>with no restart</strong>:</p>
 <ul>
 <li>Change detection watches <code>.yml</code>/<code>.yaml</code> files — a single object LIST for remote
 projects, with no downloads when that YAML inventory is unchanged.</li>
@@ -297,8 +295,9 @@ latter == 0); admin <code>/diagnostics</code> shows the last sync result + times
 <p>For a static snapshot update, publish data and a versioned manifest with a new
 <code>snapshot_id</code> first, then change the dataset YAML&#39;s <code>manifest:</code> path. The next config-sync tick sees that
 dataset change and starts validation and refresh. Replacing only manifest JSON
-or Parquet does not trigger sync, and unchanged dataset definitions are not
-refreshed by an unrelated YAML edit. A configured <code>source:</code> has its own discovery
+or Parquet does not trigger sync. An unrelated YAML edit does not refresh an unchanged
+dataset. Changing an endpoint&#39;s filter columns can refresh its dataset, because Offloader
+sorts the dataset&#39;s table by those columns. A configured <code>source:</code> has its own discovery
 schedule; see <a href="config-reference.html">the snapshot contracts</a>.</p>
 <p>Sequence a schema change as <strong>data first, then config</strong>, so the new-schema build
 has matching data available.</p>
@@ -343,7 +342,7 @@ has matching data available.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

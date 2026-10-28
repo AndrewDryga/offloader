@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How Offloader works — Offloader docs</title>
-<meta name="description" content="Offloader serves REST APIs from snapshots of your warehouse data. You run it on
-your own servers, so your product can read the same data many times…">
+<meta name="description" content="Offloader serves REST APIs from snapshots of your warehouse data. You run it on your own servers, so your product can read the same data many times…">
 <link rel="canonical" href="https://offloader.dryga.com/docs/concepts.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/concepts.html">
 <meta property="og:title" content="How Offloader works — Offloader docs">
-<meta property="og:description" content="Offloader serves REST APIs from snapshots of your warehouse data. You run it on
-your own servers, so your product can read the same data many times…">
+<meta property="og:description" content="Offloader serves REST APIs from snapshots of your warehouse data. You run it on your own servers, so your product can read the same data many times…">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -137,15 +135,15 @@ Your app reads it many times until the next snapshot is ready.</p>
   </div>
 </figure>
 
-<p>Offloader checks each new snapshot before using it. By default, it loads the data
-into DuckDB inside the container. If an update fails, requests keep using the
-last working snapshot.</p>
+<p>Offloader checks each new snapshot, then loads it into DuckDB inside the
+container. If an update fails, requests keep using the last working snapshot.</p>
 <p>It runs as a <strong>single container on your own infrastructure</strong>: there&#39;s no Offloader
 cloud, and private data stays in your environment by default.</p>
-<p>Offloader is <strong>source-available under the <a href="https://github.com/AndrewDryga/offloader/blob/main/LICENSE">Business Source License 1.1</a></strong>.
-Production use follows the license&#39;s Additional Use Grant. The license in this
-revision specifies a change to Apache-2.0 on July 6, 2028; see the
-<a href="https://github.com/AndrewDryga/offloader/blob/main/README.md#license">license overview</a> for the current commercial terms.</p>
+<p>Offloader is <strong>source-available under the <a href="https://github.com/AndrewDryga/offloader/blob/main/LICENSE">Business Source License 1.1</a></strong>,
+not open source. Production use is free if your organization and its affiliates had
+under $1M in total gross revenue in the last completed fiscal year. Larger
+organizations need a commercial license for production use. This version&#39;s license
+converts to Apache-2.0 on July 6, 2028; see the <a href="https://github.com/AndrewDryga/offloader/blob/main/README.md#license">license overview</a>.</p>
 <h2 id="is-it-a-fit">Is it a fit?</h2>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -168,7 +166,7 @@ revision specifies a change to Apache-2.0 on July 6, 2028; see the
 <td>You need up-to-the-second data</td>
 </tr>
 <tr>
-<td>You can publish consistent Parquet snapshots, locally or in supported object storage</td>
+<td>You can publish consistent Parquet or CSV snapshots, locally or in supported object storage</td>
 <td>You can&#39;t produce snapshots</td>
 </tr>
 <tr>
@@ -193,11 +191,11 @@ revision specifies a change to Apache-2.0 on July 6, 2028; see the
 </tr>
 <tr>
 <td><strong>Snapshot</strong></td>
-<td>One frozen copy of a dataset at a point in time (Parquet files), e.g. &quot;usage as of 3 PM today.&quot;</td>
+<td>One frozen copy of a dataset at a point in time (Parquet or CSV files), e.g. &quot;usage as of 3 PM today.&quot;</td>
 </tr>
 <tr>
 <td><strong>Parquet</strong></td>
-<td>A compact columnar file format snapshots are stored in; you don&#39;t edit these by hand.</td>
+<td>A compact columnar file format and the usual choice for snapshots; you don&#39;t edit these by hand.</td>
 </tr>
 <tr>
 <td><strong>Manifest</strong></td>
@@ -240,7 +238,7 @@ revision specifies a change to Apache-2.0 on July 6, 2028; see the
 <p>Two more you&#39;ll see in operations:</p>
 <ul>
 <li><strong>DuckDB</strong> — the small, fast engine embedded inside the container that runs the queries. You don&#39;t install or manage it; it&#39;s just there.</li>
-<li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the default) or straight from the snapshot files (<code>remote_scan</code>). Both currently materialize during refresh, so choose by measuring your workload rather than assuming that remote scans eliminate local storage.</li>
+<li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the default) or straight from the snapshot files (<code>remote_scan</code>). Both load the data into DuckDB during refresh, so <code>remote_scan</code> doesn&#39;t save local disk. Measure your workload to choose.</li>
 </ul>
 <h2 id="how-the-pieces-fit">How the pieces fit</h2>
 <p>The default <code>local_table</code> request path:</p>
@@ -260,7 +258,7 @@ revision specifies a change to Apache-2.0 on July 6, 2028; see the
 <h2 id="how-updates-work">How updates work</h2>
 <p>With a configured <code>source:</code>, Offloader can find supported exports on a schedule.
 With a static <code>manifest:</code>, it loads the snapshot named by that file and does not
-poll for updates by default.</p>
+poll for updates.</p>
 <p>To update a static manifest through config sync, publish the new data and a
 manifest with a new <code>snapshot_id</code>. Then change the dataset YAML to point to it.
 Enabled config sync loads that change; otherwise, restart with the updated
@@ -319,7 +317,7 @@ lists the settings.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

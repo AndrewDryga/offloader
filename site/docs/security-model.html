@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Security Model — Offloader docs</title>
-<meta name="description" content="Offloader runs in your environment and serves read-only data. This page explains,
-in plain terms, what it protects for you and what you remain responsible…">
+<meta name="description" content="Offloader runs in your environment and serves read-only data. This page explains, in plain terms, what it protects for you and what you remain responsible…">
 <link rel="canonical" href="https://offloader.dryga.com/docs/security-model.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/security-model.html">
 <meta property="og:title" content="Security Model — Offloader docs">
-<meta property="og:description" content="Offloader runs in your environment and serves read-only data. This page explains,
-in plain terms, what it protects for you and what you remain responsible…">
+<meta property="og:description" content="Offloader runs in your environment and serves read-only data. This page explains, in plain terms, what it protects for you and what you remain responsible…">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -100,7 +98,11 @@ concepts? See <a href="concepts.html">How Offloader works</a>.)</p>
 <li><a href="#how-it39s-proven">How it&#39;s proven</a></li></ul></nav></details>
 <h2 id="the-short-version">The short version</h2>
 <p>Everything stays in your environment — the data, the config, the logs, the
-metrics. Offloader makes no outbound telemetry calls.</p>
+metrics. Offloader makes no outbound telemetry calls. The only exception is the optional
+<a href="public-serving.html">managed CDN edge</a> for public data, if you buy it. Put it only in front
+of a public (<code>auth: none</code>) hostname, where it sees the same responses any visitor can
+request. Offloader does not check where you put it, so never send authenticated or
+tenant-scoped traffic through it.</p>
 <p>Consumers never get SQL access. They reach data only through the <strong>named
 endpoints</strong> you define, on the API port, with an <strong>API key</strong> you issue. Each key
 is scoped to specific endpoints and bound to <strong>one tenant</strong> (customer/account),
@@ -224,7 +226,7 @@ cacheable by a shared CDN.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

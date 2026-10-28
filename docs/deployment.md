@@ -21,8 +21,8 @@ firewall, or IAM.
 
 **Config** comes from `OFFLOADER_CONFIG`: either a mounted directory (a ConfigMap/volume with
 `offloader.yml` + `datasets/`/`endpoints/`/`keys/`) or a `gs://…` bucket prefix fetched at boot
-(fully stateless). With `OFFLOADER_CONFIG_SYNC_INTERVAL` set, bucket changes hot-reload with no
-restart — see the [config guide](developer-experience.md#config-from-object-storage-optional).
+(fully stateless). With `OFFLOADER_CONFIG_SYNC_INTERVAL` set, YAML config changes in the bucket
+hot-reload with no restart. See the [config guide](developer-experience.md#config-from-object-storage-optional).
 
 ## Deployment examples
 

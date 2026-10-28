@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Operator guide — Offloader docs</title>
-<meta name="description" content="Everything an operator needs to run Offloader in production, with real commands and
-diagnostics fields. It links to the deep docs rather than repeating…">
+<meta name="description" content="Everything an operator needs to run Offloader in production, with real commands and diagnostics fields. It links to the deep docs rather than repeating…">
 <link rel="canonical" href="https://offloader.dryga.com/docs/operator.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/operator.html">
 <meta property="og:title" content="Operator guide — Offloader docs">
-<meta property="og:description" content="Everything an operator needs to run Offloader in production, with real commands and
-diagnostics fields. It links to the deep docs rather than repeating…">
+<meta property="og:description" content="Everything an operator needs to run Offloader in production, with real commands and diagnostics fields. It links to the deep docs rather than repeating…">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -112,9 +110,9 @@ and two more are worth setting from day one: <code>OFFLOADER_ADMIN_TOKEN</code> 
 <p><code>OFFLOADER_CONFIG</code> points at either a <strong>mounted directory</strong> (a path to
 <code>offloader.yml</code>) or a <strong><code>gs://…</code> bucket prefix</strong>, fetched at boot so the
 container is fully stateless. Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> and
-Offloader re-checks the bucket on that interval and <strong>hot-reloads changes with
-no restart</strong> — even a dataset schema change cuts over with zero downtime, and a
-bad revision is ignored (the running config keeps serving). Full details:
+Offloader re-checks the project&#39;s YAML files on that interval and <strong>hot-reloads config
+changes with no restart</strong>. Even a dataset schema change cuts over with zero downtime.
+Offloader ignores a bad revision and keeps serving the running config. Full details:
 <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</p>
 <p>The container listens on two ports: <strong>API</strong> (product traffic, API-key auth) and
 <strong>ADMIN</strong> (health, metrics, diagnostics, docs). Keep the admin port private —
@@ -303,7 +301,7 @@ classification (Offloader vs customer environment vs upstream data) from <code>/
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

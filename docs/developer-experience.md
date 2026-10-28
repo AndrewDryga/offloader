@@ -208,12 +208,14 @@ configuration changes you publish to the prefix hot-reload with no restart (belo
   the endpoint/tenant access map, not usable credentials. A **public** deployment (`auth: none`)
   has no keys file at all — the cleanest stateless setup. For an authed deployment, put the config
   under a **separate, tighter-ACL bucket/prefix** from the bulk data if you want to limit who can
-  read the hashes.
+  read the hashes. Protect write access to the config prefix like admin credentials. Anyone
+  who can write there can add a key for any tenant or change what an endpoint returns, and
+  config sync applies the change.
 
 ### Hot config auto-sync
 
 Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` (unset/0 = off) and Offloader re-checks the config
-on that interval and hot-reloads changes **with no restart**:
+on that interval and hot-reloads config changes **with no restart**:
 
 - Change detection watches `.yml`/`.yaml` files — a single object LIST for remote
   projects, with no downloads when that YAML inventory is unchanged.
@@ -231,8 +233,9 @@ on that interval and hot-reloads changes **with no restart**:
 For a static snapshot update, publish data and a versioned manifest with a new
 `snapshot_id` first, then change the dataset YAML's `manifest:` path. The next config-sync tick sees that
 dataset change and starts validation and refresh. Replacing only manifest JSON
-or Parquet does not trigger sync, and unchanged dataset definitions are not
-refreshed by an unrelated YAML edit. A configured `source:` has its own discovery
+or Parquet does not trigger sync. An unrelated YAML edit does not refresh an unchanged
+dataset. Changing an endpoint's filter columns can refresh its dataset, because Offloader
+sorts the dataset's table by those columns. A configured `source:` has its own discovery
 schedule; see [the snapshot contracts](config-reference.md).
 
 Sequence a schema change as **data first, then config**, so the new-schema build

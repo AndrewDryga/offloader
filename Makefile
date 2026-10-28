@@ -24,9 +24,14 @@ tools-check: ## Helper tooling (Go) gate: gofmt, vet, tidy, race tests
 	git diff --exit-code -- tools/go.mod tools/go.sum
 	cd tools && go test -race -count=1 ./...
 
-docs-check: ## Docs gate: core docs exist and carry no forbidden overclaims
+docs-check: dev/docs-site/node_modules ## Docs gate: no overclaims; generated docs and sitemap match their sources
 	./dev/scripts/docs-check.sh
 	npm run check --prefix dev/docs-site
+
+# Install the docs renderer's pinned dependencies on first use, as server-check does with mix deps.get.
+dev/docs-site/node_modules: dev/docs-site/package-lock.json
+	npm ci --prefix dev/docs-site
+	@touch $@
 
 e2e: ## End-to-end manifest -> materialize -> HTTP smoke against the example
 	./dev/scripts/e2e.sh

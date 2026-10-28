@@ -42,7 +42,11 @@ if (dnt === "1" || dnt === "yes") return;
 
   mp.init("6bbeae2a8fcbc0325772762c3997d67e", {
     debug: false,
-    track_pageview: true, // auto page views; no autocapture, no form capture
+    track_pageview: true, // auto page views only
+    // Set explicitly because the -latest SDK can change its defaults, and the ROI page
+    // promises that its inputs never leave the page.
+    autocapture: false,
+    record_sessions_percent: 0,
     persistence: "localStorage"
     // EU data residency: add  api_host: "https://api-eu.mixpanel.com"
   });

@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Warehouse queries, a cache, or snapshots? — Offloader docs</title>
-<meta name="description" content="Start with what your product needs: how fresh the data must be, which requests
-repeat, and what those requests cost. A cache may be enough. A snapshot API…">
+<meta name="description" content="Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
 <meta property="og:title" content="Warehouse queries, a cache, or snapshots? — Offloader docs">
-<meta property="og:description" content="Start with what your product needs: how fresh the data must be, which requests
-repeat, and what those requests cost. A cache may be enough. A snapshot API…">
+<meta property="og:description" content="Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -89,10 +87,12 @@ repeat, and what those requests cost. A cache may be enough. A snapshot API…">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
 <h1 id="warehouse-queries-a-cache-or-snapshots">Warehouse queries, a cache, or snapshots?</h1>
-<p>Start with what your product needs: how fresh the data must be, which requests
-repeat, and what those requests cost. A cache may be enough. A snapshot API can
-remove warehouse queries from the request path, but adds exports and a service
-you need to run.</p>
+<p>Use direct warehouse queries for fresh or ad-hoc data, a response cache for
+repeated requests, and snapshots when many requests can share one dataset.</p>
+<p>The right choice depends on how fresh the data must be, which requests repeat,
+and what those requests cost. A cache may be enough. A snapshot API can remove
+warehouse queries from the request path, but adds exports and a service you need
+to run.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -207,7 +207,7 @@ even after you remove queries. Compare invoices as well as query counts. The
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

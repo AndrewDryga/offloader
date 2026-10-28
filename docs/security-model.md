@@ -7,7 +7,11 @@ concepts? See [How Offloader works](concepts.md).)
 ## The short version
 
 Everything stays in your environment — the data, the config, the logs, the
-metrics. Offloader makes no outbound telemetry calls.
+metrics. Offloader makes no outbound telemetry calls. The only exception is the optional
+[managed CDN edge](public-serving.md) for public data, if you buy it. Put it only in front
+of a public (`auth: none`) hostname, where it sees the same responses any visitor can
+request. Offloader does not check where you put it, so never send authenticated or
+tenant-scoped traffic through it.
 
 Consumers never get SQL access. They reach data only through the **named
 endpoints** you define, on the API port, with an **API key** you issue. Each key

@@ -110,8 +110,9 @@ Offloader **requires** those headers and rejects a request whose header disagree
 safe if the server refuses to execute anything else.
 
 > Caching POST responses is not a CDN default. You'll need a cache rule on the `/mcp` route keyed
-> on `Mcp-Name` (plus `Authorization`, if you serve authenticated traffic — though authenticated
-> reads are `private` and shouldn't be shared-cached at all).
+> on `Mcp-Name`. Cache only responses that Offloader marks `Cache-Control: public` (it does this
+> only in an `auth: none` deployment), and keep the cache lifetime it sends. Authenticated reads
+> come back `private, no-store`. Never put them in a shared cache.
 
 ## Authentication
 

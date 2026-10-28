@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Serving your endpoints to AI agents (MCP) — Offloader docs</title>
-<meta name="description" content="Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls.
-This page adds a second door onto the same endpoints so an…">
+<meta name="description" content="Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls. This page adds a second door onto the same endpoints so an…">
 <link rel="canonical" href="https://offloader.dryga.com/docs/mcp.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/mcp.html">
 <meta property="og:title" content="Serving your endpoints to AI agents (MCP) — Offloader docs">
-<meta property="og:description" content="Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls.
-This page adds a second door onto the same endpoints so an…">
+<meta property="og:description" content="Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls. This page adds a second door onto the same endpoints so an…">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -190,8 +188,9 @@ all.</p>
 safe if the server refuses to execute anything else.</p>
 <blockquote>
 <p>Caching POST responses is not a CDN default. You&#39;ll need a cache rule on the <code>/mcp</code> route keyed
-on <code>Mcp-Name</code> (plus <code>Authorization</code>, if you serve authenticated traffic — though authenticated
-reads are <code>private</code> and shouldn&#39;t be shared-cached at all).</p>
+on <code>Mcp-Name</code>. Cache only responses that Offloader marks <code>Cache-Control: public</code> (it does this
+only in an <code>auth: none</code> deployment), and keep the cache lifetime it sends. Authenticated reads
+come back <code>private, no-store</code>. Never put them in a shared cache.</p>
 </blockquote>
 <h2 id="authentication">Authentication</h2>
 <p>Identical to the REST path, because it&#39;s the same key model:</p>
@@ -327,7 +326,7 @@ instead of into a model&#39;s context.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

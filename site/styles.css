@@ -125,6 +125,8 @@ strong { font-weight: 600; }
 .kicker::before { content: "— "; opacity: 0.5; }
 .h2 { font-size: var(--fs-h2); }
 .section-sub { margin-top: 1.15rem; max-width: var(--measure); color: var(--ink-2); font-size: var(--fs-lede); line-height: 1.5; }
+.section-link { margin-top: 1.4rem; }
+.section-link a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 3px; }
 
 /* buttons */
 .cta-row { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
@@ -167,7 +169,6 @@ strong { font-weight: 600; }
   box-shadow: 0 1px 0 var(--line-2), 0 30px 60px -34px rgba(23, 23, 27, 0.45);
 }
 .ledger-tape { padding: 1.65rem 1.75rem 0.75rem; overflow-x: auto; overflow-y: hidden; }
-.ledger pre { margin: 0; font-family: var(--mono); font-size: clamp(0.8rem, 0.72rem + 0.3vw, 0.95rem); line-height: 1.9; font-variant-numeric: tabular-nums; color: var(--muted); white-space: pre; }
 .receipt-lines {
   width: 100%;
   min-width: 100%;
@@ -200,9 +201,6 @@ strong { font-weight: 600; }
 }
 .ledger .js-count { display: inline-block; min-width: 9ch; }  /* reserve final width — no reflow mid-count */
 .ledger .js-cost { display: inline-block; min-width: 5.8ch; } /* 5.8ch × 1.25em ≈ 7 base-ch, enough for $5,000 without shifting the line */
-.ledger .tok { color: var(--ink); }
-.ledger .rule { color: var(--line); }
-.bill-line { color: var(--ink); font-weight: 500; }
 .tok-cost { color: var(--accent); font-weight: 500; font-size: 1.25em; }
 .ledger-cap { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; padding: 0.95rem 1.75rem; border-top: 1px dashed var(--line); font-size: 0.86rem; font-weight: 500; }
 .ledger-cap .illus { font-family: var(--mono); font-size: var(--fs-label); font-weight: 500; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); }
@@ -218,7 +216,6 @@ strong { font-weight: 600; }
 }
 @media (max-width: 480px) {
   .ledger-tape { padding: 1.15rem 1.15rem 0.6rem; }
-  .ledger pre { font-size: 0.72rem; line-height: 1.85; }
   .receipt-lines { font-size: 0.72rem; line-height: 1.85; }
   .receipt-row { grid-template-columns: 6.4ch 13.5ch max-content; column-gap: 1.9ch; }
   .receipt-rule { width: 22.5ch; margin-left: 8.3ch; }
@@ -304,7 +301,8 @@ strong { font-weight: 600; }
 @media (max-width: 720px) { .proof-grid { grid-template-columns: 1fr; } }
 
 /* ── what you serve (use cases) ─────────────────────────────────────── */
-/* 3 fixed columns so 6 items always fill exactly two rows — no orphan hairline cells. */
+/* 3 columns on wide screens; at 2 columns an odd last card spans the row, so the
+   hairline grid never shows an empty cell. */
 .use-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-2); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
 .use-grid li { background: var(--paper); padding: clamp(1.5rem, 3vw, 2.25rem); }
 /* reserve two heading lines so a wrapping title ("Personalization & recommendations")
@@ -313,7 +311,10 @@ strong { font-weight: 600; }
 @media (min-width: 561px) { .use-grid h3 { min-height: 2.5em; } }
 .use-grid p { font-size: 0.94rem; line-height: 1.55; color: var(--ink-2); max-width: 34ch; }
 @media (max-width: 860px) { .use-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 561px) and (max-width: 860px) { .use-grid li:last-child:nth-child(odd) { grid-column: 1 / -1; } }
 @media (max-width: 560px) { .use-grid { grid-template-columns: 1fr; } }
+#replaces .section-head { max-width: 42rem; }
+#replaces .section-sub { max-width: 46ch; }
 /* the grid is the last child in most sections, so it carries no bottom margin; where a
    code artifact follows it, pick up the same rhythm .steps/.flow use before one */
 .use-grid + .artifact { margin-top: clamp(2.75rem, 5vw, 4.25rem); }
@@ -337,7 +338,12 @@ strong { font-weight: 600; }
 .pricing-body { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(2rem, 5vw, 4.25rem); align-items: start; }
 .savings .save { color: var(--ink); }             /* the win — full ink */
 .savings .neg { color: var(--muted); }            /* the fee — recedes */
-.savings .keep { color: var(--ok); font-size: 1em; }  /* 1em keeps the $ column aligned */
+.savings .keep { color: var(--ok); }
+/* Pricing uses the same receipt rows as the hero, with room for labels to wrap. */
+.savings .receipt-row { grid-template-columns: minmax(0, 1fr) max-content max-content; column-gap: 0.75rem; padding-block: 0.2rem; }
+.savings .receipt-value { text-align: right; }
+.savings .receipt-rule { width: 100%; margin: 0.55rem 0; }
+.savings .receipt-row-bill .receipt-label { color: var(--ink); }
 .pricing-notes { display: grid; gap: clamp(1.6rem, 3vw, 2.4rem); }
 .pnote { display: grid; grid-template-columns: auto 1fr; gap: 1.15rem; align-items: baseline; }
 .pnote-n { font-family: var(--mono); font-size: 1rem; font-weight: 500; color: var(--accent-2); }
@@ -399,14 +405,3 @@ strong { font-weight: 600; }
 @media (max-width: 700px) { .foot-inner { grid-template-columns: 1fr; } .foot-nav { grid-template-columns: repeat(2, 1fr); max-width: 26rem; } }
 
 @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }
-
-/* Pricing uses the same receipt rows as the hero, with room for labels to wrap. */
-.savings .receipt-row { grid-template-columns: minmax(0, 1fr) max-content max-content; column-gap: 0.75rem; padding-block: 0.2rem; }
-.savings .receipt-value { text-align: right; }
-.savings .receipt-rule { width: 100%; margin: 0.55rem 0; }
-.savings .receipt-row-bill .receipt-label { color: var(--ink); }
-.section-link { margin-top: 1.4rem; }
-.section-link a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 3px; }
-
-#replaces .section-head { max-width: 42rem; }
-#replaces .section-sub { max-width: 46ch; }

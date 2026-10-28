@@ -4,15 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deployment — Offloader docs</title>
-<meta name="description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
-conventions, health checks, metrics, and smoke tests — you…">
+<meta name="description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config conventions, health checks, metrics, and smoke tests — you…">
 <link rel="canonical" href="https://offloader.dryga.com/docs/deployment.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/deployment.html">
 <meta property="og:title" content="Deployment — Offloader docs">
-<meta property="og:description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
-conventions, health checks, metrics, and smoke tests — you…">
+<meta property="og:description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config conventions, health checks, metrics, and smoke tests — you…">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -108,8 +106,8 @@ Kubernetes, Nomad, ECS, or your own platform).</p>
 firewall, or IAM.</p>
 <p><strong>Config</strong> comes from <code>OFFLOADER_CONFIG</code>: either a mounted directory (a ConfigMap/volume with
 <code>offloader.yml</code> + <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code>) or a <code>gs://…</code> bucket prefix fetched at boot
-(fully stateless). With <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set, bucket changes hot-reload with no
-restart — see the <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</p>
+(fully stateless). With <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set, YAML config changes in the bucket
+hot-reload with no restart. See the <a href="developer-experience.html#config-from-object-storage-optional">config guide</a>.</p>
 <h2 id="deployment-examples">Deployment examples</h2>
 <p>Provider-neutral, ready-to-adapt examples live in <a href="https://github.com/AndrewDryga/offloader/blob/main/deploy/README.md"><code>deploy/</code></a>:</p>
 <ul>
@@ -173,7 +171,7 @@ snapshot, roll the dataset back to its previous good snapshot (see
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a call</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

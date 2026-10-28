@@ -7,7 +7,7 @@ Point the container (or `offloader validate`) at these to see exactly what each 
 | Fixture | Injected defect | Caught by | Expected result |
 | --- | --- | --- | --- |
 | `bad-manifest/manifest.json` | empty `snapshot_id`, duplicate `tenant_id` column, unsupported type `TIMESTAMP_WITH_QUUX`, missing `producer` | manifest validation | rejected with a stable, field-pathed error; snapshot not loaded |
-| `stale-dataset/manifest.json` | valid, but `watermark`/`created_at` ~1 month old (> 120-min freshness) | freshness check | flagged stale; still served with honest freshness metadata, or refused per policy |
+| `stale-dataset/manifest.json` | valid, but `watermark`/`created_at` ~1 month old (> 120-min freshness) | freshness check | flagged `stale: true` and still served with its freshness metadata. Offloader never refuses stale data; the caller decides. |
 | `unsupported-schema-change/manifest.json` | valid, but `api_calls` narrowed `BIGINT`→`INTEGER` (type narrowing is breaking) vs the dataset contract under `additive_only` | compatibility check on refresh | refresh rejected; **previous good snapshot preserved** |
 | `missing-file/manifest.json` | valid, but `files[0].path` points at a file that does not exist | validation / materialization | rejected before materialization; snapshot not swapped in |
 | `bad-param/request.json` | `product_area=billing` — not in the endpoint's enum | endpoint compiler | `422 invalid_param`; no query runs; existence of other values not revealed |

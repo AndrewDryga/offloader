@@ -145,9 +145,9 @@ simple tenant filters.
 Before anything is served, the manifest validator rejects missing files, schema
 mismatches, duplicate columns, unsupported types, and bad snapshot IDs. A
 refresh that fails never swaps in — the previous good snapshot keeps serving, so
-a bad revision can't take an endpoint down. Every response includes its
-`snapshot_id` and freshness metadata, so a caller always knows exactly which
-data it got.
+a bad revision can't take an endpoint down. Each successful data response includes
+its `snapshot_id` and freshness metadata, so a caller can tell which snapshot it
+read.
 
 On the auth side: the API port requires an API key, and the tenant filter is
 inserted by the compiler — a caller cannot override it. The admin port is

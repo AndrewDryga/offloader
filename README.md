@@ -92,7 +92,9 @@ The engineer's-eye view (the plain-language version is in [concepts](https://off
 - Boot **fully stateless**: point `OFFLOADER_CONFIG` at a `gs://…` prefix and the whole
   project (datasets, endpoints, keys) is fetched from the bucket at startup — config and
   data in the same place, nothing mounted. With `OFFLOADER_CONFIG_SYNC_INTERVAL` it also
-  **hot-reloads** bucket changes with **zero downtime**, blue-green even across a schema change.
+  **hot-reloads** YAML config changes with **zero downtime**, blue-green even across a schema
+  change. New data goes live when a dataset's YAML points at its new manifest, or when a
+  `source:` finds a newer export.
 - Follow a producer that publishes on its own schedule: the Databricks
   commit-protocol resolver discovers the latest `_committed_<tid>` in GCS and
   refreshes per dataset. One slow or broken source does not block the rest; a
@@ -156,8 +158,7 @@ legal/            Contracting templates (diagnostic + pilot SOW) — fill per de
 The development gate is:
 
 ```sh
-npm ci --prefix dev/docs-site # install the docs renderer
-make check        # format, warnings-as-errors, tests
+make check        # format, warnings-as-errors, tests, docs drift
 make e2e          # manifest -> HTTP smoke
 make deploy-check # build the prod image, boot it, verify both ports
 ```

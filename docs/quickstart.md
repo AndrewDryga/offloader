@@ -109,7 +109,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer offl_demo_acm
 ```
 
 The [failure lab](../examples/customer-analytics/failure-lab/README.md) has the full set (bad
-manifest, stale dataset, forbidden tenant, …) and the exact error each returns.
+manifest, stale dataset, forbidden tenant, …) and the expected result for each.
 
 ## 5. Start your own project
 

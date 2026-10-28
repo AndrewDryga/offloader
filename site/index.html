@@ -359,7 +359,7 @@
                         <figcaption class="artifact-cap">
                             Each data response tells you which snapshot you read
                         </figcaption>
-                        <pre class="code">{
+                        <pre class="code" tabindex="0">{
   <span class="k">"data"</span>: [ { <span class="k">"account_id"</span>: <span class="s">"acct_zephyr"</span>, <span class="k">"api_calls_total"</span>: <span class="n">56839</span> }, … ],
   <span class="k">"meta"</span>: {
     <span class="k">"endpoint"</span>:    <span class="s">"customer_usage_summary"</span>,
@@ -440,7 +440,7 @@
                 </div>
             </section>
 
-            <!-- WHAT THIS REPLACES ─────────────────────────────────────────── -->
+            <!-- YOUR OPTIONS ───────────────────────────────────────────────── -->
             <section
                 class="band uses"
                 id="replaces"
@@ -448,14 +448,16 @@
             >
                 <div class="wrap">
                     <div class="section-head">
-                        <p class="kicker">What this replaces</p>
+                        <p class="kicker">Your options</p>
                         <h2 id="replaces-h" class="h2">
-                            The read service teams<br />usually build by hand.
+                            Three ways to serve<br />warehouse data to your app.
                         </h2>
                         <p class="section-sub">
-                            Loading exports, checking schemas, enforcing tenant
-                            access, and keeping the API up during refreshes:
-                            Offloader handles the work around the query.
+                            Choose by how fresh the data must be and how often
+                            the same requests repeat. If snapshots fit,
+                            Offloader does the work around the query: loading
+                            exports, checking schemas, enforcing tenant access,
+                            and staying up during refreshes.
                         </p>
                     </div>
                     <ul class="use-grid">
@@ -491,8 +493,9 @@
                             Let an AI agent read the data your app already uses.
                             Enable the Model Context Protocol (MCP) to give it
                             access through your existing API keys and endpoint
-                            definitions. <a href="docs/mcp.html">Set up agent access →</a>
+                            definitions.
                         </p>
+                        <p class="section-link"><a href="docs/mcp.html">Set up agent access →</a></p>
                     </div>
 
                     <ul class="use-grid">
@@ -515,9 +518,11 @@
                         <li>
                             <h3>Public reads still cache</h3>
                             <p>
-                                Configure a CDN rule to cache public resource
-                                reads. Tenant data is marked private and must
-                                stay out of shared caches.
+                                A CDN can cache public resource reads. Cache only
+                                responses marked <code>Cache-Control: public</code>
+                                and keep the cache lifetime Offloader sends.
+                                Offloader marks tenant reads private; keep them
+                                out of shared caches.
                             </p>
                         </li>
                     </ul>
@@ -526,7 +531,7 @@
                         <figcaption class="artifact-cap">
                             A customer usage read — tenant data stays private
                         </figcaption>
-                        <pre class="code"><span class="k">POST</span> /mcp
+                        <pre class="code" tabindex="0"><span class="k">POST</span> /mcp
 <span class="k">Authorization</span>: <span class="s">Bearer offl_demo_acme_key</span>
 <span class="k">MCP-Protocol-Version</span>: <span class="s">2026-07-28</span>
 <span class="k">Mcp-Method</span>: <span class="s">resources/read</span>
@@ -534,8 +539,10 @@
 
 {
   <span class="k">"contents"</span>:   [ … the same rows your REST endpoint returns … ],
-  <span class="hl k">"ttlMs"</span>:      <span class="hl n">3600000</span>,     <span class="cmt">// cache lifetime, capped at one hour</span>
-  <span class="hl k">"cacheScope"</span>: <span class="hl s">"private"</span>    <span class="cmt">// never share this customer’s response</span>
+  <span class="cmt">// cache lifetime, capped at one hour</span>
+  <span class="hl k">"ttlMs"</span>:      <span class="hl n">3600000</span>,
+  <span class="cmt">// never share this customer’s response</span>
+  <span class="hl k">"cacheScope"</span>: <span class="hl s">"private"</span>
 }</pre>
                     </figure>
                 </div>
@@ -620,9 +627,10 @@
                             Priced on measured savings.<br />Not on requests.
                         </h2>
                         <p class="section-sub">
-                            Pay <strong>20% of what you save</strong> after
-                            Offloader’s running costs. Keep the other 80%.
-                            No savings, no ongoing fee.
+                            Pay <strong>20% of the measured saving</strong>. We
+                            measure the saving after subtracting what Offloader
+                            costs to run on your servers. You keep the other
+                            80%. If there is no saving, there is no ongoing fee.
                         </p>
                     </div>
 
@@ -637,7 +645,7 @@
                                 aria-label="A real, anonymized cutover: a 3,000 dollar a month warehouse serving bill became about 440 dollars a month on two small VMs. Of the 2,560 dollars saved each month, our 20 percent fee is 512 dollars, leaving the customer keeping about 2,048 dollars a month."
                             >
                                 <div class="receipt-lines" aria-hidden="true">
-                                    <div class="receipt-row"><span class="receipt-label">Warehouse, before</span><span class="receipt-value ">$3,000</span><span class="receipt-note">/mo</span></div>
+                                    <div class="receipt-row"><span class="receipt-label">Warehouse, before</span><span class="receipt-value">$3,000</span><span class="receipt-note">/mo</span></div>
                                     <div class="receipt-row"><span class="receipt-label">Offloader · two VMs</span><span class="receipt-value neg">−$440</span><span class="receipt-note">/mo</span></div>
                                     <div class="receipt-rule"></div>
                                     <div class="receipt-row"><span class="receipt-label">Saved each month</span><span class="receipt-value save">$2,560</span><span class="receipt-note">/mo</span></div>
@@ -667,17 +675,18 @@
                                 <div>
                                     <h3>How the ongoing bill works</h3>
                                     <p>
-                                        First, we measure what these API reads
-                                        cost today and which costs would disappear
-                                        after the move. Our fee is 20% of the
-                                        savings after Offloader’s running costs,
-                                        reviewed quarterly. If you pay for reserved
+                                        First, a paid diagnostic measures what
+                                        these API reads cost today and which costs
+                                        would disappear after the move. Our fee is
+                                        20% of the savings that remain after you
+                                        pay to run Offloader, and we reconcile it
+                                        every quarter. If you pay for reserved
                                         warehouse capacity, fees start only when
                                         you downsize.
                                     </p>
                                     <p>
                                         Prefer a fixed annual price? We can quote
-                                        one after the same assessment.
+                                        one after the same diagnostic.
                                     </p>
                                     <p>
                                         <a href="roi.html"
@@ -711,7 +720,7 @@
                             href="https://cal.com/andrew-dryga/offloader"
                             target="_blank"
                             rel="noopener"
-                            >Discuss a diagnostic</a
+                            >Book a call</a
                         >
                         <span class="pricing-cta-note"
                             >Start with a call to agree the scope and price.
@@ -807,10 +816,11 @@
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    A response cache reuses earlier answers. A miss
-                                    still reaches the warehouse if that is what
-                                    your API calls today. Offloader answers from
-                                    a snapshot, including on cache misses. Its
+                                    Not quite. A response cache reuses earlier
+                                    answers. A miss still reaches the warehouse
+                                    if that is what your API calls today.
+                                    Offloader answers from a snapshot, including
+                                    on cache misses. Its
                                     endpoint definitions and API keys control
                                     which columns and tenant rows a caller can
                                     read.
@@ -870,9 +880,8 @@
                                     checking schema changes, swapping snapshots
                                     without downtime, preventing tenant bypass,
                                     keeping the last good snapshot on failure,
-                                    generating docs, exposing diagnostics, and
-                                    proving the before/after cost. Offloader
-                                    handles those parts for you.
+                                    generating docs, and exposing diagnostics.
+                                    Offloader handles those parts for you.
                                 </p>
                             </div>
                         </details>
@@ -902,8 +911,9 @@
                                 <p>
                                     Freshness depends on your export and refresh
                                     schedule. Each successful data response
-                                    includes its snapshot ID, watermark, and
-                                    stale flag. Your app decides whether the
+                                    includes its snapshot ID, the time its data
+                                    was current (the watermark), and a stale
+                                    flag. Your app decides whether the
                                     data is fresh enough. Offloader keeps serving
                                     an old snapshot if a refresh fails; it does
                                     not enforce a maximum age. If you need data
@@ -943,14 +953,17 @@
                             </summary>
                             <div class="faq-a">
                                 <p>
-                                    Many customers can share a snapshot; their API
-                                    keys limit which rows each can read. Size the
-                                    servers for your data, queries, and peak
-                                    traffic, then test with realistic customer
-                                    requests. In one validation, the
-                                    active datasets used about
-                                    <strong>4&nbsp;GiB of RAM</strong> on one
-                                    instance. If the working set will not fit a
+                                    Usually, yes. Many customers can share a
+                                    snapshot; their API keys limit which rows each
+                                    can read. Size the servers for your data,
+                                    queries, and peak traffic, then test with
+                                    realistic customer requests. On a 4-vCPU
+                                    reference server, 67 datasets (5.8&nbsp;GB)
+                                    used about 600&nbsp;MB of RAM when idle and
+                                    up to <strong>2.1&nbsp;GB</strong> when every
+                                    request missed the cache
+                                    (<a href="docs/operator.html#sizing">sizing guide</a>).
+                                    If the working set will not fit a
                                     reasonable server, partition the snapshots
                                     or choose another approach.
                                 </p>
@@ -978,8 +991,8 @@
                             <div class="faq-a">
                                 <p>
                                     You run the container and provide the snapshot
-                                    files. The production deployment described
-                                    here uses two small instances and serves
+                                    files. The real cutover shown under Pricing
+                                    runs on two small instances and serves
                                     about 136 million requests a month, with 94%
                                     answered by the CDN. Your instance size
                                     depends on the data, query cost, traffic peaks,
@@ -994,8 +1007,8 @@
                             <summary>Is there lock-in?</summary>
                             <div class="faq-a">
                                 <p>
-                                    You keep the infrastructure, YAML configuration,
-                                    and Parquet files. Offloader does not replace
+                                    Little. You keep the infrastructure, YAML
+                                    configuration, and Parquet files. Offloader does not replace
                                     your warehouse or take ownership of your data.
                                     To stop using it, move your app’s requests to
                                     another serving path before shutting it down.
@@ -1013,7 +1026,7 @@
                                     what Offloader costs to run on your
                                     infrastructure. You keep the other 80%. You can also
                                     choose a fixed annual license after the same
-                                    assessment. No per-request meter.
+                                    diagnostic. There is no per-request charge.
                                     <a href="#pricing">See pricing →</a>
                                 </p>
                             </div>
@@ -1031,7 +1044,7 @@
                                         >Business Source License</a
                                     >. At or above $1M, production use needs a
                                     commercial license — the paid engagement
-                                    above. The source is public. Each version's
+                                    above. The source is public. Each version’s
                                     included license states its Change Date and
                                     Apache-2.0 Change License.
                                 </p>
@@ -1052,10 +1065,10 @@
                                         href="https://github.com/AndrewDryga/offloader"
                                         >GitHub</a
                                     >, it runs entirely on your own
-                                    infrastructure, and there’s no lock-in — if
-                                    we vanished tomorrow, your container,
-                                    config, data, and app keep working exactly
-                                    as they are. Support is a response-time
+                                    infrastructure, and nothing in it depends on
+                                    us. If we vanished tomorrow, your container,
+                                    config, data, and app would keep working
+                                    exactly as they are. Support is a response-time
                                     commitment, not an uptime SLA (you run it,
                                     so uptime is yours); you email a person, not
                                     a queue.
@@ -1115,7 +1128,7 @@
                                 href="https://cal.com/andrew-dryga/offloader"
                                 target="_blank"
                                 rel="noopener"
-                                >discuss a diagnostic</a
+                                >book a call</a
                             >.
                         </p>
                     </div>
@@ -1230,7 +1243,7 @@ $ curl "localhost:8088/v1/endpoints/champion?champion_id=1"
                             href="https://cal.com/andrew-dryga/offloader"
                             target="_blank"
                             rel="noopener"
-                            >Discuss a diagnostic</a
+                            >Book a call</a
                         >
                         <a href="https://github.com/AndrewDryga/offloader"
                             >GitHub</a

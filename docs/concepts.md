@@ -37,17 +37,17 @@ Your app reads it many times until the next snapshot is ready.
                                   serving compute
 ```
 
-Offloader checks each new snapshot before using it. By default, it loads the data
-into DuckDB inside the container. If an update fails, requests keep using the
-last working snapshot.
+Offloader checks each new snapshot, then loads it into DuckDB inside the
+container. If an update fails, requests keep using the last working snapshot.
 
 It runs as a **single container on your own infrastructure**: there's no Offloader
 cloud, and private data stays in your environment by default.
 
-Offloader is **source-available under the [Business Source License 1.1](../LICENSE)**.
-Production use follows the license's Additional Use Grant. The license in this
-revision specifies a change to Apache-2.0 on July 6, 2028; see the
-[license overview](../README.md#license) for the current commercial terms.
+Offloader is **source-available under the [Business Source License 1.1](../LICENSE)**,
+not open source. Production use is free if your organization and its affiliates had
+under $1M in total gross revenue in the last completed fiscal year. Larger
+organizations need a commercial license for production use. This version's license
+converts to Apache-2.0 on July 6, 2028; see the [license overview](../README.md#license).
 
 ## Is it a fit?
 
@@ -56,7 +56,7 @@ revision specifies a change to Apache-2.0 on July 6, 2028; see the
 | Your app calls the warehouse while a user is waiting | It's an internal BI dashboard and the BI tool's cache/extracts already solve refresh |
 | The same endpoint shapes repeat a lot | Every query is different / ad-hoc SQL |
 | Your freshness tolerance matches the export and refresh schedule | You need up-to-the-second data |
-| You can publish consistent Parquet snapshots, locally or in supported object storage | You can't produce snapshots |
+| You can publish consistent Parquet or CSV snapshots, locally or in supported object storage | You can't produce snapshots |
 | You want to cut warehouse serving cost | Native warehouse acceleration already solves it |
 
 ## The words we use
@@ -66,8 +66,8 @@ These terms appear in the configuration and the guides.
 | Term | In one sentence |
 | --- | --- |
 | **Object storage** | Cloud file storage — Amazon **S3** or Google **GCS**, where your snapshot files live. |
-| **Snapshot** | One frozen copy of a dataset at a point in time (Parquet files), e.g. "usage as of 3 PM today." |
-| **Parquet** | A compact columnar file format snapshots are stored in; you don't edit these by hand. |
+| **Snapshot** | One frozen copy of a dataset at a point in time (Parquet or CSV files), e.g. "usage as of 3 PM today." |
+| **Parquet** | A compact columnar file format and the usual choice for snapshots; you don't edit these by hand. |
 | **Manifest** | A JSON file identifying one snapshot's files and schema; a static manifest lives inside the project, while its data files can be remote. |
 | **Dataset** | A named table Offloader serves (e.g. `customer_usage`), plus the columns it expects. |
 | **Endpoint** | A named REST URL your app calls (e.g. `/v1/endpoints/customer_usage_summary`), defined by a small config file. |
@@ -81,7 +81,7 @@ These terms appear in the configuration and the guides.
 Two more you'll see in operations:
 
 - **DuckDB** — the small, fast engine embedded inside the container that runs the queries. You don't install or manage it; it's just there.
-- **Serving mode** — where a query reads from: a pre-loaded local table (`local_table`, the default) or straight from the snapshot files (`remote_scan`). Both currently materialize during refresh, so choose by measuring your workload rather than assuming that remote scans eliminate local storage.
+- **Serving mode** — where a query reads from: a pre-loaded local table (`local_table`, the default) or straight from the snapshot files (`remote_scan`). Both load the data into DuckDB during refresh, so `remote_scan` doesn't save local disk. Measure your workload to choose.
 
 ## How the pieces fit
 
@@ -107,7 +107,7 @@ The default `local_table` request path:
 
 With a configured `source:`, Offloader can find supported exports on a schedule.
 With a static `manifest:`, it loads the snapshot named by that file and does not
-poll for updates by default.
+poll for updates.
 
 To update a static manifest through config sync, publish the new data and a
 manifest with a new `snapshot_id`. Then change the dataset YAML to point to it.

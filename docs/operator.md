@@ -15,9 +15,9 @@ and two more are worth setting from day one: `OFFLOADER_ADMIN_TOKEN` (gates
 `OFFLOADER_CONFIG` points at either a **mounted directory** (a path to
 `offloader.yml`) or a **`gs://…` bucket prefix**, fetched at boot so the
 container is fully stateless. Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` and
-Offloader re-checks the bucket on that interval and **hot-reloads changes with
-no restart** — even a dataset schema change cuts over with zero downtime, and a
-bad revision is ignored (the running config keeps serving). Full details:
+Offloader re-checks the project's YAML files on that interval and **hot-reloads config
+changes with no restart**. Even a dataset schema change cuts over with zero downtime.
+Offloader ignores a bad revision and keeps serving the running config. Full details:
 [config guide](developer-experience.md#config-from-object-storage-optional).
 
 The container listens on two ports: **API** (product traffic, API-key auth) and
