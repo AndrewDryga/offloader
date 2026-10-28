@@ -120,6 +120,31 @@ defmodule Offloader.Manifest do
     end
   end
 
+  @doc """
+  The schema of a materialized table, `[{name, duckdb_type}]`, in contract types, so
+  `compatibility/2` can judge the real data instead of what the manifest declares. Each
+  DuckDB type maps onto the contract type that describes it: wider numbers (FLOAT, DECIMAL,
+  HUGEINT, UBIGINT) land on DOUBLE, nested values on JSON, every TIMESTAMP variant on
+  TIMESTAMP. A type with no contract equivalent (BLOB, UUID, TIME, …) keeps its own name
+  and so fails the comparison.
+  """
+  @spec physical_schema([{String.t(), String.t()}]) :: [%{name: String.t(), type: String.t()}]
+  def physical_schema(columns),
+    do: for({name, type} <- columns, do: %{name: name, type: contract_type(type)})
+
+  defp contract_type(type) do
+    cond do
+      type in ~w(TINYINT SMALLINT INTEGER UTINYINT USMALLINT) -> "INTEGER"
+      type in ~w(BIGINT UINTEGER) -> "BIGINT"
+      type in ~w(FLOAT DOUBLE HUGEINT UBIGINT UHUGEINT) -> "DOUBLE"
+      String.starts_with?(type, "DECIMAL") -> "DOUBLE"
+      String.starts_with?(type, "TIMESTAMP") -> "TIMESTAMP"
+      type == "JSON" or String.starts_with?(type, ["STRUCT", "MAP"]) -> "JSON"
+      String.ends_with?(type, "]") -> "JSON"
+      true -> type
+    end
+  end
+
   defp compatible?(got, want) do
     cond do
       got == want -> true

@@ -143,8 +143,10 @@ simple tenant filters.
 ## Guarantees
 
 Before anything is served, the manifest validator rejects missing files, schema
-mismatches, duplicate columns, unsupported types, and bad snapshot IDs. A
-refresh that fails never swaps in — the previous good snapshot keeps serving, so
+mismatches, duplicate columns, unsupported types, and bad snapshot IDs. After the
+data loads, Offloader checks the table's real columns and types against the
+dataset contract too, because files can differ from what their manifest declares.
+A refresh that fails never swaps in — the previous good snapshot keeps serving, so
 a bad revision can't take an endpoint down. Each successful data response includes
 its `snapshot_id` and freshness metadata, so a caller can tell which snapshot it
 read.

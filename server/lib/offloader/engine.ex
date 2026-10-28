@@ -130,6 +130,11 @@ defmodule Offloader.Engine do
   def known_columns(server, table),
     do: writer_call(server, {:known_columns, table}, @writer_timeout)
 
+  @doc "A materialized table's columns as `{name, duckdb_type}` pairs, in order."
+  @spec describe(GenServer.server(), String.t()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, Error.t()}
+  def describe(server, table), do: writer_call(server, {:describe, table}, @writer_timeout)
+
   @doc "Drop a snapshot table (cleanup after a swap or in tests)."
   @spec drop(GenServer.server(), String.t()) :: :ok | {:error, Error.t()}
   def drop(server, table), do: writer_call(server, {:drop, table}, @writer_timeout)
@@ -286,6 +291,21 @@ defmodule Offloader.Engine do
   def handle_call({:known_columns, table}, _from, state) do
     case run(state.writer, "SELECT * FROM #{quote_ident(table)} LIMIT 0", [], :unknown_table) do
       {:ok, result} -> {:reply, {:ok, Duckdbex.columns(result)}, state}
+      {:error, %Error{}} = err -> {:reply, err, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:describe, table}, _from, state) do
+    sql =
+      "SELECT column_name, data_type FROM information_schema.columns " <>
+        "WHERE table_name = $1 ORDER BY ordinal_position"
+
+    with {:ok, result} <- run(state.writer, sql, [table], :unknown_table),
+         [_ | _] = rows <- Duckdbex.fetch_all(result) do
+      {:reply, {:ok, Enum.map(rows, fn [name, type] -> {name, type} end)}, state}
+    else
+      [] -> {:reply, {:error, Error.new(:unknown_table, "no such table #{table}")}, state}
       {:error, %Error{}} = err -> {:reply, err, state}
     end
   end

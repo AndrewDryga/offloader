@@ -72,6 +72,39 @@ defmodule Offloader.RefreshTest do
     path
   end
 
+  # A Parquet snapshot built from the example CSV by `select` (over a table named `src`),
+  # behind a manifest that still declares the example's full contract.
+  defp parquet_manifest(name, select) do
+    root = tmp_root()
+    File.mkdir_p!(root)
+    on_exit(fn -> File.rm_rf!(root) end)
+    file = Path.join(root, "#{name}.parquet")
+
+    {:ok, db} = Duckdbex.open()
+    {:ok, conn} = Duckdbex.connection(db)
+    {:ok, _} = Duckdbex.query(conn, "CREATE TABLE src AS SELECT * FROM read_csv_auto('#{@csv}')")
+    {:ok, _} = Duckdbex.query(conn, "COPY (#{select}) TO '#{file}' (FORMAT parquet)")
+
+    manifest =
+      Jason.decode!(File.read!(@good_manifest))
+      |> Map.put("snapshot_id", "2026-06-07T00:00:00Z_#{name}")
+      |> Map.put("files", [%{"path" => file, "format" => "parquet"}])
+
+    path = Path.join(root, "manifest.json")
+    File.write!(path, Jason.encode!(manifest))
+    path
+  end
+
+  # Every table this dataset has materialized and not yet dropped.
+  defp snapshot_tables(rt) do
+    sql =
+      "SELECT table_name FROM information_schema.tables " <>
+        "WHERE table_name LIKE 'snap_customer_usage_%' ORDER BY table_name"
+
+    {:ok, %{rows: rows}} = Engine.execute(:sys.get_state(rt).engine, sql)
+    List.flatten(rows)
+  end
+
   test "boots with a good active snapshot and an :ok last attempt", %{rt: rt} do
     assert served_snapshot(rt) == @good_snapshot
     state = Runtime.snapshot_state(rt, "customer_usage")
@@ -101,6 +134,28 @@ defmodule Offloader.RefreshTest do
 
     assert served_snapshot(rt) == @good_snapshot
     assert Runtime.snapshot_state(rt, "customer_usage").last_attempted.status == :rejected
+  end
+
+  # A manifest can declare columns its files don't have; only the materialized table shows the
+  # truth. Both snapshots below declare the full contract over Parquet that breaks it.
+  test "a snapshot missing a declared column is rejected, dropped, and the old one keeps serving",
+       %{rt: rt} do
+    manifest = parquet_manifest("missing", "SELECT * EXCLUDE (api_calls) FROM src")
+    assert {:error, :rejected} = Runtime.refresh(rt, "customer_usage", manifest)
+
+    assert served_snapshot(rt) == @good_snapshot
+    assert Runtime.snapshot_state(rt, "customer_usage").last_attempted.status == :rejected
+    assert snapshot_tables(rt) == [Runtime.snapshot_active(rt, "customer_usage").table]
+  end
+
+  test "a snapshot whose column has the wrong type is rejected", %{rt: rt} do
+    sql = "SELECT * REPLACE (CAST(api_calls AS VARCHAR) AS api_calls) FROM src"
+
+    assert {:error, :rejected} =
+             Runtime.refresh(rt, "customer_usage", parquet_manifest("varchar", sql))
+
+    assert served_snapshot(rt) == @good_snapshot
+    assert snapshot_tables(rt) == [Runtime.snapshot_active(rt, "customer_usage").table]
   end
 
   test "a failed MATERIALIZATION leaves the active snapshot serving", %{rt: rt} do
