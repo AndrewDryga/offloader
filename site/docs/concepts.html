@@ -133,9 +133,7 @@ Your app reads it many times until the next snapshot is ready.</p>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
     </div>
   </div>
-</figure>
-
-<p>Offloader checks each new snapshot, then loads it into DuckDB inside the
+</figure><p>Offloader checks each new snapshot, then loads it into DuckDB inside the
 container. If an update fails, requests keep using the last working snapshot.</p>
 <p>It runs as a <strong>single container on your own infrastructure</strong>: there&#39;s no Offloader
 cloud, and private data stays in your environment by default.</p>
@@ -253,9 +251,7 @@ converts to Apache-2.0 on July 6, 2028; see the <a href="https://github.com/Andr
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">no warehouse call</span></div>
   </div>
   <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> The default mode loads the configured snapshot into DuckDB. Your export job uses the warehouse; customer requests use the snapshot.</figcaption>
-</figure>
-
-<h2 id="how-updates-work">How updates work</h2>
+</figure><h2 id="how-updates-work">How updates work</h2>
 <p>With a configured <code>source:</code>, Offloader can find supported exports on a schedule.
 With a static <code>manifest:</code>, it loads the snapshot named by that file and does not
 poll for updates.</p>

@@ -211,7 +211,6 @@ defmodule Offloader.Refresh do
     do: %{snapshot_id: snapshot_id, status: status, error: error, at: DateTime.utc_now()}
 
   defp summarize(errors) when is_list(errors), do: "#{length(errors)} validation error(s)"
-  defp summarize(other), do: inspect(other)
 
   defp log(dataset, status, summary),
     do: Logger.warning("refresh #{dataset.id} #{status}: #{summary}")

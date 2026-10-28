@@ -100,9 +100,7 @@ Kubernetes, Nomad, ECS, or your own platform).</p>
     <div class="node node-hero"><span class="node-k">Product traffic</span><strong>API port · 4000</strong><span class="node-sub">endpoint API keys · tenant enforcement</span></div>
     <div class="node"><span class="node-k">Operators — keep private</span><strong>Admin port · 4001</strong><span class="node-sub">health · metrics · diagnostics · docs</span></div>
   </div>
-</figure>
-
-<p>The admin port is not an identity product — expose it only through your own network, proxy,
+</figure><p>The admin port is not an identity product — expose it only through your own network, proxy,
 firewall, or IAM.</p>
 <p><strong>Config</strong> comes from <code>OFFLOADER_CONFIG</code>: either a mounted directory (a ConfigMap/volume with
 <code>offloader.yml</code> + <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code>) or a <code>gs://…</code> bucket prefix fetched at boot

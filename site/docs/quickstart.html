@@ -111,14 +111,10 @@ docker pull ghcr.io/andrewdryga/offloader:edge   # rolling build of main; or pin
 <p>Nothing is baked into the image — the example project is <strong>mounted from your clone</strong> at run
 time, which is exactly how you&#39;ll later mount your own project.</p>
 <details>
-<summary>Prefer to build the image yourself?</summary>
-
-<pre tabindex="0"><code class="language-sh">docker build -t offloader:dev -f server/Dockerfile server
+<summary>Prefer to build the image yourself?</summary><pre tabindex="0"><code class="language-sh">docker build -t offloader:dev -f server/Dockerfile server
 </code></pre>
 <p>Then use <code>offloader:dev</code> in place of the <code>ghcr.io/…</code> image in every command below.</p>
-</details>
-
-<h2 id="1-run-the-container">1. Run the container</h2>
+</details><h2 id="1-run-the-container">1. Run the container</h2>
 <p>Mount the example project read-only; secrets come from env vars; the admin port binds to
 loopback:</p>
 <pre tabindex="0"><code class="language-sh">docker run --rm \
@@ -179,13 +175,9 @@ manifest, stale dataset, forbidden tenant, …) and the expected result for each
 <pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh
 </code></pre>
 <details>
-<summary>No installer? build from source (needs Go)</summary>
-
-<pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .    # then ./offloader &lt;command&gt;
+<summary>No installer? build from source (needs Go)</summary><pre tabindex="0"><code class="language-sh">cd tools &amp;&amp; go build -o offloader .    # then ./offloader &lt;command&gt;
 </code></pre>
-</details>
-
-<p>Scaffold a starter project and check it exactly the way the container does:</p>
+</details><p>Scaffold a starter project and check it exactly the way the container does:</p>
 <pre tabindex="0"><code class="language-sh"># a complete, valid, fully-commented project (one dataset + endpoint + demo key)
 offloader init --out my-project
 
@@ -230,9 +222,7 @@ free ports. Use the URLs it prints; these differ from the Docker example above. 
 <a href="developer-experience.html">config guide</a> walks through every file; the
 <a href="config-reference.html">config reference</a> lists every field.</p>
 <details>
-<summary>Let an AI agent migrate your existing endpoints</summary>
-
-<p>Already have analytics endpoints (raw SQL, an ORM, a hand-rolled API)? Point a coding agent at
+<summary>Let an AI agent migrate your existing endpoints</summary><p>Already have analytics endpoints (raw SQL, an ORM, a hand-rolled API)? Point a coding agent at
 both your code and this repo, and paste:</p>
 <blockquote>
 <p>You are migrating our existing analytics endpoints to Offloader. Read Offloader&#39;s
@@ -246,9 +236,7 @@ aggregation, ordering, and limits using only Offloader&#39;s declarative <code>q
 pass. Finally, list any endpoint you could not express and exactly why.</p>
 </blockquote>
 <p>It produces a project you own and can diff — review it before serving.</p>
-</details>
-
-<h2 id="6-next">6. Next</h2>
+</details><h2 id="6-next">6. Next</h2>
 <ul>
 <li><a href="developer-experience.html">Config guide</a> — publish your own datasets and endpoints, and load
 config from a <code>gs://</code>/<code>s3://</code> bucket. Apply supported updates without restarting.</li>
