@@ -1,17 +1,19 @@
 defmodule Offloader.Compiler.Plan do
   @moduledoc """
-  A compiled query: parameterized SQL, its bound values, the output columns, and
-  which of those columns carry a JSON document (a `to_json(...)` projection) to be
-  decoded into a nested term.
+  A compiled query: parameterized SQL, its bound values, the output columns, which of
+  those columns carry a JSON document (a `to_json(...)` projection) to be decoded into a
+  nested term, and each output column's DuckDB type (the SQL casts every column to it), so
+  results decode by type rather than by the shape duckdbex happens to return.
   """
   @enforce_keys [:sql, :params, :columns]
-  defstruct [:sql, :params, :columns, json_columns: []]
+  defstruct [:sql, :params, :columns, json_columns: [], types: []]
 
   @type t :: %__MODULE__{
           sql: String.t(),
           params: [term()],
           columns: [String.t()],
-          json_columns: [String.t()]
+          json_columns: [String.t()],
+          types: [String.t()]
         }
 end
 
@@ -305,7 +307,8 @@ defmodule Offloader.Compiler do
       sql: sql,
       params: params ++ [limit, offset],
       columns: Enum.map(selected, & &1.as),
-      json_columns: for(s <- selected, s.json?, do: s.as)
+      json_columns: for(s <- selected, s.json?, do: s.as),
+      types: Enum.map(selected, &output_type/1)
     }
   end
 
@@ -327,16 +330,20 @@ defmodule Offloader.Compiler do
   # JSON column is rejected at config-load, so `agg` is always nil here.
   defp select_expr(%{column: col, json?: true}), do: "to_json(" <> ident(col) <> ")::VARCHAR"
 
-  defp select_expr(%{column: col, agg: agg}) do
-    case agg do
-      "sum" -> "sum(#{ident(col)})::BIGINT"
-      "count" -> "count(#{ident(col)})::BIGINT"
-      "avg" -> "avg(#{ident(col)})::DOUBLE"
-      "min" -> "min(#{ident(col)})"
-      "max" -> "max(#{ident(col)})"
-      nil -> ident(col)
-    end
-  end
+  # Cast every output to its contract type, so DuckDB converts the file's real type (a DECIMAL
+  # under a DOUBLE contract, a TIMESTAMP_MS under TIMESTAMP) before duckdbex sees it.
+  defp select_expr(%{column: col, agg: nil} = s), do: "CAST(#{ident(col)} AS #{output_type(s)})"
+
+  defp select_expr(%{column: col, agg: agg} = s),
+    do: "CAST(#{agg}(#{ident(col)}) AS #{output_type(s)})"
+
+  # An output column's DuckDB type: the contract type, except for aggregates that change it.
+  defp output_type(%{json?: true}), do: "VARCHAR"
+  defp output_type(%{agg: "count"}), do: "BIGINT"
+  defp output_type(%{agg: "avg"}), do: "DOUBLE"
+  defp output_type(%{agg: "sum", type: "DOUBLE"}), do: "DOUBLE"
+  defp output_type(%{agg: "sum"}), do: "BIGINT"
+  defp output_type(%{type: type}), do: type
 
   defp group_by_sql(%Endpoint{group_by: []}), do: ""
 

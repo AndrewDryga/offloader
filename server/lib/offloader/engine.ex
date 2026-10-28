@@ -55,7 +55,6 @@ defmodule Offloader.Engine do
   alias Offloader.Engine.Error
   alias Offloader.Manifest
 
-  @hugeint_base 18_446_744_073_709_551_616
   @default_pool_size 16
   # Default cap on concurrent remote_scan reads (see `remote_cap/1`). 16 held up in the
   # blitz benchmark; a bigger pool then serves local_table without lifting this ceiling.
@@ -109,14 +108,19 @@ defmodule Offloader.Engine do
   Run a compiled SQL string with bound value params, on a pooled read connection in
   the CALLER's process (no GenServer round-trip). Returns {:ok, %{columns, rows}}.
   `json_columns` names output columns whose (VARCHAR) value is a JSON document to be
-  wrapped as a raw JSON fragment (embedded verbatim on serialize).
+  wrapped as a raw JSON fragment (embedded verbatim on serialize). `types:` lists each
+  output column's DuckDB type (a compiled plan's `types`), used to decode DATE and
+  TIMESTAMP values; without it values come back exactly as duckdbex returns them.
   """
   @spec execute(GenServer.server(), String.t(), [term()], [String.t()], keyword()) ::
           {:ok, map()} | {:error, Error.t()}
   def execute(server, sql, params \\ [], json_columns \\ [], opts \\ []) do
     case pool(server) do
-      nil -> {:error, Error.new(:not_ready, "engine is not ready")}
-      pool -> pooled_query(pool, sql, params, json_columns, max_slots(pool, opts))
+      nil ->
+        {:error, Error.new(:not_ready, "engine is not ready")}
+
+      pool ->
+        pooled_query(pool, sql, params, {json_columns, opts[:types] || []}, max_slots(pool, opts))
     end
   end
 
@@ -343,11 +347,11 @@ defmodule Offloader.Engine do
     end
   end
 
-  defp pooled_query(pool, sql, params, json_columns, max_slots) do
+  defp pooled_query(pool, sql, params, decoding, max_slots) do
     case checkout(pool, max_slots) do
       {:ok, idx, conn} ->
         try do
-          run_and_read(pool, idx, conn, sql, params, json_columns)
+          run_and_read(pool, idx, conn, sql, params, decoding)
         after
           checkin(pool, idx)
         end
@@ -362,23 +366,23 @@ defmodule Offloader.Engine do
   # that slot's connection once and retry, so a single bad connection can't poison a
   # slot for every future request. Result rows are read while the slot is still held
   # (the query result is tied to its connection).
-  defp run_and_read(pool, idx, conn, sql, params, json_columns) do
+  defp run_and_read(pool, idx, conn, sql, params, decoding) do
     case run(conn, sql, params, :query_failed) do
       {:ok, result} ->
-        {:ok, read_result(result, json_columns)}
+        {:ok, read_result(result, decoding)}
 
       {:error, %Error{} = err} = failure ->
         if retryable?(err),
-          do: retry_on_fresh(pool, idx, sql, params, json_columns, failure),
+          do: retry_on_fresh(pool, idx, sql, params, decoding, failure),
           else: failure
     end
   end
 
-  defp retry_on_fresh(pool, idx, sql, params, json_columns, failure) do
+  defp retry_on_fresh(pool, idx, sql, params, decoding, failure) do
     case reconnect(pool, idx) do
       {:ok, fresh} ->
         case run(fresh, sql, params, :query_failed) do
-          {:ok, result} -> {:ok, read_result(result, json_columns)}
+          {:ok, result} -> {:ok, read_result(result, decoding)}
           {:error, %Error{}} = err2 -> err2
         end
 
@@ -402,14 +406,15 @@ defmodule Offloader.Engine do
     ])
   end
 
-  defp read_result(result, json_columns) do
+  defp read_result(result, {json_columns, types}) do
     columns = Duckdbex.columns(result)
     json_idx = json_indexes(columns, json_columns)
+    types = List.to_tuple(types)
 
     rows =
       result
       |> Duckdbex.fetch_all()
-      |> Enum.map(&normalize_row(&1, json_idx))
+      |> Enum.map(&decode_row(&1, json_idx, types))
 
     %{columns: columns, rows: rows}
   end
@@ -425,13 +430,37 @@ defmodule Offloader.Engine do
     |> Map.new(fn {_name, i} -> {i, true} end)
   end
 
-  defp normalize_row(row, json_idx) do
+  defp decode_row(row, json_idx, types) do
     row
     |> Enum.with_index()
     |> Enum.map(fn {value, i} ->
-      if Map.has_key?(json_idx, i), do: decode_json(value), else: normalize(value)
+      cond do
+        Map.has_key?(json_idx, i) -> decode_json(value)
+        i < tuple_size(types) -> decode(elem(types, i), value)
+        true -> value
+      end
     end)
   end
+
+  # Decode a value by its column's type, never by tuple shape: duckdbex returns DATE as
+  # {y,m,d}, but also DECIMAL as {unscaled,width,scale} and INTERVAL as {months,days,micros}.
+  # A compiled plan casts every output to a contract type, so DATE and TIMESTAMP are the only
+  # tuples left; every other value is already JSON-ready.
+  defp decode("DATE", {y, m, d}) do
+    case Date.new(y, m, d) do
+      {:ok, date} -> Date.to_iso8601(date)
+      _ -> "#{y}-#{p2(m)}-#{p2(d)}"
+    end
+  end
+
+  defp decode("TIMESTAMP", {{y, mo, d}, {h, mi, s, us}}) do
+    case NaiveDateTime.new(y, mo, d, h, mi, s, {us, 6}) do
+      {:ok, dt} -> NaiveDateTime.to_iso8601(dt)
+      _ -> "#{y}-#{p2(mo)}-#{p2(d)}T#{p2(h)}:#{p2(mi)}:#{p2(s)}"
+    end
+  end
+
+  defp decode(_type, value), do: value
 
   # A `to_json(col)` projection returns a JSON document as VARCHAR. Wrap it as a pre-encoded
   # fragment so the response carries it verbatim — never decoded to a term and re-encoded (the
@@ -598,7 +627,7 @@ defmodule Offloader.Engine do
     case run(conn, "SELECT count(*) FROM #{quoted_ident}", [], :materialize_failed) do
       {:ok, result} ->
         [[n]] = Duckdbex.fetch_all(result)
-        {:ok, normalize(n)}
+        {:ok, n}
 
       {:error, _} = err ->
         err
@@ -616,41 +645,6 @@ defmodule Offloader.Engine do
   end
 
   defp quote_ident(name), do: Offloader.Sql.quote_ident(name)
-
-  # Normalize duckdbex value encodings to JSON-friendly terms. duckdbex hands back
-  # calendar tuples for the temporal types and a {hi,lo} pair for HUGEINT — none of
-  # which the JSON encoder can handle, so an un-normalized value would crash the response.
-  #   DATE                 -> {y,m,d}                 -> "YYYY-MM-DD"
-  #   TIMESTAMP/TIMESTAMPTZ -> {{y,mo,d},{h,mi,s,us}} -> ISO-8601 datetime
-  #   TIME                 -> {h,mi,s,us}             -> ISO-8601 time
-  #   HUGEINT              -> {hi,lo}                 -> integer
-  # Nested STRUCT/MAP/LIST columns are handled up-front via `to_json` (decode_json/1),
-  # so they never reach this scalar path.
-  defp normalize({{y, mo, d}, {h, mi, s, us}})
-       when is_integer(y) and is_integer(h) and is_integer(us) do
-    case NaiveDateTime.new(y, mo, d, h, mi, s, {us, 6}) do
-      {:ok, dt} -> NaiveDateTime.to_iso8601(dt)
-      _ -> "#{y}-#{p2(mo)}-#{p2(d)}T#{p2(h)}:#{p2(mi)}:#{p2(s)}"
-    end
-  end
-
-  defp normalize({h, mi, s, us})
-       when is_integer(h) and is_integer(mi) and is_integer(s) and is_integer(us) do
-    case Time.new(h, mi, s, {us, 6}) do
-      {:ok, t} -> Time.to_iso8601(t)
-      _ -> "#{p2(h)}:#{p2(mi)}:#{p2(s)}"
-    end
-  end
-
-  defp normalize({y, m, d}) when is_integer(y) and is_integer(m) and is_integer(d) do
-    case Date.new(y, m, d) do
-      {:ok, date} -> Date.to_iso8601(date)
-      _ -> "#{y}-#{p2(m)}-#{p2(d)}"
-    end
-  end
-
-  defp normalize({hi, lo}) when is_integer(hi) and is_integer(lo), do: hi * @hugeint_base + lo
-  defp normalize(value), do: value
 
   defp p2(n), do: String.pad_leading(Integer.to_string(n), 2, "0")
 end

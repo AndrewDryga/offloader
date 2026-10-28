@@ -67,7 +67,7 @@ defmodule Offloader.NestedJsonTest do
     assert plan.sql =~ ~s|to_json("data")::VARCHAR AS "data"|
     assert plan.json_columns == ["data"]
     # a scalar column is projected as-is
-    assert plan.sql =~ ~s("champion_id" AS "champion_id")
+    assert plan.sql =~ ~s|CAST("champion_id" AS VARCHAR) AS "champion_id"|
   end
 
   test "aggregating a JSON column is rejected at config load" do

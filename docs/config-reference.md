@@ -61,6 +61,11 @@ A dataset is a named table Offloader serves, plus the schema it expects. One fil
 `DOUBLE`, `BOOLEAN`, `JSON`. Use **`JSON`** for a nested column (`STRUCT`/`MAP`/`LIST` in the
 snapshot); the endpoint serves it as a nested JSON object.
 
+The snapshot's files may use a wider type than the contract: `BIGINT` data for an `INTEGER`
+column, or `DECIMAL`, `FLOAT` or `HUGEINT` data for a `DOUBLE` column. Responses always use the
+contract type, so a `DECIMAL(18,2)` column declared `DOUBLE` serves as a JSON number. A missing
+column or a narrower type rejects the snapshot when it loads.
+
 A dataset gets its snapshots from **exactly one** origin — a static `manifest:` **or** a
 self-updating `source:`, never both.
 

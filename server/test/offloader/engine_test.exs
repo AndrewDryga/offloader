@@ -57,37 +57,42 @@ defmodule Offloader.EngineTest do
     end
   end
 
-  test "execute binds only values as params and normalizes dates/hugeints", %{eng: eng} do
+  test "execute binds only values as params and decodes the declared types", %{eng: eng} do
     sql =
       "SELECT account_id, usage_date, sum(api_calls)::BIGINT AS calls " <>
         "FROM snap WHERE tenant_id = $1 GROUP BY 1, 2 ORDER BY calls DESC LIMIT $2"
 
-    assert {:ok, %{columns: cols, rows: rows}} = Engine.execute(eng, sql, ["tenant_acme", 3])
+    types = ["VARCHAR", "DATE", "BIGINT"]
+
+    assert {:ok, %{columns: cols, rows: rows}} =
+             Engine.execute(eng, sql, ["tenant_acme", 3], [], types: types)
+
     assert cols == ["account_id", "usage_date", "calls"]
     assert length(rows) == 3
-    # date normalized to an ISO string, sum normalized to a plain integer
+    # the DATE decodes to an ISO string; the BIGINT sum is a plain integer
     assert [[account, date, calls] | _] = rows
     assert is_binary(account)
     assert date =~ ~r/^\d{4}-\d{2}-\d{2}$/
     assert is_integer(calls)
   end
 
-  test "TIMESTAMP and TIME columns serialize to JSON-safe ISO strings, not raw tuples", %{
-    eng: eng
-  } do
-    # duckdbex hands these back as nested calendar tuples that Jason cannot encode;
-    # without normalization every response selecting one would 500. (TIMESTAMP and
-    # TIME are documented, allowlisted column types.)
+  test "values decode by their declared type, not by the tuple duckdbex returns", %{eng: eng} do
+    # duckdbex returns DATE as {y,m,d} but also DECIMAL as {unscaled,width,scale}; decoding by
+    # shape served 1.25 as "0125-10-02". A plan casts each output and names its type.
     sql =
-      "SELECT TIMESTAMP '2026-06-01 12:34:56' AS ts, " <>
-        "CAST('2026-06-01 12:34:56+00' AS TIMESTAMPTZ) AS tsz, TIME '01:02:03' AS tm"
+      "SELECT DATE '2026-06-01' AS d, TIMESTAMP '2026-06-01 12:34:56' AS ts, " <>
+        "CAST('2026-06-01 12:34:56+00' AS TIMESTAMPTZ) AS tsz, " <>
+        "CAST(1.25::DECIMAL(10,2) AS DOUBLE) AS amount"
 
-    assert {:ok, %{rows: [[ts, tsz, tm]]}} = Engine.execute(eng, sql)
+    types = ["DATE", "TIMESTAMP", "TIMESTAMP", "DOUBLE"]
+
+    assert {:ok, %{rows: [[d, ts, tsz, amount]]}} = Engine.execute(eng, sql, [], [], types: types)
+    assert d == "2026-06-01"
     assert ts =~ ~r/^2026-06-01T12:34:56/
     assert tsz =~ ~r/^2026-06-01T12:34:56/
-    assert tm =~ ~r/^01:02:03/
+    assert amount == 1.25
     # The whole point: the row must round-trip through JSON without raising.
-    assert {:ok, _} = Jason.encode(%{ts: ts, tsz: tsz, tm: tm})
+    assert {:ok, _} = Jason.encode(%{d: d, ts: ts, tsz: tsz, amount: amount})
   end
 
   test "a tenant-scoped query returns only that tenant's rows", %{eng: eng} do

@@ -205,7 +205,7 @@ defmodule Offloader.QueryParityTest do
       # `games` (the order column) is not projected; ORDER BY falls back to the
       # underlying expression instead of the missing output alias.
       assert plan.columns == ["rank"]
-      assert plan.sql =~ ~s|ORDER BY "games" DESC|
+      assert plan.sql =~ ~s|ORDER BY CAST("games" AS BIGINT) DESC|
     end
 
     test "omitting columns keeps the full projection" do

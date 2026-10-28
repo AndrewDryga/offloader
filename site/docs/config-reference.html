@@ -217,6 +217,10 @@ keys: keys/keys.yml
 <p><strong>Column types</strong> (<code>schema[].type</code>): <code>DATE</code>, <code>TIMESTAMP</code>, <code>VARCHAR</code>, <code>INTEGER</code>, <code>BIGINT</code>,
 <code>DOUBLE</code>, <code>BOOLEAN</code>, <code>JSON</code>. Use <strong><code>JSON</code></strong> for a nested column (<code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> in the
 snapshot); the endpoint serves it as a nested JSON object.</p>
+<p>The snapshot&#39;s files may use a wider type than the contract: <code>BIGINT</code> data for an <code>INTEGER</code>
+column, or <code>DECIMAL</code>, <code>FLOAT</code> or <code>HUGEINT</code> data for a <code>DOUBLE</code> column. Responses always use the
+contract type, so a <code>DECIMAL(18,2)</code> column declared <code>DOUBLE</code> serves as a JSON number. A missing
+column or a narrower type rejects the snapshot when it loads.</p>
 <p>A dataset gets its snapshots from <strong>exactly one</strong> origin — a static <code>manifest:</code> <strong>or</strong> a
 self-updating <code>source:</code>, never both.</p>
 <h3 id="manifest-a-static-snapshot"><code>manifest:</code> — a static snapshot</h3>

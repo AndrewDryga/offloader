@@ -41,8 +41,8 @@ defmodule Offloader.CompilerTest do
     {:ok, plan} =
       compile(cat, "customer_usage_summary", %{"from" => "2026-05-30", "to" => "2026-06-01"})
 
-    assert plan.sql =~ "sum(\"api_calls\")::BIGINT"
-    assert plan.sql =~ "avg(\"storage_gb\")::DOUBLE"
+    assert plan.sql =~ "CAST(sum(\"api_calls\") AS BIGINT)"
+    assert plan.sql =~ "CAST(avg(\"storage_gb\") AS DOUBLE)"
   end
 
   test "rejects an unknown param (blocks tenant smuggling)", %{cat: cat} do

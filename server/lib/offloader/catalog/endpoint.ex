@@ -929,7 +929,7 @@ defmodule Offloader.Catalog.Endpoint do
       params: Enum.map(params, &Param.build/1),
       combinations: raw["combinations"] || [],
       group_by: q["group_by"] || [],
-      select: Enum.map(q["select"], fn s -> Select.build(s, types[s["column"]] == "JSON") end),
+      select: Enum.map(q["select"], fn s -> Select.build(s, types[s["column"]]) end),
       filters: Enum.map(q["filters"] || [], &Filter.build/1),
       order_by: for(o <- q["order_by"] || [], do: %{column: o["column"], dir: o["dir"] || "asc"}),
       columns: raw["columns"],
@@ -972,14 +972,21 @@ end
 defmodule Offloader.Catalog.Endpoint.Select do
   @moduledoc """
   One output column: `as` (result name) computed from a dataset `column`, optional
-  `agg`. `json?` is set when the dataset column is the logical `JSON` type — the
+  `agg`. `type` is the column's contract type; the compiler casts the output to it so the
+  response is typed by the contract. `json?` is set for the logical `JSON` type — the
   compiler then projects it via `to_json(...)` and the response carries a nested term.
   """
   @enforce_keys [:as, :column]
-  defstruct [:as, :column, :agg, json?: false]
+  defstruct [:as, :column, :agg, :type, json?: false]
 
-  def build(s, json? \\ false),
-    do: %__MODULE__{as: s["as"], column: s["column"], agg: s["agg"], json?: json?}
+  def build(s, type \\ nil),
+    do: %__MODULE__{
+      as: s["as"],
+      column: s["column"],
+      agg: s["agg"],
+      type: type,
+      json?: type == "JSON"
+    }
 end
 
 defmodule Offloader.Catalog.Endpoint.Filter do

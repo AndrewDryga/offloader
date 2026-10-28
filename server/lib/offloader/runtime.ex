@@ -1123,7 +1123,10 @@ defmodule Offloader.Runtime do
   end
 
   defp execute(engine, plan, remote?) do
-    case Engine.execute(engine, plan.sql, plan.params, plan.json_columns, remote: remote?) do
+    case Engine.execute(engine, plan.sql, plan.params, plan.json_columns,
+           remote: remote?,
+           types: plan.types
+         ) do
       {:ok, result} ->
         {:ok, result}
 
