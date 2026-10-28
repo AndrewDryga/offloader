@@ -358,7 +358,7 @@ defmodule Offloader.Runtime do
   # snapshot) or picks up a newer one. Anything else boots cold, so a warm start always ends
   # where a cold boot would.
   defp seed_from_sidecar(state) do
-    for {dataset_id, %{active: snap}} <- read_sidecar(state.cache_dir),
+    for {dataset_id, %{active: snap} = record} <- read_sidecar(state.cache_dir),
         seedable?(state, dataset_id, snap),
         reduce: state do
       acc ->
@@ -367,13 +367,31 @@ defmodule Offloader.Runtime do
         case Engine.swap(acc.engine, dataset_id, snap.table) do
           :ok ->
             Logger.info("warm start: #{dataset_id} serving #{snap.snapshot_id} from disk")
-            put_snapshot(acc, dataset_id, %{active: snap, previous: nil, last_attempted: nil})
+
+            put_snapshot(acc, dataset_id, %{
+              active: snap,
+              previous: kept_previous(acc, snap, record.previous),
+              last_attempted: nil,
+              # A rollback holds across the restart: the boot refresh must not re-pull this.
+              quarantined: record.quarantined
+            })
 
           {:error, _} ->
             acc
         end
     end
   end
+
+  # The previous snapshot stays a rollback target only if it was built from the same source and
+  # contract as the active one and its table survived.
+  defp kept_previous(state, active, previous) do
+    if same_build?(previous, active) and
+         match?({:ok, _}, Engine.known_columns(state.engine, previous.table)),
+       do: previous
+  end
+
+  defp same_build?(nil, _snap), do: false
+  defp same_build?(a, b), do: Map.get(a, :fingerprint) == Map.get(b, :fingerprint)
 
   defp seedable?(state, dataset_id, snap) do
     case state.catalog.datasets[dataset_id] do
@@ -389,8 +407,14 @@ defmodule Offloader.Runtime do
   defp initial_refresh(state) do
     Enum.reduce(Map.keys(state.catalog.datasets), state, fn id, acc ->
       dataset = acc.catalog.datasets[id]
-      active = current_entry(acc, id).active
-      outcome = Refresh.perform(acc.engine, dataset, active, how(dataset, acc), force: false)
+      entry = current_entry(acc, id)
+
+      outcome =
+        Refresh.perform(acc.engine, dataset, entry.active, how(dataset, acc),
+          force: false,
+          quarantined: Map.get(entry, :quarantined)
+        )
+
       apply_outcome(acc, id, outcome)
     end)
   end
@@ -730,13 +754,10 @@ defmodule Offloader.Runtime do
 
   defp apply_outcome(state, dataset_id, {:swapped, snap, attempt}) do
     entry = current_entry(state, dataset_id)
-    # Retain exactly one previous snapshot for rollback; drop older tables. This is
-    # fire-and-forget: dropping the superseded table is a WRITER call that can queue
-    # behind a concurrent multi-minute materialize, and the Runtime must NOT block on
-    # it here — otherwise every other worker's apply_refresh call times out, the
-    # workers crash, and the DynamicSupervisor cascade takes down serving.
-    drop_table_async(state.engine, entry.previous, entry.active)
 
+    # Retain exactly one previous snapshot for rollback, and retire the one before it. A
+    # contract change never reaches here (it cuts over, which clears `previous`), so the
+    # previous always serves the same contract.
     state =
       put_snapshot(state, dataset_id, %{
         active: snap,
@@ -752,7 +773,14 @@ defmodule Offloader.Runtime do
     # swap) keeps other datasets warm, and covers a forced re-materialization of the same
     # snapshot_id (a manual `refresh`) where the key is unchanged.
     state = flush_dataset_cache(state, dataset_id)
+
+    # Persist before dropping anything: a crash in between can leak a table, but can never
+    # leave the warm-start file pointing at a dropped one. The drops are fire-and-forget: a
+    # drop is a WRITER call that can queue behind a multi-minute materialize, and the Runtime
+    # must NOT block on it — otherwise every other worker's apply_refresh call times out, the
+    # workers crash, and the DynamicSupervisor cascade takes down serving.
     write_sidecar(state)
+    drop_table_async(state.engine, entry.previous, entry.active)
     state
   end
 
@@ -790,12 +818,15 @@ defmodule Offloader.Runtime do
 
   # ── warm-start sidecar ──────────────────────────────────────────────────────────
 
-  # `{"version": 2, "datasets": {id => {"active": snap}}}`, written atomically on every
-  # swap/rollback so a restart can serve the on-disk snapshot before the first remote resolve.
-  # Each snap carries the fingerprint it was built from; warm start checks it against config.
+  # `{"version": 2, "datasets": {id => {"active", "previous", "quarantined"}}}`, written
+  # atomically on every swap/rollback so a restart serves the on-disk snapshot before the first
+  # remote resolve, and keeps rollback state. Each snap carries the fingerprint it was built
+  # from; warm start checks it against the config.
   defp write_sidecar(state) do
     datasets =
-      for {id, %{active: %{} = active}} <- state.snapshots, into: %{}, do: {id, %{active: active}}
+      for {id, %{active: %{} = active} = entry} <- state.snapshots, into: %{} do
+        {id, %{active: active, previous: entry[:previous], quarantined: entry[:quarantined]}}
+      end
 
     payload = %{version: @sidecar_version, datasets: datasets}
     path = Path.join(state.cache_dir, @sidecar)
@@ -815,8 +846,13 @@ defmodule Offloader.Runtime do
     with {:ok, body} <- File.read(Path.join(cache_dir, @sidecar)),
          {:ok, %{"version" => @sidecar_version, "datasets" => datasets}} when is_map(datasets) <-
            JSON.decode(body) do
-      for {id, %{"active" => raw}} <- datasets, snap <- List.wrap(decode_snap(raw)), into: %{} do
-        {id, %{active: snap}}
+      for {id, %{"active" => raw} = record} <- datasets,
+          active <- List.wrap(decode_snap(raw)),
+          into: %{} do
+        quarantined = if is_binary(record["quarantined"]), do: record["quarantined"]
+
+        {id,
+         %{active: active, previous: decode_snap(record["previous"]), quarantined: quarantined}}
       end
     else
       _ -> %{}

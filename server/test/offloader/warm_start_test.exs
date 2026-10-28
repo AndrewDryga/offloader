@@ -141,6 +141,50 @@ defmodule Offloader.WarmStartTest do
     end
   end
 
+  # The configured manifest now names a newer snapshot, as a producer publishing would.
+  defp publish_new_snapshot(project) do
+    path = Path.join(project, "data/customer_usage/manifest.json")
+    sid = "2026-06-05T00:00:00Z_r0099"
+    manifest = path |> File.read!() |> JSON.decode!() |> Map.put("snapshot_id", sid)
+    File.write!(path, JSON.encode!(manifest))
+    sid
+  end
+
+  defp served(rt) do
+    {:ok, resp} = Runtime.serve(rt, "customer_usage_summary", "tenant_acme", @params, "r")
+    resp.meta.snapshot_id
+  end
+
+  describe "rollback state survives a restart" do
+    test "a rollback holds: the snapshot rolled back from stays quarantined" do
+      {project, cache} = {project(), tmp("cache")}
+      rt = start(project, cache)
+      s1 = Runtime.snapshot_active(rt, "customer_usage").snapshot_id
+      s2 = publish_new_snapshot(project)
+      assert {:ok, ^s2} = Runtime.refresh(rt, "customer_usage")
+      assert {:ok, ^s1} = Runtime.rollback(rt, "customer_usage")
+
+      # The config still names s2, so without the quarantine the boot refresh re-pulls it.
+      rt = restart(rt, project, cache)
+      state = Runtime.snapshot_state(rt, "customer_usage")
+      assert state.active.snapshot_id == s1
+      assert state.quarantined == s2
+      assert served(rt) == s1
+    end
+
+    test "the previous snapshot is kept, so rollback still works after a restart" do
+      {project, cache} = {project(), tmp("cache")}
+      rt = start(project, cache)
+      s1 = Runtime.snapshot_active(rt, "customer_usage").snapshot_id
+      s2 = publish_new_snapshot(project)
+      assert {:ok, ^s2} = Runtime.refresh(rt, "customer_usage")
+
+      rt = restart(rt, project, cache)
+      assert {:ok, ^s1} = Runtime.rollback(rt, "customer_usage")
+      assert served(rt) == s1
+    end
+  end
+
   test "the fingerprint changes with the source and with every part of the contract" do
     {:ok, catalog} = Catalog.load(Path.join(@example, "offloader.yml"))
     dataset = catalog.datasets["customer_usage"]
