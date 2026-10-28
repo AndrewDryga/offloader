@@ -98,6 +98,21 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
       assert listed.status == 304
     end
 
+    test "carry a CDN-Tag naming the dataset and endpoint, also on a 304" do
+      conn = champion(1)
+      assert get_resp_header(conn, "cdn-tag") == ["offloader:champion_stats:champion"]
+
+      [etag] = get_resp_header(conn, "etag")
+
+      not_modified =
+        build_conn()
+        |> put_req_header("if-none-match", etag)
+        |> get("/v1/endpoints/champion?champion_id=1")
+
+      assert not_modified.status == 304
+      assert get_resp_header(not_modified, "cdn-tag") == ["offloader:champion_stats:champion"]
+    end
+
     test "meta carries the endpoint contract version (an ETag input — a reload can change the contract without a new snapshot)" do
       assert get_in(json_response(champion(1), 200), ["meta", "version"]) == 1
     end
@@ -119,6 +134,7 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
       assert conn.status == 200
       assert get_resp_header(conn, "cache-control") == ["private, no-store"]
       assert get_resp_header(conn, "etag") == []
+      assert get_resp_header(conn, "cdn-tag") == []
     end
   end
 

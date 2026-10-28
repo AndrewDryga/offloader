@@ -112,7 +112,8 @@ safe if the server refuses to execute anything else.
 > Caching POST responses is not a CDN default. You'll need a cache rule on the `/mcp` route keyed
 > on `Mcp-Name`. Cache only responses that Offloader marks `Cache-Control: public` (it does this
 > only in an `auth: none` deployment), and keep the cache lifetime it sends. Authenticated reads
-> come back `private, no-store`. Never put them in a shared cache.
+> come back `private, no-store`. Never put them in a shared cache. Public reads carry the same
+> `CDN-Tag` as the REST response for that endpoint, so one tag purge covers both surfaces.
 
 ## Authentication
 

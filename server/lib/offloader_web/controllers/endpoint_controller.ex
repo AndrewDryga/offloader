@@ -49,6 +49,7 @@ defmodule OffloaderWeb.EndpointController do
           "cache-control",
           "public, max-age=#{CachePolicy.ttl_seconds(response)}, stale-while-revalidate=60"
         )
+        |> CachePolicy.put_cdn_tag(conn.assigns.tenant, name)
 
       if etag_matches?(conn, etag) do
         send_resp(conn, 304, "")

@@ -42,4 +42,31 @@ defmodule OffloaderWeb.CachePolicy do
   """
   @spec list_ttl_seconds() :: pos_integer()
   def list_ttl_seconds, do: @default_ttl_seconds
+
+  @doc """
+  The `CDN-Tag` for a served response a shared cache may store, or nil when it may not.
+
+  The value is `offloader:<dataset>:<endpoint>`, so a CDN that purges by tag (bunny.net
+  reads `CDN-Tag`) can drop `offloader:<dataset>:*` after new data lands, one endpoint by
+  its exact tag, or everything with `offloader:*`. Dataset and endpoint names never
+  contain `:`, so the parts cannot run together.
+  """
+  @spec cdn_tag(String.t() | nil, String.t()) :: String.t() | nil
+  def cdn_tag(tenant, endpoint_name) do
+    with true <- shared?(tenant),
+         %{endpoints: %{^endpoint_name => %{dataset: dataset}}} <- Runtime.catalog() do
+      "offloader:#{dataset}:#{endpoint_name}"
+    else
+      _ -> nil
+    end
+  end
+
+  @doc "Adds the `CDN-Tag` header when `cdn_tag/2` gives one; private responses get none."
+  @spec put_cdn_tag(Plug.Conn.t(), String.t() | nil, String.t()) :: Plug.Conn.t()
+  def put_cdn_tag(conn, tenant, endpoint_name) do
+    case cdn_tag(tenant, endpoint_name) do
+      nil -> conn
+      tag -> Plug.Conn.put_resp_header(conn, "cdn-tag", tag)
+    end
+  end
 end

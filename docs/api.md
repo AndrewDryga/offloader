@@ -105,5 +105,5 @@ typed client, or the `/schema` output for the params and response shape of each 
 
 Public (`auth: none`) endpoints are safe to cache: the response is immutable for a given
 `snapshot_id`, and a new snapshot changes it. Front a public deployment with your CDN, and use the
-response headers (`ETag`, `Cache-Control`) for cheap revalidation. See
+response headers (`ETag`, `Cache-Control`) for cheap revalidation and `CDN-Tag` to purge by tag. See
 [Serving public data](public-serving.md).

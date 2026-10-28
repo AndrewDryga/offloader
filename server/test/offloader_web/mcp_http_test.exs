@@ -138,6 +138,8 @@ defmodule OffloaderWeb.MCPHTTPTest do
       assert result["ttlMs"] > 0
       assert [cache_control] = get_resp_header(conn, "cache-control")
       assert cache_control =~ "public, max-age="
+      # The same purge tag as the REST response for this endpoint.
+      assert get_resp_header(conn, "cdn-tag") == ["offloader:champion_stats:champion"]
 
       assert [row] = payload(result)["data"]
       assert row["champion_id"] == "1"
@@ -148,6 +150,7 @@ defmodule OffloaderWeb.MCPHTTPTest do
 
       refute Map.has_key?(result(conn), "cacheScope")
       assert get_resp_header(conn, "cache-control") == ["private, no-store"]
+      assert get_resp_header(conn, "cdn-tag") == []
     end
 
     test "a non-string argument is coerced the same way a query string would be" do
@@ -295,6 +298,7 @@ defmodule OffloaderWeb.MCPHTTPTest do
 
       assert result["cacheScope"] == "private"
       assert get_resp_header(conn, "cache-control") == ["private, no-store"]
+      assert get_resp_header(conn, "cdn-tag") == []
       assert payload(result)["data"] != []
     end
 

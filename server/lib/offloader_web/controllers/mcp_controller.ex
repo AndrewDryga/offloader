@@ -244,8 +244,9 @@ defmodule OffloaderWeb.MCPController do
          {:ok, name, arguments} <- parse_resource_uri(uri) do
       case read(conn, name, arguments) do
         {:ok, tenant, response} ->
-          send_result(
-            conn,
+          conn
+          |> CachePolicy.put_cdn_tag(tenant, name)
+          |> send_result(
             id,
             %{contents: [resource_content(uri, encode(response))]},
             cache_fields(tenant, CachePolicy.ttl_seconds(response))

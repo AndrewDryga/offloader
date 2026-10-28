@@ -121,6 +121,11 @@ revalidates with <code>If-None-Match</code>; if nothing changed, Offloader retur
 <li><strong><code>Cache-Control: public, max-age=&lt;n&gt;, stale-while-revalidate=60</code></strong> — <code>max-age</code> is derived from the
 endpoint&#39;s <code>freshness.max_staleness_minutes</code> (capped at 1 hour), so a cache holds the response
 exactly as long as it&#39;s considered fresh, then revalidates by ETag.</li>
+<li><strong><code>CDN-Tag: offloader:&lt;dataset&gt;:&lt;endpoint&gt;</code></strong> — a tag for CDNs that purge by tag (bunny.net
+reads this header, and its tag purge accepts wildcards). After a new snapshot lands, purge
+<code>offloader:&lt;dataset&gt;:*</code> to drop everything built from that dataset. Purge the exact tag to drop
+one endpoint, or <code>offloader:*</code> to drop everything Offloader served. Cloudflare and Fastly read
+other header names (<code>Cache-Tag</code>, <code>Surrogate-Key</code>).</li>
 </ul>
 <p>Authed (non-public) responses instead get <strong><code>Cache-Control: private, no-store</code></strong> — per-tenant data
 never lands in a shared cache.</p>

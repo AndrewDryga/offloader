@@ -256,7 +256,7 @@ typed client, or the <code>/schema</code> output for the params and response sha
 <h2 id="caching-at-the-edge">Caching at the edge</h2>
 <p>Public (<code>auth: none</code>) endpoints are safe to cache: the response is immutable for a given
 <code>snapshot_id</code>, and a new snapshot changes it. Front a public deployment with your CDN, and use the
-response headers (<code>ETag</code>, <code>Cache-Control</code>) for cheap revalidation. See
+response headers (<code>ETag</code>, <code>Cache-Control</code>) for cheap revalidation and <code>CDN-Tag</code> to purge by tag. See
 <a href="public-serving.html">Serving public data</a>.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">

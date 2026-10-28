@@ -37,6 +37,11 @@ such as `request_id` and `generated_at`, differs between responses. So public re
 - **`Cache-Control: public, max-age=<n>, stale-while-revalidate=60`** — `max-age` is derived from the
   endpoint's `freshness.max_staleness_minutes` (capped at 1 hour), so a cache holds the response
   exactly as long as it's considered fresh, then revalidates by ETag.
+- **`CDN-Tag: offloader:<dataset>:<endpoint>`** — a tag for CDNs that purge by tag (bunny.net
+  reads this header, and its tag purge accepts wildcards). After a new snapshot lands, purge
+  `offloader:<dataset>:*` to drop everything built from that dataset. Purge the exact tag to drop
+  one endpoint, or `offloader:*` to drop everything Offloader served. Cloudflare and Fastly read
+  other header names (`Cache-Tag`, `Surrogate-Key`).
 
 Authed (non-public) responses instead get **`Cache-Control: private, no-store`** — per-tenant data
 never lands in a shared cache.
