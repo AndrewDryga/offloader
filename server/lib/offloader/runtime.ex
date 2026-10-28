@@ -60,6 +60,8 @@ defmodule Offloader.Runtime do
   # the context once per (re)load.
   @cache_seq_key :__cache_seq__
   @sidecar "snapshots.json"
+  # Bump when the sidecar's shape changes; an unknown version boots cold.
+  @sidecar_version 2
   # How long to wait before re-staging a schema cutover whose build wasn't ready yet
   # (the producer may not have published matching data at the moment config changed).
   @stage_retry_ms 30_000
@@ -350,17 +352,37 @@ defmodule Offloader.Runtime do
 
   # ── boot: warm start + initial refresh + workers ────────────────────────────────
 
-  # Seed snapshot state from the sidecar for every dataset whose materialized table
-  # survived in the persistent DuckDB file — endpoints serve immediately; the initial
-  # refresh then no-ops (same snapshot) or picks up a newer one.
+  # Seed snapshot state from the sidecar for every dataset whose stored table was built from
+  # what the config says today: still configured, same fingerprint (source + contract), and the
+  # table still in the DuckDB file. Endpoints serve at once and the initial refresh no-ops (same
+  # snapshot) or picks up a newer one. Anything else boots cold, so a warm start always ends
+  # where a cold boot would.
   defp seed_from_sidecar(state) do
-    for {dataset_id, snap} <- read_sidecar(state.cache_dir),
-        Map.has_key?(state.catalog.datasets, dataset_id),
-        match?({:ok, _}, Engine.known_columns(state.engine, snap.table)),
+    for {dataset_id, %{active: snap}} <- read_sidecar(state.cache_dir),
+        seedable?(state, dataset_id, snap),
         reduce: state do
       acc ->
-        Logger.info("warm start: #{dataset_id} serving #{snap.snapshot_id} from disk")
-        put_snapshot(acc, dataset_id, %{active: snap, previous: nil, last_attempted: nil})
+        # Point the view at the stored table: a crash between a swap and its sidecar write
+        # could have left it on another one.
+        case Engine.swap(acc.engine, dataset_id, snap.table) do
+          :ok ->
+            Logger.info("warm start: #{dataset_id} serving #{snap.snapshot_id} from disk")
+            put_snapshot(acc, dataset_id, %{active: snap, previous: nil, last_attempted: nil})
+
+          {:error, _} ->
+            acc
+        end
+    end
+  end
+
+  defp seedable?(state, dataset_id, snap) do
+    case state.catalog.datasets[dataset_id] do
+      nil ->
+        false
+
+      dataset ->
+        snap.fingerprint == Refresh.fingerprint(dataset, how(dataset, state)) and
+          match?({:ok, _}, Engine.known_columns(state.engine, snap.table))
     end
   end
 
@@ -768,18 +790,18 @@ defmodule Offloader.Runtime do
 
   # ── warm-start sidecar ──────────────────────────────────────────────────────────
 
-  # %{dataset_id => active snap}, written atomically on every swap/rollback so a
-  # restart can serve the on-disk snapshot before the first remote resolve.
+  # `{"version": 2, "datasets": {id => {"active": snap}}}`, written atomically on every
+  # swap/rollback so a restart can serve the on-disk snapshot before the first remote resolve.
+  # Each snap carries the fingerprint it was built from; warm start checks it against config.
   defp write_sidecar(state) do
-    payload =
-      state.snapshots
-      |> Enum.filter(fn {_id, entry} -> entry.active end)
-      |> Map.new(fn {id, entry} -> {id, entry.active} end)
+    datasets =
+      for {id, %{active: %{} = active}} <- state.snapshots, into: %{}, do: {id, %{active: active}}
 
+    payload = %{version: @sidecar_version, datasets: datasets}
     path = Path.join(state.cache_dir, @sidecar)
     tmp = path <> ".tmp"
 
-    with :ok <- File.write(tmp, JSON.encode_to_iodata!(payload)),
+    with :ok <- File.write(tmp, JSON.encode_to_iodata!(payload), [:sync]),
          :ok <- File.rename(tmp, path) do
       :ok
     else
@@ -787,23 +809,33 @@ defmodule Offloader.Runtime do
     end
   end
 
+  # Only the current format is trusted. An older file has no fingerprints, so every dataset
+  # boots cold once rather than guessing whether its stored table still matches the config.
   defp read_sidecar(cache_dir) do
     with {:ok, body} <- File.read(Path.join(cache_dir, @sidecar)),
-         {:ok, payload} when is_map(payload) <- JSON.decode(body) do
-      for {id, snap} <- payload, is_map(snap), is_binary(snap["snapshot_id"]), into: %{} do
-        {id,
-         %{
-           snapshot_id: snap["snapshot_id"],
-           watermark: snap["watermark"],
-           table: snap["table"],
-           files: snap["files"] || [],
-           dir: snap["dir"]
-         }}
+         {:ok, %{"version" => @sidecar_version, "datasets" => datasets}} when is_map(datasets) <-
+           JSON.decode(body) do
+      for {id, %{"active" => raw}} <- datasets, snap <- List.wrap(decode_snap(raw)), into: %{} do
+        {id, %{active: snap}}
       end
     else
       _ -> %{}
     end
   end
+
+  defp decode_snap(%{"snapshot_id" => sid, "table" => table, "fingerprint" => fp} = raw)
+       when is_binary(sid) and is_binary(table) and is_binary(fp) do
+    %{
+      snapshot_id: sid,
+      watermark: raw["watermark"],
+      table: table,
+      files: raw["files"] || [],
+      dir: raw["dir"],
+      fingerprint: fp
+    }
+  end
+
+  defp decode_snap(_raw), do: nil
 
   # ── diagnostics ─────────────────────────────────────────────────────────────────
 

@@ -21,8 +21,12 @@ defmodule Offloader.Refresh do
           watermark: String.t() | nil,
           table: String.t(),
           files: [map()],
-          dir: String.t() | nil
+          dir: String.t() | nil,
+          fingerprint: String.t()
         }
+
+  # Bump when the way a table is built changes, so stored tables are rebuilt once.
+  @materialization_version 1
   @type attempt :: %{
           snapshot_id: String.t() | nil,
           status: :ok | :unchanged | :rejected | :failed,
@@ -48,6 +52,7 @@ defmodule Offloader.Refresh do
   def perform(engine, dataset, active, how, opts \\ []) do
     force = Keyword.get(opts, :force, false)
     quarantined = Keyword.get(opts, :quarantined)
+    fingerprint = fingerprint(dataset, how)
 
     case resolve(dataset, how) do
       {:ok, :none} ->
@@ -55,7 +60,10 @@ defmodule Offloader.Refresh do
 
       {:ok, %Manifest{} = manifest} ->
         cond do
-          not force and active != nil and manifest.snapshot_id == active.snapshot_id ->
+          # The same snapshot id is only "already serving" when it was built from the same
+          # source and contract; a moved manifest or a changed schema must rebuild.
+          not force and active != nil and manifest.snapshot_id == active.snapshot_id and
+              Map.get(active, :fingerprint) == fingerprint ->
             {:unchanged, attempt(manifest.snapshot_id, :unchanged, nil)}
 
           # This snapshot was just rolled back from — an auto-poll must NOT re-pull it, or
@@ -70,7 +78,7 @@ defmodule Offloader.Refresh do
              )}
 
           true ->
-            check_and_swap(engine, dataset, manifest)
+            check_and_swap(engine, dataset, manifest, fingerprint)
         end
 
       {:rejected, snapshot_id, summary} ->
@@ -94,6 +102,33 @@ defmodule Offloader.Refresh do
     do: "snap_" <> dataset_id <> "_" <> Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)
 
   @doc """
+  What a materialized table was built from: where the snapshot came from (the static manifest
+  path, or the source's type, bucket and prefix as the URL the engine reads) and every part of
+  the contract that shapes the table (schema, tenant column, sort columns). A stored table is
+  reused only while this matches; anything else rebuilds it, as a cold boot would.
+  """
+  @spec fingerprint(Offloader.Catalog.Dataset.t(), {:static, String.t()} | {:source, map()}) ::
+          String.t()
+  def fingerprint(dataset, how) do
+    [
+      @materialization_version,
+      source_identity(how),
+      Enum.map(dataset.schema, &[&1.name, &1.type]),
+      dataset.tenant_column,
+      dataset.sort_columns
+    ]
+    |> JSON.encode!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 32)
+  end
+
+  defp source_identity({:static, path}), do: ["static", Path.expand(path)]
+
+  defp source_identity({:source, source}),
+    do: ["source", source.type, Offloader.Gcs.Client.object_url(source.bucket, source.prefix)]
+
+  @doc """
   Materialize the dataset's latest snapshot into `table` WITHOUT swapping the live view — the
   blue-green BUILD step for a zero-downtime schema cutover. `table` is a caller-chosen name
   DISTINCT from the live snapshot table, so the build never touches what's serving; the Runtime
@@ -113,7 +148,7 @@ defmodule Offloader.Refresh do
         {:failed, attempt(nil, :failed, "source has no committed snapshot")}
 
       {:ok, %Manifest{} = manifest} ->
-        stage_manifest(engine, dataset, manifest, table)
+        stage_manifest(engine, dataset, manifest, table, fingerprint(dataset, how))
 
       {:rejected, snapshot_id, summary} ->
         log(dataset, :rejected, summary)
@@ -125,7 +160,7 @@ defmodule Offloader.Refresh do
     end
   end
 
-  defp stage_manifest(engine, dataset, manifest, table) do
+  defp stage_manifest(engine, dataset, manifest, table, fingerprint) do
     case Manifest.compatibility(manifest, dataset) do
       {:error, errors} ->
         summary = summarize(errors)
@@ -136,7 +171,7 @@ defmodule Offloader.Refresh do
         with {:materialize, {:ok, _}} <-
                {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
              {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)} do
-          {:staged, snap(manifest, table)}
+          {:staged, snap(manifest, table, fingerprint)}
         else
           {:check, error} -> discard(engine, dataset, manifest, table, error)
           {step, {:error, error}} -> failed(dataset, manifest, step, error)
@@ -173,7 +208,7 @@ defmodule Offloader.Refresh do
 
   # ── compatibility → materialize → swap ─────────────────────────────────────────
 
-  defp check_and_swap(engine, dataset, manifest) do
+  defp check_and_swap(engine, dataset, manifest, fingerprint) do
     case Manifest.compatibility(manifest, dataset) do
       {:error, errors} ->
         summary = summarize(errors)
@@ -181,18 +216,18 @@ defmodule Offloader.Refresh do
         {:rejected, attempt(manifest.snapshot_id, :rejected, summary)}
 
       :ok ->
-        materialize_and_swap(engine, dataset, manifest)
+        materialize_and_swap(engine, dataset, manifest, fingerprint)
     end
   end
 
-  defp materialize_and_swap(engine, dataset, manifest) do
+  defp materialize_and_swap(engine, dataset, manifest, fingerprint) do
     table = new_table(dataset.id)
 
     with {:materialize, {:ok, _}} <-
            {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
          {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)},
          {:swap, :ok} <- {:swap, Engine.swap(engine, dataset.id, table)} do
-      {:swapped, snap(manifest, table), attempt(manifest.snapshot_id, :ok, nil)}
+      {:swapped, snap(manifest, table, fingerprint), attempt(manifest.snapshot_id, :ok, nil)}
     else
       {:check, error} -> discard(engine, dataset, manifest, table, error)
       {step, {:error, error}} -> failed(dataset, manifest, step, error)
@@ -233,13 +268,14 @@ defmodule Offloader.Refresh do
 
   # ── helpers ─────────────────────────────────────────────────────────────────────
 
-  defp snap(manifest, table),
+  defp snap(manifest, table, fingerprint),
     do: %{
       snapshot_id: manifest.snapshot_id,
       watermark: manifest.watermark,
       table: table,
       files: manifest.files,
-      dir: manifest.dir
+      dir: manifest.dir,
+      fingerprint: fingerprint
     }
 
   defp attempt(snapshot_id, status, error),

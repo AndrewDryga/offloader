@@ -151,6 +151,10 @@ not seconds. So in production, **persist it**:
   present twice during its swap.
 - **It is disposable.** Losing the volume (a new host, a wiped disk) only forces one cold start;
   it never risks data, because the bucket is authoritative.
+- **A warm start only reuses what still matches the config.** Each stored snapshot records the
+  source and contract it was built from. If you change a dataset's manifest path, source, schema,
+  tenant column, or the columns its endpoints filter on, that dataset rebuilds on the next boot.
+  The first boot after upgrading from v0.1.10 or earlier rebuilds every dataset once.
 
 An endpoint's [`serving_mode: remote_scan`](config-reference.md#endpointsyml) makes
 DuckDB query the active snapshot's Parquet **directly from object storage** instead

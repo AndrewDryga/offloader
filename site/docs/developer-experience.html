@@ -220,6 +220,10 @@ the new copy of a dataset before dropping the old one, so budget for the largest
 present twice during its swap.</li>
 <li><strong>It is disposable.</strong> Losing the volume (a new host, a wiped disk) only forces one cold start;
 it never risks data, because the bucket is authoritative.</li>
+<li><strong>A warm start only reuses what still matches the config.</strong> Each stored snapshot records the
+source and contract it was built from. If you change a dataset&#39;s manifest path, source, schema,
+tenant column, or the columns its endpoints filter on, that dataset rebuilds on the next boot.
+The first boot after upgrading from v0.1.10 or earlier rebuilds every dataset once.</li>
 </ul>
 <p>An endpoint&#39;s <a href="config-reference.html#endpointsyml"><code>serving_mode: remote_scan</code></a> makes
 DuckDB query the active snapshot&#39;s Parquet <strong>directly from object storage</strong> instead
