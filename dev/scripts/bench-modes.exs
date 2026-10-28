@@ -20,9 +20,8 @@ iterations = 500
 cache = Path.join(System.tmp_dir!(), "offl_bench_#{System.unique_integer([:positive])}")
 {:ok, eng} = Engine.start_link(cache_dir: cache)
 {:ok, _} = Engine.materialize(eng, "snap", m)
-:ok = Engine.swap(eng, "customer_usage", "snap")
 
-{:ok, table_plan} = Compiler.compile(ep, params, tenant, {:table, "customer_usage"})
+{:ok, table_plan} = Compiler.compile(ep, params, tenant, {:table, "snap"})
 {:ok, scan_plan} = Compiler.compile(ep, params, tenant, {:scan, m.files, m.dir})
 
 time = fn label, fun ->

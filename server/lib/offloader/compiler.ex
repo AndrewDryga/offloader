@@ -378,7 +378,7 @@ defmodule Offloader.Compiler do
 
   defp find_select(endpoint, as), do: Enum.find(endpoint.select, &(&1.as == as))
 
-  # local_table reads a materialized view/table; remote_scan reads the source files
+  # local_table reads the snapshot's materialized table; remote_scan reads the source files
   # directly per request (a subquery). Both come from validated config/manifests.
   defp from_sql({:table, name}), do: ident(name)
   defp from_sql({:scan, files, dir}), do: "(" <> Offloader.Sql.read_files_expr(files, dir) <> ")"

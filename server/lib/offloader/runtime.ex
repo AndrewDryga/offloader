@@ -21,10 +21,10 @@ defmodule Offloader.Runtime do
   ## Refresh is per-dataset workers; the Runtime applies the bookkeeping
 
   Each dataset's poll loop lives in its own supervised `Refresh.Worker`, so a slow or
-  wedged source delays only that dataset. The slow work (resolve, materialize, swap —
+  wedged source delays only that dataset. The slow work (resolve, materialize, check —
   see `Offloader.Refresh`) runs in the worker; the worker then hands the outcome to
-  this GenServer (`{:apply_refresh, ...}`), which remains the single writer of the
-  snapshot ETS, the response cache, and the warm-start sidecar. A failed or rejected
+  this GenServer (`{:apply_refresh, ...}`), which publishes the new snapshot and remains
+  the single writer of the snapshot ETS, the response cache, and the warm-start sidecar. A failed or rejected
   refresh records the attempt and leaves the active snapshot serving. The previous
   good snapshot is retained so `rollback/2` can revert — including across a restart,
   via the sidecar (`<cache_dir>/snapshots.json`) plus the persistent DuckDB file.
@@ -61,7 +61,7 @@ defmodule Offloader.Runtime do
   # Bound the response cache so an endpoint with open-cardinality params (a wide date
   # filter, a `string` param) can't grow it without limit → OOM/DoS. Each entry carries a
   # monotonic tag; on overflow we drop the oldest quarter in one pass, so eviction is
-  # amortized O(1). Correctness never depends on eviction — snapshot_id is in the key.
+  # amortized O(1). Correctness never depends on eviction — the table is in the key.
   # The ceiling is `Config.cache_max_entries/0` (OFFLOADER_CACHE_MAX_ENTRIES), read into
   # the context once per (re)load.
   @cache_seq_key :__cache_seq__
@@ -161,8 +161,8 @@ defmodule Offloader.Runtime do
   @doc "Roll a dataset back to its previous good snapshot. {:ok, snapshot_id} or {:error, :no_previous}."
   @spec rollback(GenServer.server(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def rollback(server \\ __MODULE__, dataset_id),
-    # The handler runs a writer swap (120s budget), so the CALL must allow at least
-    # that — the 5s default would crash the caller for an action that still applies.
+    # The Runtime may be busy applying a reload or another dataset's refresh; the 5s
+    # default would crash the caller for a rollback that still applies.
     do: GenServer.call(server, {:rollback, dataset_id}, 120_000)
 
   @doc """
