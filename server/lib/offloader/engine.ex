@@ -195,7 +195,7 @@ defmodule Offloader.Engine do
   # with a short backoff so a transient reopen race doesn't flap the Engine straight into
   # the top supervisor's restart-intensity ceiling (an app-wide shutdown).
   defp open_db(path, attempts) when attempts > 1 do
-    case Duckdbex.open(path) do
+    case open_file(path) do
       {:ok, db} ->
         {:ok, db}
 
@@ -205,7 +205,17 @@ defmodule Offloader.Engine do
     end
   end
 
-  defp open_db(path, _attempts), do: Duckdbex.open(path)
+  defp open_db(path, _attempts), do: open_file(path)
+
+  # DuckDB 2.0 writes a file it creates in a format 1.5 cannot open, so rolling the image back
+  # to a release on duckdbex 0.5 (v0.1.10 and earlier) would crash-loop on the cache volume.
+  # Create files in the 1.5-readable format while that rollback still matters.
+  defp open_file(path) do
+    with {:ok, config} <- Duckdbex.create_config(),
+         :ok <- Duckdbex.set_config_option(config, "storage_compatibility_version", "v1.0.0") do
+      Duckdbex.open(path, config)
+    end
+  end
 
   # Keep object-store credentials (HMAC secret / session token / bearer) out of the
   # crash-report state OTP logs on an abnormal exit.
@@ -541,6 +551,7 @@ defmodule Offloader.Engine do
   defp new_connection(db, object_store) do
     with {:ok, conn} <- Duckdbex.connection(db),
          :ok <- enable_extensions(conn),
+         :ok <- pin_utc(conn),
          :ok <- enable_remote_read_caches(conn),
          :ok <- Offloader.ObjectStore.configure(conn, object_store) do
       {:ok, conn}
@@ -558,16 +569,29 @@ defmodule Offloader.Engine do
     end
   end
 
+  # DuckDB 2.0 bundles ICU, whose TimeZone follows the host. A TIMESTAMPTZ cast to the
+  # contract's TIMESTAMP, or compared with a date param, would then shift with the machine.
+  # DuckDB 1.5 has no ICU here and always uses UTC, so pin UTC wherever the setting exists.
+  defp pin_utc(conn) do
+    with {:ok, result} <-
+           Duckdbex.query(conn, "SELECT count(*) FROM duckdb_settings() WHERE name = 'TimeZone'") do
+      case Duckdbex.fetch_all(result) do
+        [[0]] -> :ok
+        _ -> with {:ok, _} <- Duckdbex.query(conn, "SET TimeZone = 'UTC';"), do: :ok
+      end
+    end
+  end
+
   # Cache remote object-store metadata across queries so remote_scan endpoints don't
-  # re-fetch every Parquet footer from GCS/S3 on each request (measured ~130ms → ~4ms on
-  # repeated scans of the same files). DuckDB keeps these off by default because a file
-  # can change under a cached URL — but Offloader snapshots are IMMUTABLE: a new snapshot
-  # is new file URLs (commit protocol), so a cached URL's bytes never change underneath us.
-  # (`enable_external_file_cache`, the data-block cache, is already on by default in 1.5.)
-  # No-op cost for local_table deployments — there are no remote files to cache.
+  # re-fetch file metadata and every Parquet footer from GCS/S3 on each request. DuckDB
+  # keeps these off by default because a file can change under a cached URL — but Offloader
+  # snapshots are IMMUTABLE: a new snapshot is new file URLs (commit protocol), so a cached
+  # URL's bytes never change underneath us. The footer cache also re-reads a local file
+  # whose mtime changed. (`enable_external_file_cache`, the data-block cache, is on by
+  # default.) No-op cost for local_table deployments — there are no remote files to cache.
   defp enable_remote_read_caches(conn) do
     with {:ok, _} <- Duckdbex.query(conn, "SET enable_http_metadata_cache=true;"),
-         {:ok, _} <- Duckdbex.query(conn, "SET enable_object_cache=true;") do
+         {:ok, _} <- Duckdbex.query(conn, "SET parquet_metadata_cache=true;") do
       :ok
     end
   end

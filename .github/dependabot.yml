@@ -18,6 +18,10 @@ updates:
     directory: "/server"
     schedule:
       interval: weekly
+    # `mix deps.update` skips a Hex release for its first 7 days; wait as long here, so a
+    # Dependabot PR never proposes a version a local update would refuse.
+    cooldown:
+      default-days: 7
     groups:
       hex:
         patterns: ["*"]

@@ -48,13 +48,26 @@ defmodule Offloader.EngineTest do
     # remote_scan re-reads a Parquet footer from the object store on every request; caching
     # it is the optimization (safe because Offloader snapshots are immutable). Assert both are
     # on via a pool connection so a future connection-init refactor can't silently drop them.
-    for setting <- ["enable_http_metadata_cache", "enable_object_cache"] do
+    for setting <- ["enable_http_metadata_cache", "parquet_metadata_cache"] do
       assert {:ok, %{rows: [["true"]]}} =
                Engine.execute(
                  eng,
                  "SELECT value FROM duckdb_settings() WHERE name = '#{setting}'"
                )
     end
+  end
+
+  test "a TIMESTAMPTZ read as a TIMESTAMP is in UTC, whatever the host's zone", %{eng: eng} do
+    sql = "SELECT '2024-03-15 01:02:03+05'::TIMESTAMPTZ::TIMESTAMP AS at"
+
+    assert {:ok, %{rows: [["2024-03-14T20:02:03.000000"]]}} =
+             Engine.execute(eng, sql, [], [], types: ["TIMESTAMP"])
+  end
+
+  test "the database file stays in the format DuckDB 1.5 can open", %{eng: eng} do
+    sql = "SELECT tags['storage_version'] FROM duckdb_databases() WHERE NOT internal"
+    assert {:ok, %{rows: rows}} = Engine.execute(eng, sql)
+    assert ["v1.0.0+"] in rows
   end
 
   test "execute binds only values as params and decodes the declared types", %{eng: eng} do
