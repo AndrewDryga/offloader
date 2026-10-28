@@ -11,22 +11,20 @@ end
 defmodule Offloader.Engine do
   @moduledoc """
   The DuckDB materialization + query boundary. Narrow on purpose: load a validated
-  snapshot into a local table, atomically swap the active pointer, execute a
-  compiled parameterized query, and list a table's columns. Endpoint contracts do
+  snapshot into a local table, execute a compiled parameterized query against it,
+  list a table's columns, and drop it once it is retired. Endpoint contracts do
   not know this exists (`docs/architecture.md` — "DuckDB is an implementation
   detail").
 
   ## Reads and writes are separated so reads scale
 
   One DuckDB *database* is shared. A single **writer** connection, owned by this
-  GenServer, serializes the rare mutations (materialize / swap / drop) so a
-  materialization can't be corrupted mid-swap. **Reads go through a pool** of
-  dedicated connections and *bypass the GenServer entirely* — `execute/3` runs in
-  the caller's process, so thousands of concurrent requests are limited by DuckDB's
-  own parallelism, not by one mailbox. DuckDB's MVCC keeps the previous snapshot
-  visible to in-flight readers until a `CREATE OR REPLACE` commits, so a swap never
-  blocks or tears a concurrent read (verified: readers see a consistent snapshot
-  across atomic swaps).
+  GenServer, serializes the rare mutations (materialize / drop). **Reads go through a
+  pool** of dedicated connections and *bypass the GenServer entirely* — `execute/3`
+  runs in the caller's process, so thousands of concurrent requests are limited by
+  DuckDB's own parallelism, not by one mailbox. Every build is its own table, so a
+  write never touches what a reader queries, and DuckDB's MVCC lets a query that has
+  started finish even if its table is dropped meanwhile.
 
   The pool is an ETS table of `{slot, connection}` plus an `:atomics` array used as a
   per-slot spinlock (0 = free, 1 = busy): a caller claims a slot with an atomic
@@ -98,11 +96,6 @@ defmodule Offloader.Engine do
           {:ok, map()} | {:error, Error.t()}
   def materialize(server, table, %Manifest{} = manifest, sort_columns \\ []),
     do: writer_call(server, {:materialize, table, manifest, sort_columns}, @materialize_timeout)
-
-  @doc "Atomically point `active` (a view) at `table`, so readers see the new snapshot at once."
-  @spec swap(GenServer.server(), String.t(), String.t()) :: :ok | {:error, Error.t()}
-  def swap(server, active, table),
-    do: writer_call(server, {:swap, active, table}, @writer_timeout)
 
   @doc """
   Run a compiled SQL string with bound value params, on a pooled read connection in
@@ -281,16 +274,6 @@ defmodule Offloader.Engine do
          {:ok, count} <- table_count(state.writer, ident) do
       {:reply, {:ok, %{table: table, row_count: count}}, state}
     else
-      {:error, %Error{}} = err -> {:reply, err, state}
-    end
-  end
-
-  @impl true
-  def handle_call({:swap, active, table}, _from, state) do
-    sql = "CREATE OR REPLACE VIEW #{quote_ident(active)} AS SELECT * FROM #{quote_ident(table)}"
-
-    case run(state.writer, sql, [], :swap_failed) do
-      {:ok, _} -> {:reply, :ok, state}
       {:error, %Error{}} = err -> {:reply, err, state}
     end
   end

@@ -110,13 +110,6 @@ defmodule Offloader.EngineTest do
     assert acme + globex < 36
   end
 
-  test "swap points an active view at the snapshot", %{eng: eng} do
-    assert :ok = Engine.swap(eng, "customer_usage", "snap")
-
-    assert {:ok, %{rows: [[36]]}} =
-             Engine.execute(eng, "SELECT count(*)::BIGINT FROM customer_usage")
-  end
-
   test "a bad query is wrapped as a stable engine error, not a crash", %{eng: eng} do
     assert {:error, %Error{reason: :query_failed}} =
              Engine.execute(eng, "SELECT * FROM does_not_exist")
@@ -147,7 +140,6 @@ defmodule Offloader.EngineTest do
 
     # A slow/failed writer must surface as {:error, ...} so one bad dataset can't crash
     # the caller (boot / a refresh worker) with an unhandled exit.
-    assert {:error, %Error{reason: :engine_unavailable}} = Engine.swap(eng, "a", "b")
     assert {:error, %Error{reason: :engine_unavailable}} = Engine.drop(eng, "x")
 
     manifest = %Manifest{
@@ -197,11 +189,6 @@ defmodule Offloader.EngineTest do
 
     assert %{connections: 0, busy: 0, saturated: false} =
              Engine.pool_stats(:offloader_engine_absent)
-  end
-
-  test "swapping from a non-existent source table is a clean swap_failed error", %{eng: eng} do
-    assert {:error, %Error{reason: :swap_failed}} =
-             Engine.swap(eng, "target", "no_such_source_table")
   end
 
   test "applies OFFLOADER_DUCKDB_MEMORY_LIMIT as a global DuckDB cap" do

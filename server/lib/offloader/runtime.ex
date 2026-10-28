@@ -8,11 +8,15 @@ defmodule Offloader.Runtime do
   ## Reads bypass the GenServer
 
   Serving must not queue behind a slow refresh, so the read path runs in the CALLER's
-  process, not the GenServer's mailbox. The immutable catalog lives in
-  `:persistent_term`; per-dataset snapshot state and the response cache live in
-  concurrent ETS tables. `serve/5`, `authorize/3`, `diagnostics/1`, and the health
-  reads all hit those directly — a multi-second `materialize` never blocks a request
-  or a liveness probe.
+  process, not the GenServer's mailbox. The served catalog and each dataset's active
+  snapshot are published together as ONE `:persistent_term` context; the full snapshot
+  state (for diagnostics) and the response cache live in concurrent ETS tables.
+  `serve/5`, `authorize/3`, `diagnostics/1`, and the health reads all hit those
+  directly — a multi-second `materialize` never blocks a request or a liveness probe.
+
+  A request reads the context once and queries its snapshot's own table, so the endpoint
+  contract, the snapshot it reports and the data it reads always come from the same
+  publish, even while a refresh, rollback or schema cutover lands.
 
   ## Refresh is per-dataset workers; the Runtime applies the bookkeeping
 
@@ -47,7 +51,9 @@ defmodule Offloader.Runtime do
     pending: %{},
     staging_refs: %{},
     stage_gen: 0,
-    intended_auth_mode: nil
+    intended_auth_mode: nil,
+    # bumped on every served-catalog change; part of the response-cache key
+    gen: 0
   ]
 
   @snapshots_ets [:public, :set, read_concurrency: true]
@@ -59,6 +65,10 @@ defmodule Offloader.Runtime do
   # The ceiling is `Config.cache_max_entries/0` (OFFLOADER_CACHE_MAX_ENTRIES), read into
   # the context once per (re)load.
   @cache_seq_key :__cache_seq__
+  # How long a replaced table outlives its last publish. A request that read the previous
+  # context may not have started its query yet; once started, DuckDB lets it finish even if
+  # the table is dropped.
+  @retire_grace_ms 5_000
   @sidecar "snapshots.json"
   # Bump when the sidecar's shape changes; an unknown version boots cold.
   @sidecar_version 2
@@ -173,12 +183,12 @@ defmodule Offloader.Runtime do
     end
   end
 
-  @doc "The active snap for a dataset (what `serve` reads), or nil. A plain ETS read."
+  @doc "The active snap for a dataset (what `serve` reads), or nil."
   @spec snapshot_active(GenServer.server(), String.t()) :: map() | nil
   def snapshot_active(server \\ __MODULE__, dataset_id) do
-    case snapshot_state(server, dataset_id) do
-      %{active: active} -> active
-      _ -> nil
+    case context(server) do
+      nil -> nil
+      ctx -> ctx.active[dataset_id]
     end
   end
 
@@ -256,7 +266,7 @@ defmodule Offloader.Runtime do
       }
 
       # Publish the read context before the initial refresh so reads resolve at once.
-      :persistent_term.put({__MODULE__, self()}, context_of(state))
+      publish(state)
 
       warn_missing_source_credentials(catalog)
 
@@ -268,6 +278,7 @@ defmodule Offloader.Runtime do
       state =
         state
         |> seed_from_sidecar()
+        |> publish()
         |> initial_refresh()
         |> sweep_orphan_tables()
         |> start_workers()
@@ -363,23 +374,15 @@ defmodule Offloader.Runtime do
         seedable?(state, dataset_id, snap),
         reduce: state do
       acc ->
-        # Point the view at the stored table: a crash between a swap and its sidecar write
-        # could have left it on another one.
-        case Engine.swap(acc.engine, dataset_id, snap.table) do
-          :ok ->
-            Logger.info("warm start: #{dataset_id} serving #{snap.snapshot_id} from disk")
+        Logger.info("warm start: #{dataset_id} serving #{snap.snapshot_id} from disk")
 
-            put_snapshot(acc, dataset_id, %{
-              active: snap,
-              previous: kept_previous(acc, snap, record.previous),
-              last_attempted: nil,
-              # A rollback holds across the restart: the boot refresh must not re-pull this.
-              quarantined: record.quarantined
-            })
-
-          {:error, _} ->
-            acc
-        end
+        put_snapshot(acc, dataset_id, %{
+          active: snap,
+          previous: kept_previous(acc, snap, record.previous),
+          last_attempted: nil,
+          # A rollback holds across the restart: the boot refresh must not re-pull this.
+          quarantined: record.quarantined
+        })
     end
   end
 
@@ -658,53 +661,32 @@ defmodule Offloader.Runtime do
     end
   end
 
-  # The cutover. Order matters for tenant isolation: publish the NEW contract BEFORE flipping
-  # the physical view. The only inconsistent read window is then new-endpoint-vs-OLD-table,
-  # which fails CLOSED (a new tenant filter or a new column hits the old table and errors). The
-  # reverse order could serve an OLD no-filter endpoint against the NEW (multi-tenant) table and
-  # leak another tenant's rows. A schema cutover is not a rollback target, so the old-schema
-  # tables are dropped and `previous` is cleared.
+  # The cutover. The new contract and its table go live in ONE publish, so a request reads either
+  # the old endpoints over the old table or the new endpoints over the new one, never a mix (a
+  # mix could fail on a missing column, or serve an old no-tenant-filter endpoint over a new
+  # multi-tenant table). A schema cutover is not a rollback target, so the old-schema tables
+  # are retired and `previous` is cleared.
   defp cutover(state, id, pending, snap) do
-    old_catalog = state.catalog
+    entry = current_entry(state, id)
 
-    published =
+    state =
       state
       |> drop_pending(id)
       |> adopt(id, pending.new_dataset, pending.new_endpoints)
+      |> put_snapshot(id, %{
+        active: snap,
+        previous: nil,
+        last_attempted: ok_attempt(snap),
+        quarantined: nil
+      })
       |> republish()
 
-    case Engine.swap(published.engine, id, snap.table) do
-      :ok ->
-        entry = current_entry(published, id)
-
-        state =
-          published
-          |> put_snapshot(id, %{
-            active: snap,
-            previous: nil,
-            last_attempted: ok_attempt(snap),
-            quarantined: nil
-          })
-          |> flush_cache()
-
-        # Persist the new table before retiring the old-schema ones (see apply_outcome).
-        write_sidecar(state)
-        drop_table_async(state.engine, entry.active, snap)
-        drop_table_async(state.engine, entry.previous, snap)
-        Logger.info("config reload: schema cutover complete for #{id} → #{snap.snapshot_id}")
-        start_worker_for(state, pending.new_dataset)
-
-      {:error, error} ->
-        # The view never flipped. Revert to the old contract (don't keep serving new-endpoint-
-        # vs-old-table errors) and retry the build. Swap of an existing table effectively never
-        # fails, so this path is a belt-and-suspenders guard.
-        Logger.error("cutover swap failed for #{id}: #{inspect(error)} — reverting, will retry")
-        Process.send_after(self(), {:retry_stage, id, pending.gen}, @stage_retry_ms)
-
-        %{published | catalog: old_catalog}
-        |> republish()
-        |> put_pending(id, pending)
-    end
+    # Persist the new table before retiring the old-schema ones (see apply_outcome).
+    write_sidecar(state)
+    drop_table_async(state.engine, entry.active, snap)
+    drop_table_async(state.engine, entry.previous, snap)
+    Logger.info("config reload: schema cutover complete for #{id} → #{snap.snapshot_id}")
+    start_worker_for(state, pending.new_dataset)
   end
 
   # Replace a dataset's contract + its endpoint group in the served catalog.
@@ -746,13 +728,21 @@ defmodule Offloader.Runtime do
     %{new | datasets: datasets, endpoints: endpoints}
   end
 
-  # Publish the served catalog and flush the response cache. Never serve `auth: none` while a
-  # tenant-scoped endpoint is mid-cutover — fail closed to `required` until it lands.
+  # Publish a changed served catalog under a new generation and flush the response cache.
+  # Never serve `auth: none` while a tenant-scoped endpoint is mid-cutover — fail closed to
+  # `required` until it lands.
   defp republish(state) do
     served_auth = served_auth_mode(state.intended_auth_mode, state.catalog.endpoints)
     state = put_in(state.catalog.auth_mode, served_auth)
+    %{state | gen: state.gen + 1} |> publish() |> flush_cache()
+  end
+
+  # The one write readers see: the served catalog and every active snapshot, in a single term.
+  # Replacing a persistent term makes every process that holds the old one copy it, which is
+  # cheap at the rate snapshots and configs change, never per request.
+  defp publish(state) do
     :persistent_term.put({__MODULE__, self()}, context_of(state))
-    flush_cache(state)
+    state
   end
 
   defp flush_cache(state) do
@@ -807,11 +797,10 @@ defmodule Offloader.Runtime do
         # fix auto-recovers a rolled-back dataset).
         quarantined: nil
       })
+      |> publish()
 
-    # Drop only THIS dataset's cached responses. A new snapshot_id already makes them
-    # unreachable, but scoping the flush (vs. nuking the whole table on every dataset's
-    # swap) keeps other datasets warm, and covers a forced re-materialization of the same
-    # snapshot_id (a manual `refresh`) where the key is unchanged.
+    # The new table already makes this dataset's cached responses unreachable; drop them to
+    # free the space, and leave other datasets warm.
     state = flush_dataset_cache(state, dataset_id)
 
     # Persist before dropping anything: a crash in between can leak a table, but can never
@@ -837,20 +826,18 @@ defmodule Offloader.Runtime do
         {state, {:error, :no_previous}}
 
       previous ->
-        :ok = Engine.swap(state.engine, dataset_id, previous.table)
-
         state =
-          put_snapshot(state, dataset_id, %{
+          state
+          |> put_snapshot(dataset_id, %{
             entry
             | active: previous,
               previous: entry.active,
               # Quarantine the snapshot we're rolling back FROM so an auto-poll can't re-pull it.
               quarantined: entry.active && entry.active.snapshot_id
           })
+          |> publish()
+          |> flush_dataset_cache(dataset_id)
 
-        # Drop this dataset's entries: the bad snapshot's are now unreachable, and a
-        # forced re-serve should recompute rather than trust anything the bad build left.
-        state = flush_dataset_cache(state, dataset_id)
         write_sidecar(state)
         {state, {:ok, previous.snapshot_id}}
     end
@@ -1056,6 +1043,8 @@ defmodule Offloader.Runtime do
   defp context_of(state) do
     %{
       catalog: state.catalog,
+      gen: state.gen,
+      active: for({id, %{active: %{} = snap}} <- state.snapshots, into: %{}, do: {id, snap}),
       engine: state.engine,
       snapshots_table: state.snapshots_table,
       cache_table: state.cache_table,
@@ -1071,11 +1060,8 @@ defmodule Offloader.Runtime do
     end
   end
 
-  defp all_active?(ctx) do
-    Enum.all?(Map.keys(ctx.catalog.datasets), fn id ->
-      match?(%{active: %{}}, lookup_snapshot(ctx, id))
-    end)
-  end
+  defp all_active?(ctx),
+    do: Enum.all?(Map.keys(ctx.catalog.datasets), &Map.has_key?(ctx.active, &1))
 
   # ── state helpers ─────────────────────────────────────────────────────────────
 
@@ -1094,13 +1080,17 @@ defmodule Offloader.Runtime do
     %{state | snapshots: Map.put(state.snapshots, dataset_id, entry)}
   end
 
-  # Drop a superseded table off the Runtime's mailbox (a slow writer call must not
-  # block apply_refresh) — cleanup only, so a failed drop just leaves a stale table.
+  # Drop a superseded table off the Runtime's mailbox (a slow writer call must not block
+  # apply_refresh), after @retire_grace_ms so a request bound to the previous publish can still
+  # start its query. Cleanup only: a failed drop leaves a table the boot sweep removes.
   defp drop_table_async(_engine, nil, _keep), do: :ok
 
   defp drop_table_async(engine, %{table: table}, keep) do
     unless keep && table == keep.table do
-      Task.Supervisor.start_child(Offloader.TaskSupervisor, fn -> Engine.drop(engine, table) end)
+      Task.Supervisor.start_child(Offloader.TaskSupervisor, fn ->
+        Process.sleep(@retire_grace_ms)
+        Engine.drop(engine, table)
+      end)
     end
 
     :ok
@@ -1116,8 +1106,8 @@ defmodule Offloader.Runtime do
   end
 
   defp fetch_active(ctx, dataset) do
-    case lookup_snapshot(ctx, dataset) do
-      %{active: %{} = active} -> {:ok, active}
+    case ctx.active do
+      %{^dataset => snap} -> {:ok, snap}
       _ -> {:error, ApiError.new(:not_ready, "snapshot is not ready")}
     end
   end
@@ -1154,7 +1144,7 @@ defmodule Offloader.Runtime do
   defp do_serve(ctx, name, tenant, params, request_id) do
     with {:ok, endpoint} <- fetch_endpoint(ctx, name),
          {:ok, snapshot} <- fetch_active(ctx, endpoint.dataset) do
-      key = cache_key(endpoint, tenant, params, snapshot.snapshot_id)
+      key = cache_key(ctx, endpoint, tenant, params, snapshot)
 
       case cache_get(ctx, endpoint, key) do
         {:ok, {json, row_count}} ->
@@ -1214,21 +1204,22 @@ defmodule Offloader.Runtime do
     end
   end
 
-  # local_table (default) reads the materialized view; remote_scan reads the snapshot's
-  # source files directly per request.
+  # local_table (default) reads the snapshot's materialized table; remote_scan reads its source
+  # files directly per request.
   defp source_for(%{serving_mode: "remote_scan"}, snapshot),
     do: {:scan, snapshot.files, snapshot.dir}
 
-  defp source_for(endpoint, _snapshot), do: {:table, endpoint.dataset}
+  defp source_for(_endpoint, snapshot), do: {:table, snapshot.table}
 
   defp cacheable?(%{cache_policy: "snapshot"}), do: true
   defp cacheable?(_), do: false
 
-  # Key includes endpoint (which fixes the projection), tenant, the full request
-  # params, and the snapshot id — so a new snapshot invalidates by construction.
-  # dataset is the leading key element so a swap can drop exactly one dataset's entries.
-  defp cache_key(endpoint, tenant, params, snapshot_id),
-    do: {endpoint.dataset, endpoint.name, endpoint.version, tenant, params, snapshot_id}
+  # The key names what built the response: the catalog generation (the contract), the endpoint,
+  # tenant and full request params, and the table (one build of one snapshot). A request bound
+  # to an older publish can only write keys no newer request reads, so a flush only frees
+  # space. dataset leads the key so a swap can drop exactly one dataset's entries.
+  defp cache_key(ctx, endpoint, tenant, params, snapshot),
+    do: {endpoint.dataset, ctx.gen, endpoint.name, tenant, params, snapshot.table}
 
   # Drop a single dataset's cached responses (on its swap) — leaves other datasets warm.
   defp flush_dataset_cache(state, dataset_id) do

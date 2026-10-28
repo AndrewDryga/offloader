@@ -1,14 +1,14 @@
 defmodule Offloader.Refresh do
   @moduledoc """
-  One dataset refresh, from "where do snapshots come from" to "the new table is
-  swapped in": resolve the candidate manifest (a static path or a dynamic source),
-  skip when it's the snapshot already serving, check compatibility against the
-  dataset contract, materialize into a NEW table, and atomically swap. Used by the
-  Runtime's boot refresh and by each dataset's `Offloader.Refresh.Worker` — the
-  logic is identical; only where it runs differs.
+  One dataset refresh, from "where do snapshots come from" to "a new table is ready to
+  serve": resolve the candidate manifest (a static path or a dynamic source), skip when
+  it's the snapshot already serving, check compatibility against the dataset contract,
+  materialize into a NEW table and check what it really holds. The Runtime then swaps it
+  in by publishing it. Used by the Runtime's boot refresh and by each dataset's
+  `Offloader.Refresh.Worker` — the logic is identical; only where it runs differs.
 
-  Never swaps a bad snapshot: any rejection or failure leaves the currently-active
-  snapshot untouched and returns an attempt record for diagnostics.
+  Never builds a bad snapshot into something servable: any rejection or failure leaves
+  the currently-active snapshot untouched and returns an attempt record for diagnostics.
   """
 
   require Logger
@@ -78,7 +78,7 @@ defmodule Offloader.Refresh do
              )}
 
           true ->
-            check_and_swap(engine, dataset, manifest, fingerprint)
+            check_and_build(engine, dataset, manifest, fingerprint)
         end
 
       {:rejected, snapshot_id, summary} ->
@@ -129,10 +129,10 @@ defmodule Offloader.Refresh do
     do: ["source", source.type, Offloader.Gcs.Client.object_url(source.bucket, source.prefix)]
 
   @doc """
-  Materialize the dataset's latest snapshot into `table` WITHOUT swapping the live view — the
+  Materialize the dataset's latest snapshot into `table` WITHOUT making it live — the
   blue-green BUILD step for a zero-downtime schema cutover. `table` is a caller-chosen name
   DISTINCT from the live snapshot table, so the build never touches what's serving; the Runtime
-  performs the atomic `Engine.swap` onto it later. Returns `{:staged, snap}` (new table built,
+  publishes it together with the new contract at cutover. Returns `{:staged, snap}` (new table built,
   not yet live) or a rejection/failure whose `attempt` explains why — in which case the old
   snapshot keeps serving, untouched.
   """
@@ -206,9 +206,9 @@ defmodule Offloader.Refresh do
   defp source_client,
     do: Application.get_env(:offloader, :gcs_source_client, Offloader.Gcs.Client)
 
-  # ── compatibility → materialize → swap ─────────────────────────────────────────
+  # ── compatibility → materialize → check ────────────────────────────────────────
 
-  defp check_and_swap(engine, dataset, manifest, fingerprint) do
+  defp check_and_build(engine, dataset, manifest, fingerprint) do
     case Manifest.compatibility(manifest, dataset) do
       {:error, errors} ->
         summary = summarize(errors)
@@ -216,17 +216,16 @@ defmodule Offloader.Refresh do
         {:rejected, attempt(manifest.snapshot_id, :rejected, summary)}
 
       :ok ->
-        materialize_and_swap(engine, dataset, manifest, fingerprint)
+        build(engine, dataset, manifest, fingerprint)
     end
   end
 
-  defp materialize_and_swap(engine, dataset, manifest, fingerprint) do
+  defp build(engine, dataset, manifest, fingerprint) do
     table = new_table(dataset.id)
 
     with {:materialize, {:ok, _}} <-
            {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
-         {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)},
-         {:swap, :ok} <- {:swap, Engine.swap(engine, dataset.id, table)} do
+         {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)} do
       {:swapped, snap(manifest, table, fingerprint), attempt(manifest.snapshot_id, :ok, nil)}
     else
       {:check, error} -> discard(engine, dataset, manifest, table, error)

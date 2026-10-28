@@ -15,7 +15,6 @@ defmodule Offloader.ServingModesTest do
       dir = Path.join(System.tmp_dir!(), "offl_modes_#{System.unique_integer([:positive])}")
       {:ok, eng} = Engine.start_link(cache_dir: dir)
       {:ok, _} = Engine.materialize(eng, "snap", m)
-      :ok = Engine.swap(eng, "customer_usage", "snap")
 
       on_exit(fn ->
         if Process.alive?(eng), do: Engine.stop(eng)
@@ -28,10 +27,10 @@ defmodule Offloader.ServingModesTest do
     test "both modes return identical rows for the same request", %{cat: cat, m: m, eng: eng} do
       ep = cat.endpoints["customer_usage_summary"]
 
-      {:ok, table_plan} = Compiler.compile(ep, @params, "tenant_acme", {:table, "customer_usage"})
+      {:ok, table_plan} = Compiler.compile(ep, @params, "tenant_acme", {:table, "snap"})
       {:ok, scan_plan} = Compiler.compile(ep, @params, "tenant_acme", {:scan, m.files, m.dir})
 
-      # local_table reads the materialized view; remote_scan reads the file directly
+      # local_table reads the materialized table; remote_scan reads the file directly
       refute table_plan.sql =~ "read_csv_auto"
       assert scan_plan.sql =~ "read_csv_auto"
 
