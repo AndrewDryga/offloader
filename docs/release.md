@@ -19,7 +19,7 @@ make docs-check                         # check that the generated files match
 ## Run it
 
 ```sh
-./dev/scripts/release.sh 0.1.9
+./dev/scripts/release.sh 0.1.10
 ```
 
 It writes `dist/` with:
@@ -57,11 +57,11 @@ skipped.
 cd dist && sha256sum -c SHA256SUMS
 # signature (once signed)
 cosign verify-blob --key <pubkey> --signature SHA256SUMS.sig SHA256SUMS
-cosign verify --key <pubkey> ghcr.io/andrewdryga/offloader:0.1.9
+cosign verify --key <pubkey> ghcr.io/andrewdryga/offloader:0.1.10
 ```
 
 ## Publishing
 
-Pin image tags (`ghcr.io/andrewdryga/offloader:0.1.9`, never `:latest`), and publish
+Pin image tags (`ghcr.io/andrewdryga/offloader:0.1.10`, never `:latest`), and publish
 `SHA256SUMS` (+ signature) and the SBOM alongside the release so downstream consumers
 can verify provenance.
