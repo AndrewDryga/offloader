@@ -115,6 +115,65 @@ defmodule Offloader.Catalog.EndpointTest do
     assert :tenant_filter_forbidden in codes(raw, dataset)
   end
 
+  # duckdbex binds a param by its column's type, so a pair that cannot bind fails every
+  # request that sends the param. Config load rejects the pair instead.
+  test "a filter's param type must fit its column type" do
+    types = ~w(VARCHAR INTEGER BIGINT DOUBLE DATE TIMESTAMP BOOLEAN JSON)
+    column = &("c_" <> String.downcase(&1))
+
+    {:ok, dataset} =
+      Dataset.parse(
+        %{
+          "id" => "typed",
+          "manifest" => "m.json",
+          "schema" => for(t <- types, do: %{"name" => column.(t), "type" => t})
+        },
+        "datasets/typed.yml"
+      )
+
+    fits = %{
+      "string" => ~w(VARCHAR),
+      "enum" => ~w(VARCHAR),
+      "integer" => ~w(INTEGER BIGINT DOUBLE),
+      "date" => ~w(DATE TIMESTAMP)
+    }
+
+    for {ptype, fit} <- fits, ctype <- types do
+      raw = %{
+        "name" => "typed",
+        "version" => 1,
+        "owner" => "t@example.com",
+        "dataset" => "typed",
+        "params" => [%{"name" => "p", "type" => ptype, "enum" => ["a"]}],
+        "query" => %{
+          "select" => [%{"as" => "v", "column" => "c_varchar"}],
+          "filters" => [%{"column" => column.(ctype), "op" => "eq", "param" => "p"}]
+        },
+        "columns" => ["v"]
+      }
+
+      case Endpoint.parse(raw, "endpoints/e.yml", dataset) do
+        {:ok, _} ->
+          assert ctype in fit, "#{ptype} param on a #{ctype} column should be rejected"
+
+        {:error, [error]} ->
+          refute ctype in fit, "#{ptype} param on a #{ctype} column should load"
+          assert {error.code, error.path} == {:incompatible_filter, "query.filters[0].param"}
+      end
+    end
+  end
+
+  test "an incompatible filter says which param type fits the column", %{dataset: dataset} do
+    raw =
+      put_in(valid(), ["query", "filters"], [
+        %{"column" => "api_calls", "op" => "gte", "param" => "account_id"}
+      ])
+
+    assert {:error, [error]} = Endpoint.parse(raw, "endpoints/e.yml", dataset)
+    assert error.message == ~s(string param "account_id" cannot filter BIGINT column "api_calls")
+    assert error.hint == "BIGINT columns take integer params"
+  end
+
   test "rejects an output column outside the allowlist", %{dataset: dataset} do
     raw = Map.put(valid(), "columns", ["account_id"])
     assert :column_not_allowlisted in codes(raw, dataset)

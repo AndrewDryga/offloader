@@ -62,6 +62,10 @@ defmodule Offloader.Catalog.Endpoint do
   def parse(raw, file, %Dataset{} = dataset) when is_map(raw) do
     params = param_list(raw)
     param_names = for p <- params, is_map(p), is_binary(p["name"]), do: p["name"]
+
+    param_types =
+      for p <- params, is_map(p), is_binary(p["name"]), into: %{}, do: {p["name"], p["type"]}
+
     selects = get_in(raw, ["query", "select"]) || []
     select_as = for s <- selects, is_map(s), is_binary(s["as"]), do: s["as"]
 
@@ -76,7 +80,7 @@ defmodule Offloader.Catalog.Endpoint do
         tenant_errors(raw, file, dataset) ++
         param_errors(params, file) ++
         combinations_errors(raw, file, param_names) ++
-        query_errors(raw, file, dataset, param_names, select_as) ++
+        query_errors(raw, file, dataset, param_types, select_as) ++
         columns_errors(raw, file, select_as) ++
         pagination_errors(raw, file) ++
         cache_errors(raw, file)
@@ -481,12 +485,12 @@ defmodule Offloader.Catalog.Endpoint do
 
   # ── query (select / filters / order_by / group_by) ────────────────────────────
 
-  defp query_errors(raw, file, dataset, param_names, select_as) do
+  defp query_errors(raw, file, dataset, param_types, select_as) do
     case raw["query"] do
       %{} = q ->
         Parse.unknown_keys(q, ~w(group_by select filters order_by), file, "query") ++
           select_errors(q, file, dataset, select_as) ++
-          filter_errors(q, file, dataset, param_names) ++
+          filter_errors(q, file, dataset, param_types) ++
           order_by_errors(q, file, select_as)
 
       _ ->
@@ -639,7 +643,7 @@ defmodule Offloader.Catalog.Endpoint do
     end
   end
 
-  defp filter_errors(q, file, dataset, param_names) do
+  defp filter_errors(q, file, dataset, param_types) do
     case q["filters"] do
       nil ->
         []
@@ -648,7 +652,7 @@ defmodule Offloader.Catalog.Endpoint do
         filters
         |> Enum.with_index()
         |> Enum.flat_map(fn {f, i} ->
-          one_filter_errors(f, Parse.index("query.filters", i), file, dataset, param_names)
+          one_filter_errors(f, Parse.index("query.filters", i), file, dataset, param_types)
         end)
 
       _ ->
@@ -656,12 +660,13 @@ defmodule Offloader.Catalog.Endpoint do
     end
   end
 
-  defp one_filter_errors(f, path, file, dataset, param_names) when is_map(f) do
+  defp one_filter_errors(f, path, file, dataset, param_types) when is_map(f) do
     Parse.unknown_keys(f, ~w(column op param), file, path) ++
       column_in_dataset(f["column"], Parse.join(path, "column"), file, dataset) ++
       tenant_filter_err(f["column"], Parse.join(path, "column"), file, dataset) ++
       op_err(f["op"], Parse.join(path, "op"), file) ++
-      param_ref_err(f["param"], Parse.join(path, "param"), file, param_names)
+      param_ref_err(f["param"], Parse.join(path, "param"), file, param_types) ++
+      filter_type_err(f, Parse.join(path, "param"), file, dataset, param_types)
   end
 
   defp one_filter_errors(_f, path, file, _d, _p),
@@ -684,6 +689,43 @@ defmodule Offloader.Catalog.Endpoint do
       else: []
   end
 
+  # duckdbex binds a param by its column's type, so a filter whose param cannot bind fails every
+  # request that sends it: a string never binds to BIGINT, and nothing binds a BOOLEAN or JSON
+  # column. The wider data a contract type admits (Manifest.physical_schema/1) binds the same.
+  @filterable %{
+    "string" => ~w(VARCHAR),
+    "enum" => ~w(VARCHAR),
+    "integer" => ~w(INTEGER BIGINT DOUBLE),
+    "date" => ~w(DATE TIMESTAMP)
+  }
+
+  defp filter_type_err(%{"column" => col, "param" => param}, path, file, dataset, param_types) do
+    with {:ok, fits} <- Map.fetch(@filterable, param_types[param]),
+         ctype when is_binary(ctype) <- column_type(dataset, col),
+         false <- ctype in fits do
+      [
+        Error.new(
+          file,
+          path,
+          :incompatible_filter,
+          "#{param_types[param]} param #{inspect(param)} cannot filter #{ctype} column #{inspect(col)}",
+          filter_hint(ctype)
+        )
+      ]
+    else
+      _ -> []
+    end
+  end
+
+  defp filter_type_err(_f, _path, _file, _dataset, _param_types), do: []
+
+  defp filter_hint(ctype) do
+    case for {ptype, fits} <- @filterable, ctype in fits, do: ptype do
+      [] -> "#{ctype} columns cannot be filtered"
+      ptypes -> "#{ctype} columns take #{Enum.join(ptypes, " or ")} params"
+    end
+  end
+
   defp op_err(op, _path, _file) when op in @ops, do: []
 
   defp op_err(op, path, file),
@@ -697,8 +739,8 @@ defmodule Offloader.Catalog.Endpoint do
       )
     ]
 
-  defp param_ref_err(param, path, file, param_names) do
-    if is_binary(param) and Enum.member?(param_names, param),
+  defp param_ref_err(param, path, file, param_types) do
+    if is_binary(param) and Map.has_key?(param_types, param),
       do: [],
       else: [
         Error.new(

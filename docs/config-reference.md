@@ -185,6 +185,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 
 - `select`: list of `{as, column}` or `{as, column, agg}`. **`agg`** ∈ `sum`, `avg`, `min`, `max`, `count`.
 - `filters`: list of `{column, op, param}`. **`op`** ∈ `eq`, `gte`, `lte`. The filter is applied only when the caller sends (or defaults) that param.
+  The param's type must fit the column's type, or the endpoint fails to load: `string` and `enum` filter a `VARCHAR` column, `integer` filters `INTEGER`, `BIGINT` and `DOUBLE`, and `date` filters `DATE` and `TIMESTAMP`. `BOOLEAN` and `JSON` columns can't be filtered. Against a `TIMESTAMP` a date means 00:00 on that day, so `lte` leaves out later times that day.
 - `group_by`: list of column names (required when any `select` uses an `agg`).
 - `order_by`: list of `{column, dir}`. **`dir`** ∈ `asc`, `desc`.
 

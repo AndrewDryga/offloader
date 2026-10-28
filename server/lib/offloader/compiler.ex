@@ -283,9 +283,9 @@ defmodule Offloader.Compiler do
       present
       |> Enum.with_index(first_filter_idx)
       |> Enum.reduce({[], []}, fn {f, idx}, {sqls, params} ->
-        sql =
-          ~s(#{filter_column_sql(endpoint, f)} #{@ops[f.op]} $#{idx}#{param_cast(endpoint, f)})
-
+        # The raw column, never CAST(col ...), so DuckDB's zone maps can prune. duckdbex binds
+        # the param by the column's type; config load rejects a param type that cannot bind.
+        sql = ~s(#{ident(f.column)} #{@ops[f.op]} $#{idx})
         {[sql | sqls], [coerced[f.param] | params]}
       end)
 
@@ -377,24 +377,6 @@ defmodule Offloader.Compiler do
   defp dir_sql(_), do: "ASC"
 
   defp find_select(endpoint, as), do: Enum.find(endpoint.select, &(&1.as == as))
-
-  # A string/enum-param filter compares stringly — CAST(col AS VARCHAR) = $n — so a
-  # string value like "ALL" against a non-VARCHAR column filters to no rows instead of
-  # erroring (the upstream API's stringly comparison; a no-op cast on VARCHAR columns). Date params
-  # Compare against the RAW column so DuckDB's min/max zone maps (and any index) can prune —
-  # never wrap the column in CAST(...). Wrapping defeats pruning on a non-VARCHAR column, and on a
-  # VARCHAR column it's a no-op DuckDB removes anyway. Type compatibility is handled on the PARAM
-  # side (dates get ::DATE via param_cast/2); integers and strings compare against the column's own
-  # type, with DuckDB coercing the bound literal — which keeps pruning intact.
-  defp filter_column_sql(_endpoint, f), do: ident(f.column)
-
-  defp param_cast(endpoint, f) do
-    if param_type(endpoint, f.param) == "date", do: "::DATE", else: ""
-  end
-
-  defp param_type(endpoint, name) do
-    Enum.find_value(endpoint.params, fn p -> if p.name == name, do: p.type end)
-  end
 
   # local_table reads a materialized view/table; remote_scan reads the source files
   # directly per request (a subquery). Both come from validated config/manifests.

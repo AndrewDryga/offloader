@@ -60,19 +60,20 @@ defmodule Offloader.ColumnTypesTest do
     %{eng: eng, ds: ds}
   end
 
-  defp serve(eng, ds, select, query) do
+  defp serve(eng, ds, select, query, params \\ [], values \\ %{}) do
     raw = %{
       "name" => "ledger",
       "version" => 1,
       "owner" => "t@example.com",
       "dataset" => "ledger",
+      "params" => params,
       "query" => Map.put(query, "select", select),
       "columns" => Enum.map(select, & &1["as"])
     }
 
     {:ok, ep} = Endpoint.parse(raw, "endpoints/ledger.yml", ds)
 
-    {:ok, plan} = Compiler.compile(ep, %{}, nil, {:table, "ledger"})
+    {:ok, plan} = Compiler.compile(ep, values, nil, {:table, "ledger"})
 
     {:ok, %{columns: cols, rows: rows}} =
       Engine.execute(eng, plan.sql, plan.params, plan.json_columns, types: plan.types)
@@ -110,5 +111,14 @@ defmodule Offloader.ColumnTypesTest do
 
     assert [%{"amount_sum" => 3.75, "amount_min" => 1.25, "amount_avg" => 1.875}] =
              serve(eng, ds, select, %{"group_by" => ["region"]})
+  end
+
+  test "a date param filters a TIMESTAMP column", %{eng: eng, ds: ds} do
+    params = [%{"name" => "since", "type" => "date"}]
+    query = %{"filters" => [%{"column" => "booked_at", "op" => "gte", "param" => "since"}]}
+    select = [%{"as" => "amount", "column" => "amount"}]
+
+    assert [%{"amount" => 2.5}] =
+             serve(eng, ds, select, query, params, %{"since" => "2024-03-16"})
   end
 end
