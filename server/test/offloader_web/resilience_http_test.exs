@@ -32,7 +32,7 @@ defmodule OffloaderWeb.ResilienceHTTPTest do
         [name: Runtime, config_path: project_yml, cache_dir: tmp!("cache")] ++ opts
       )
 
-    on_exit(fn -> if Process.alive?(rt), do: GenServer.stop(rt) end)
+    on_exit(fn -> Offloader.TestSupport.stop_if_alive(rt) end)
     rt
   end
 

@@ -271,7 +271,7 @@ defmodule Offloader.Config.LoaderTest do
           cache_dir: cache
         )
 
-      on_exit(fn -> if Process.alive?(rt), do: GenServer.stop(rt) end)
+      on_exit(fn -> Offloader.TestSupport.stop_if_alive(rt) end)
 
       catalog = Offloader.Runtime.catalog(rt)
       assert catalog

@@ -46,7 +46,7 @@ defmodule Offloader.DynamicRefreshTest do
         Keyword.merge([name: nil, config_path: config_path, cache_dir: dir], opts)
       )
 
-    on_exit(fn -> if Process.alive?(rt), do: GenServer.stop(rt) end)
+    on_exit(fn -> Offloader.TestSupport.stop_if_alive(rt) end)
     rt
   end
 

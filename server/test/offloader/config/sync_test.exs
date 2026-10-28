@@ -35,7 +35,7 @@ defmodule Offloader.Config.SyncTest do
 
   defp start_stub(opts) do
     {:ok, agent} = StubLoader.start(opts)
-    on_exit(fn -> if Process.alive?(agent), do: Agent.stop(agent) end)
+    on_exit(fn -> Offloader.TestSupport.stop_if_alive(agent) end)
   end
 
   defp start_sync(runtime) do
@@ -49,13 +49,13 @@ defmodule Offloader.Config.SyncTest do
         cache_dir: "/tmp"
       )
 
-    on_exit(fn -> if Process.alive?(sync), do: GenServer.stop(sync) end)
+    on_exit(fn -> Offloader.TestSupport.stop_if_alive(sync) end)
     sync
   end
 
   defp start_rec do
     {:ok, rec} = RecRuntime.start_link()
-    on_exit(fn -> if Process.alive?(rec), do: GenServer.stop(rec) end)
+    on_exit(fn -> Offloader.TestSupport.stop_if_alive(rec) end)
     rec
   end
 

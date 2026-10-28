@@ -25,7 +25,7 @@ defmodule Offloader.SecuritySuiteTest do
     Application.put_env(:offloader, :admin_token, @admin_token)
 
     on_exit(fn ->
-      if Process.alive?(rt), do: GenServer.stop(rt)
+      Offloader.TestSupport.stop_if_alive(rt)
       Application.put_env(:offloader, :admin_token, prev)
       File.rm_rf!(dir)
     end)

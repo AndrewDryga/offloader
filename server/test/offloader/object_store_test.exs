@@ -148,7 +148,7 @@ defmodule Offloader.ObjectStoreTest do
           do: Application.put_env(:offloader, :gcs_token_cache, prev),
           else: Application.delete_env(:offloader, :gcs_token_cache)
 
-        if Process.alive?(cache), do: GenServer.stop(cache)
+        Offloader.TestSupport.stop_if_alive(cache)
       end)
 
       {:ok, db} = Duckdbex.open()

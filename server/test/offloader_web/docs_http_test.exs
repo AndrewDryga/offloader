@@ -12,7 +12,7 @@ defmodule OffloaderWeb.DocsHTTPTest do
     {:ok, rt} = Runtime.start_link(name: Runtime, config_path: @project, cache_dir: dir)
 
     on_exit(fn ->
-      if Process.alive?(rt), do: GenServer.stop(rt)
+      Offloader.TestSupport.stop_if_alive(rt)
       File.rm_rf!(dir)
     end)
 
