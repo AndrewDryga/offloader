@@ -247,6 +247,8 @@
                 color: var(--muted);
                 padding: 0.3rem 0 0.55rem;
             }
+            .save-table th { font-size: var(--fs-small); font-weight: 500; color: var(--muted); text-align: right; padding: 0.5rem 0.4rem; }
+            .save-table th:first-child { text-align: left; }
             .save-table td {
                 text-align: right;
                 padding: 0.5rem 0.4rem;
@@ -260,12 +262,6 @@
                 font-family: var(--mono);
                 font-size: 0.95rem;
                 color: var(--ink);
-            }
-            .save-table tr.expected td {
-                font-weight: 600;
-            }
-            .save-table tr.expected td:not(:first-child) {
-                color: var(--ok);
             }
             .neg {
                 color: var(--accent-2) !important;
@@ -405,11 +401,10 @@
                 <p class="kicker">ROI calculator</p>
                 <h1>Estimate the cost of moving these reads off the warehouse.</h1>
                 <p class="calc-lede">
-                    Put in the endpoints you might move: request volume,
-                    current warehouse cost, repeat rate, and CDN hit rate. The
-                    calculator sizes a small Offloader fleet and compares its
-                    cost with what those reads cost today. It is an estimate,
-                    not a promise.
+                    Enter your traffic and warehouse costs to estimate the
+                    difference after moving API reads to Offloader. This first
+                    estimate subtracts server costs; use a pilot to measure the
+                    full saving.
                 </p>
                 <p class="privacy-pill">
                     <svg
@@ -477,7 +472,7 @@
 
                             <div class="field">
                                 <label for="repeatable"
-                                    >Share that's repeatable</label
+                                    >Share that can use snapshots</label
                                 >
                                 <div class="range-row">
                                     <input
@@ -496,10 +491,10 @@
                                     >
                                 </div>
                                 <span class="hint"
-                                    >The share of reads with the same known
-                                    shape, run over and over. Offloader serves
-                                    those from a snapshot. The rest stays on the
-                                    warehouse.</span
+                                    >The share of reads with known fields and
+                                    filters whose data can wait for a snapshot
+                                    update. The estimate assumes they account
+                                    for the same share of warehouse cost.</span
                                 >
                             </div>
 
@@ -524,7 +519,9 @@
                                 <span class="hint"
                                     >If a CDN serves repeat responses at the
                                     edge, Offloader handles only the misses. Set
-                                    this to 0% if there is no CDN.</span
+                                    this to 0% for private or tenant-scoped endpoints,
+                                    even if a CDN sits in front. Also use 0%
+                                    when there is no CDN.</span
                                 >
                             </div>
 
@@ -555,31 +552,33 @@
                             <table class="save-table">
                                 <tbody>
                                     <tr>
-                                        <td>Repeatable warehouse cost</td>
+                                        <td>Warehouse cost eligible to move</td>
                                         <td id="r-wh">—</td>
                                     </tr>
                                     <tr>
-                                        <td>Offloader infrastructure</td>
+                                        <td>Estimated server cost</td>
                                         <td id="r-infra">—</td>
                                     </tr>
                                 </tbody>
                             </table>
                             <table class="save-table" id="scen">
                                 <caption id="scen-cap">
-                                    Estimated savings — per month · annualized
+                                    Savings before license and other running costs
                                 </caption>
+                                <thead><tr><th scope="col">Cost removed</th><th scope="col">Monthly</th><th scope="col">Annual</th></tr></thead>
                                 <tbody id="scen-body"></tbody>
                             </table>
+                            <p class="fleet">These estimates subtract server costs only. They
+                                exclude the Offloader license, exports, storage,
+                                CDN and network charges, and your team's operating time.</p>
                             <p class="fleet" id="fleet"></p>
                             <ul class="caveats" id="caveats"></ul>
                         </div>
                         <div class="result-cta">
-                            A rough estimate from your inputs and the benchmark.
                             The
                             <a href="index.html#pricing">paid diagnostic</a>
-                            checks the actual workload, request volume, current
-                            cost, fleet cost, and which savings are real versus
-                            only possible.
+                            measures your workload and running costs to check
+                            how much your bill would actually fall.
                         </div>
                     </div>
                 </div>
@@ -594,43 +593,43 @@
                 </div>
                 <div class="explain-grid">
                     <div class="explain-card">
-                        <h3>The plain difference</h3>
+                        <h3>What the numbers mean</h3>
                         <p>
-                            Savings = the repeatable part of your warehouse cost
-                            minus the cost of the Offloader fleet. The three
-                            scenarios show how much of that spend might actually
-                            clear once those reads move.
+                            Each row assumes you remove a different share of the
+                            eligible warehouse cost: 90%, 75%, or 60%. We then
+                            subtract estimated server costs. These are scenarios,
+                            not predicted outcomes. License fees and the other
+                            costs listed above still need to be deducted.
                         </p>
                     </div>
                     <div class="explain-card">
                         <h3>How the fleet is sized</h3>
                         <p>
-                            The calculator converts monthly requests into a
-                            busy-hour rate, assumes traffic can peak at about
-                            4x the average, then sizes enough instances for that
-                            peak. It uses the measured
+                            The calculator assumes peak traffic is four times
+                            the monthly average, then sizes servers for the
+                            requests your CDN does not answer. It uses 60% of the measured
                             <code>~2,500 req/s</code> per 4-vCPU instance from
-                            the benchmark, with a minimum of two instances for
-                            availability.
+                            the benchmark, leaving room for load variation. It
+                            assumes $120 per instance per month and at least two
+                            instances for availability. Test your data and query
+                            mix before using this sizing.
                         </p>
                     </div>
                     <div class="explain-card">
-                        <h3>Only the repeatable reads</h3>
+                        <h3>Which reads can move</h3>
                         <p>
-                            Offloader serves known endpoint shapes from a
-                            snapshot. Ad-hoc queries, internal BI, and one-off
-                            reads stay on the warehouse. The saving applies only
-                            to the repeatable share of the bill.
+                            Include only reads you plan to move to snapshot
+                            endpoints. Leave the warehouse cost of other queries
+                            out of the saving.
                         </p>
                     </div>
                     <div class="explain-card">
-                        <h3>Where it won't overclaim</h3>
+                        <h3>When the bill actually falls</h3>
                         <p>
                             Sizing is an estimate from a benchmark, so confirm
                             it with a pilot. On committed warehouse capacity,
                             savings are only potential until you downsize the
-                            tier. The diagnostic separates real savings from
-                            savings that need a finance or capacity action.
+                            tier. A lower query count alone is not a lower bill.
                         </p>
                     </div>
                 </div>
@@ -642,13 +641,12 @@
                         Ready for the real number?
                     </p>
                     <h2 style="font-size: var(--fs-h2)">
-                        Book the paid diagnostic.
+                        Find out what you would save.
                     </h2>
                     <p class="cta-band-sub">
-                        We use your real traffic and query history to decide
-                        what can move, what it costs today, what the Offloader
-                        fleet would cost, and which savings finance can actually
-                        count.
+                        Start with a call to scope a paid diagnostic. We use
+                        your traffic and query history to measure which costs
+                        would disappear and what Offloader would cost to run.
                     </p>
                     <div class="cta-row cta-band-row">
                         <a
@@ -656,7 +654,7 @@
                             href="https://cal.com/andrew-dryga/offloader"
                             target="_blank"
                             rel="noopener"
-                            >Book a diagnostic</a
+                            >Discuss a diagnostic</a
                         >
                         <a class="btn btn-ghost" href="index.html#how"
                             >See how it works</a
@@ -726,7 +724,7 @@
                             href="https://cal.com/andrew-dryga/offloader"
                             target="_blank"
                             rel="noopener"
-                            >Book a diagnostic</a
+                            >Discuss a diagnostic</a
                         >
                         <a href="https://github.com/AndrewDryga/offloader"
                             >GitHub</a
@@ -749,12 +747,12 @@
                 var PEAK_FACTOR = 4; // product traffic peaks well above its monthly average
                 var SEC_PER_MONTH = 30 * 24 * 3600; // 2,592,000
                 var INSTANCE = { vcpu: 4, ram: 16, usd: 120 }; // the benchmark's serving instance
-                // Three predictions on how much of the repeatable warehouse spend actually clears once
-                // served from Offloader — long-tail params and refresh windows still touch the warehouse.
+                // Scenarios for how much eligible warehouse spend can be removed.
+                // API requests read snapshots; export work and shared capacity can still cost money.
                 var SCENARIOS = [
-                    { name: "Optimistic", clear: 0.9 },
-                    { name: "Expected", clear: 0.75, hi: true },
-                    { name: "Conservative", clear: 0.6 },
+                    { name: "90%", clear: 0.9 },
+                    { name: "75%", clear: 0.75 },
+                    { name: "60%", clear: 0.6 },
                 ];
 
                 var $ = function (id) {
@@ -814,17 +812,15 @@
                     $("r-infra").textContent = usd(f.infra) + "/mo";
 
                     $("scen-cap").textContent =
-                        (committed ? "Potential" : "Estimated") +
-                        " savings — per month · annualized";
+                        (committed ? "Potential savings after downsizing" : "Savings") +
+                        " before license and other running costs";
                     $("scen-body").innerHTML = SCENARIOS.map(function (s) {
                         var save = offloadable * s.clear - f.infra;
                         var neg = save < 0 ? ' class="neg"' : "";
                         return (
-                            '<tr class="' +
-                            (s.hi ? "expected" : "") +
-                            '"><td>' +
+                            '<tr><th scope="row">' +
                             s.name +
-                            "</td><td" +
+                            "</th><td" +
                             neg +
                             ">" +
                             usd(save) +
@@ -850,16 +846,16 @@
                         "/mo each).";
 
                     var cav = [
-                        "The three predictions vary how much of the repeatable spend actually clears once served from Offloader (90 / 75 / 60%) — long-tail params and refresh windows still touch the warehouse.",
+                        "Rows show 90%, 75%, or 60% of eligible warehouse cost removed. Export work and shared capacity may keep part of that cost in place.",
                     ];
                     cav.push(
-                        "Fleet sizing is an estimate from the validated benchmark (~2,500 req/s per 4-vCPU instance) — confirm capacity with a pilot.",
+                        "Sizing uses a cached-response benchmark (~2,500 req/s per 4-vCPU instance). Uncached queries or different payloads can need more capacity.",
                     );
                     if (cdn > 0)
                         cav.push(
                             "Assumes a CDN in front serves " +
                                 Math.round(cdn * 100) +
-                                "% of repeat responses at the edge, so the fleet is sized only for the misses. CDN request/egress cost isn't modeled — typically well below compute or warehouse spend. If your CDN charges on per-request basis we can route your traffic using our partner CDN networks to reduce costs even further.",
+                                "% of responses. Server sizing covers only the misses; CDN charges are excluded.",
                         );
                     if (committed)
                         cav.push(

@@ -2,7 +2,7 @@
 
 The reference for the config files Offloader loads. New to the ideas here (dataset,
 endpoint, snapshot, manifest, project)? Read
-[What Offloader is, in plain language](concepts.md) first.
+[How Offloader works](concepts.md) first.
 
 ## A project is just files
 
@@ -119,9 +119,10 @@ support bundles — values are scrubbed and bundles are redacted.
 A dataset gets its data one of two ways, chosen per dataset:
 
 - **A static `manifest:`** — you publish each snapshot: write the Parquet plus a manifest
-  carrying a new `snapshot_id`, then point the dataset at it. A running container picks up a
-  new `snapshot_id` at **boot**, on a **manual/admin refresh**, or when **config auto-sync**
-  reloads the config (below). This is the path for any warehouse that can export Parquet —
+  carrying a new `snapshot_id`, then change the dataset YAML to point at that manifest.
+  Offloader loads it at **startup**, or when enabled **config auto-sync** detects the
+  changed dataset definition (below). Updating only the JSON or Parquet files does not
+  trigger config sync. This is the path for any warehouse that can export Parquet —
   Snowflake, BigQuery, Redshift, a Spark job.
 - **A remote `source:`** — the container discovers the newest snapshot itself and swaps it in
   on a poll (`source.interval_seconds`), hands-off. The shipped connector is **Databricks**
@@ -151,12 +152,12 @@ not seconds. So in production, **persist it**:
 - **It is disposable.** Losing the volume (a new host, a wiped disk) only forces one cold start;
   it never risks data, because the bucket is authoritative.
 
-**If a dataset is too large to materialize on the box, don't size the disk to it — serve it
-remotely.** Set that endpoint's [`serving_mode: remote_scan`](config-reference.md#endpointsyml) and
-DuckDB scans the snapshot's Parquet **directly from object storage per request** — nothing is
-copied into the cache dir. You trade a little per-request latency for not needing local disk (or a
-cold-start rematerialization) proportional to the dataset. It's the right mode for huge, cold, or
-low-QPS endpoints; keep `local_table` (the default) for the hot ones.
+An endpoint's [`serving_mode: remote_scan`](config-reference.md#endpointsyml) makes
+DuckDB query the active snapshot's Parquet **directly from object storage** instead
+of its local table. This changes the request path. The current refresh process
+still materializes the dataset, so `remote_scan` does not remove its local disk
+or refresh-time requirements. Measure object-store latency and concurrency before
+using it; keep `local_table` as the default for hot endpoints.
 
 ## Config from object storage (optional)
 
@@ -164,8 +165,9 @@ low-QPS endpoints; keep `local_table` (the default) for the hot ones.
 mounted path. At boot Offloader fetches the whole project tree (`offloader.yml`, `datasets/`,
 `endpoints/`, the keys file) into `<cache_dir>/config/` and loads it from there — so the container
 is fully stateless: env vars in, config and data both in the bucket, nothing mounted. With
-`OFFLOADER_CONFIG_SYNC_INTERVAL` set it keeps watching the prefix and **hot-reloads any change
-with no restart** (see [Hot config auto-sync](#hot-config-auto-sync) below).
+`OFFLOADER_CONFIG_SYNC_INTERVAL` set it watches the project's YAML files and
+**hot-reloads configuration changes with no restart**
+(see [Hot config auto-sync](#hot-config-auto-sync) below).
 
 Host your `offloader.yml` (and its `datasets/`/`endpoints/`/`keys/` tree) under a `gs://…` prefix
 and boot the published image straight against it — the only volume is the optional
@@ -184,8 +186,8 @@ docker run \
 ```
 
 On GKE/GCE the bearer token comes from the metadata server (no credential env needed); on a
-laptop it falls back to `gcloud`. Add `OFFLOADER_CONFIG_SYNC_INTERVAL` and edits you publish to
-the prefix hot-reload with no restart (below).
+laptop it falls back to `gcloud`. Add `OFFLOADER_CONFIG_SYNC_INTERVAL` and YAML
+configuration changes you publish to the prefix hot-reload with no restart (below).
 
 - **`gs://`** uses the GCS bearer token chain (`OFFLOADER_GCS_TOKEN`, the GCE metadata server, or
   `gcloud` — set `OFFLOADER_GCS_AUTH=bearer`), or **no credentials** with `OFFLOADER_GCS_AUTH=none`
@@ -197,9 +199,10 @@ the prefix hot-reload with no restart (below).
   bounded to 500 files / 32 MiB, so a self-contained project boots straight from the bucket. A
   transient error at boot is retried a few times; an invalid config fails boot loudly, exactly as
   a bad mounted config does.
-- Datasets served from a remote config should use a remote `source:` (Databricks/GCS) or an
-  absolute/remote `manifest:` — a *relative local* `manifest:` has no mounted data to resolve
-  against.
+- A static `manifest:` resolves inside the fetched project tree, so include that manifest
+  in the bucket-hosted project. Its data-file entries can point to remote objects. For
+  automatic discovery of supported exports, configure `source:` instead; the `manifest:`
+  field itself is not a bucket URL. See the [snapshot contracts](config-reference.md).
 - **Security — co-hosting config with data:** the keys file stores **SHA-256 hashes of bearer
   tokens, never the tokens** (see `security-model.md`), so bucket-read exposure leaks hashes plus
   the endpoint/tenant access map, not usable credentials. A **public** deployment (`auth: none`)
@@ -212,7 +215,8 @@ the prefix hot-reload with no restart (below).
 Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` (unset/0 = off) and Offloader re-checks the config
 on that interval and hot-reloads changes **with no restart**:
 
-- Change detection is cheap — a single object LIST (no downloads) when nothing changed.
+- Change detection watches `.yml`/`.yaml` files — a single object LIST for remote
+  projects, with no downloads when that YAML inventory is unchanged.
 - Endpoint, key, and data-source changes apply at once (the response cache is flushed).
 - A dataset **schema** change is applied **blue-green with zero downtime**: the old snapshot and its
   endpoints keep serving while the new-schema table is materialized off to the side, then that
@@ -224,9 +228,15 @@ on that interval and hot-reloads changes **with no restart**:
 - `/metrics` exposes `offloader_config_sync_enabled` and `offloader_config_sync_ok` (alert on the
   latter == 0); admin `/diagnostics` shows the last sync result + timestamps.
 
-Push a new revision the boring way: update the objects under the config prefix and the next tick picks
-them up. Sequence a schema change as **data first, then config**, so the new-schema build succeeds on
-the first try.
+For a static snapshot update, publish data and a versioned manifest with a new
+`snapshot_id` first, then change the dataset YAML's `manifest:` path. The next config-sync tick sees that
+dataset change and starts validation and refresh. Replacing only manifest JSON
+or Parquet does not trigger sync, and unchanged dataset definitions are not
+refreshed by an unrelated YAML edit. A configured `source:` has its own discovery
+schedule; see [the snapshot contracts](config-reference.md).
+
+Sequence a schema change as **data first, then config**, so the new-schema build
+has matching data available.
 
 ## Where to go next
 

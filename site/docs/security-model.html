@@ -6,6 +6,15 @@
 <title>Security Model — Offloader docs</title>
 <meta name="description" content="Offloader runs in your environment and serves read-only data. This page explains,
 in plain terms, what it protects for you and what you remain responsible…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/security-model.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/security-model.html">
+<meta property="og:title" content="Security Model — Offloader docs">
+<meta property="og:description" content="Offloader runs in your environment and serves read-only data. This page explains,
+in plain terms, what it protects for you and what you remain responsible…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ in plain terms, what it protects for you and what you remain responsible…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ in plain terms, what it protects for you and what you remain responsible…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -80,7 +91,13 @@ in plain terms, what it protects for you and what you remain responsible…">
 <h1 id="security-model">Security Model</h1>
 <p>Offloader runs <strong>in your environment</strong> and serves <strong>read-only</strong> data. This page explains,
 in plain terms, what it protects for you and what you remain responsible for. (Newer to the
-concepts? See <a href="concepts.html">What Offloader is</a>.)</p>
+concepts? See <a href="concepts.html">How Offloader works</a>.)</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#the-short-version">The short version</a></li>
+<li><a href="#who-can-reach-what">Who can reach what</a></li>
+<li><a href="#what-offloader-enforces-you-get-these-for-free">What Offloader enforces (you get these for free)</a></li>
+<li><a href="#what-you39re-responsible-for">What you&#39;re responsible for</a></li>
+<li><a href="#co-hosting-config-in-the-bucket">Co-hosting config in the bucket</a></li>
+<li><a href="#how-it39s-proven">How it&#39;s proven</a></li></ul></nav></details>
 <h2 id="the-short-version">The short version</h2>
 <p>Everything stays in your environment — the data, the config, the logs, the
 metrics. Offloader makes no outbound telemetry calls.</p>
@@ -207,7 +224,7 @@ cacheable by a shared CDN.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

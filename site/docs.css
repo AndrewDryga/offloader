@@ -213,3 +213,12 @@
 /* two-port diagram (deployment "Runtime shape"): API vs admin side by side. */
 .ports { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 720px) { .ports { grid-template-columns: 1fr; } }
+
+/* Wide comparisons keep readable columns and scroll within the page on mobile. */
+.table-scroll:has(th:nth-child(4)) table { min-width: 42rem; }
+.prose .doc-contents { margin-top: 1.75rem; background: transparent; border-radius: 0; border-inline: 0; }
+.prose .doc-contents > summary { padding-inline: 0; }
+.prose .doc-contents > nav { margin: 1rem 0; }
+.prose .doc-contents ul { list-style: none; padding: 0; gap: 0.55rem; }
+
+.prose .doc-contents + h2 { border-top: 0; padding-top: 0; margin-top: 2rem; }

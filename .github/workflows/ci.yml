@@ -82,6 +82,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - run: ./dev/scripts/docs-check.sh
+      - run: npm ci --prefix dev/docs-site
+      - run: npm run check --prefix dev/docs-site
 
   # Rolling `edge` image, published to GHCR once the gate is green — so the quickstart and
   # the site can `docker run ghcr.io/…/offloader:edge` against the latest main. Tagged

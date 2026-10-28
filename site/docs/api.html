@@ -6,6 +6,15 @@
 <title>Consumer API — Offloader docs</title>
 <meta name="description" content="What a client — your product code or front-end — sees when it calls an Offloader endpoint.
 This is the stable contract; the config that produces it is in…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/api.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/api.html">
+<meta property="og:title" content="Consumer API — Offloader docs">
+<meta property="og:description" content="What a client — your product code or front-end — sees when it calls an Offloader endpoint.
+This is the stable contract; the config that produces it is in…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ This is the stable contract; the config that produces it is in…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ This is the stable contract; the config that produces it is in…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -82,6 +93,11 @@ This is the stable contract; the config that produces it is in…">
 This is the stable contract; the config that produces it is in the <a href="config-reference.html">config reference</a>.</p>
 <p>For an AI agent reading the same endpoints, see <a href="mcp.html">AI agents (MCP)</a> — a different
 protocol over the identical contracts.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#the-request">The request</a></li>
+<li><a href="#the-response">The response</a></li>
+<li><a href="#errors">Errors</a></li>
+<li><a href="#discovering-endpoints">Discovering endpoints</a></li>
+<li><a href="#caching-at-the-edge">Caching at the edge</a></li></ul></nav></details>
 <h2 id="the-request">The request</h2>
 <pre tabindex="0"><code>GET /v1/endpoints/&lt;name&gt;?&lt;params&gt;
 Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) API
@@ -279,7 +295,7 @@ response headers (<code>ETag</code>, <code>Cache-Control</code>) for cheap reval
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

@@ -4,8 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Quickstart — serve a real endpoint in 15 minutes — Offloader docs</title>
-<meta name="description" content="Pull the published image, run it against a ready-made example project (real sample data
-included), call an endpoint, read the generated docs, and watch a…">
+<meta name="description" content="Run Offloader with sample data, call a REST endpoint, and check that it rejects an
+invalid request. You need Docker, Git, and about 15 minutes. No cloud…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/quickstart.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/quickstart.html">
+<meta property="og:title" content="Quickstart — serve a real endpoint in 15 minutes — Offloader docs">
+<meta property="og:description" content="Run Offloader with sample data, call a REST endpoint, and check that it rejects an
+invalid request. You need Docker, Git, and about 15 minutes. No cloud…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ included), call an endpoint, read the generated docs, and watch a…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html" aria-current="page">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ included), call an endpoint, read the generated docs, and watch a…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -78,11 +89,18 @@ included), call an endpoint, read the generated docs, and watch a…">
     <p class="doc-kicker">Start</p>
     <article class="prose">
 <h1 id="quickstart-serve-a-real-endpoint-in-15-minutes">Quickstart — serve a real endpoint in 15 minutes</h1>
-<p>Pull the published image, run it against a ready-made example project (real sample data
-included), call an endpoint, read the generated docs, and watch a bad request fail safely —
-about fifteen minutes, no cloud required.</p>
-<p>New to Offloader? Read <a href="concepts.html">What Offloader is, in plain language</a> first (5 minutes) —
-it defines the words used below.</p>
+<p>Run Offloader with sample data, call a REST endpoint, and check that it rejects an
+invalid request. You need Docker, Git, and about 15 minutes. No cloud account is
+required. The docs examples also use <code>curl</code> and <code>jq</code>.</p>
+<p>New to the product? Start with <a href="concepts.html">How Offloader works</a>.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#0-get-the-example-and-the-image">0. Get the example and the image</a></li>
+<li><a href="#1-run-the-container">1. Run the container</a></li>
+<li><a href="#2-call-your-first-endpoint">2. Call your first endpoint</a></li>
+<li><a href="#3-read-the-generated-docs">3. Read the generated docs</a></li>
+<li><a href="#4-try-a-request-the-endpoint-rejects">4. Try a request the endpoint rejects</a></li>
+<li><a href="#5-start-your-own-project">5. Start your own project</a></li>
+<li><a href="#6-next">6. Next</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li></ul></nav></details>
 <h2 id="0-get-the-example-and-the-image">0. Get the example and the image</h2>
 <p>You serve from a <strong>project</strong> — an <code>offloader.yml</code> plus its datasets, endpoints, keys, and a
 snapshot. You can&#39;t just start the bare container; it needs a config and data to serve. The
@@ -115,8 +133,9 @@ loopback:</p>
   -v offloader-cache:/var/lib/offloader/cache \
   ghcr.io/andrewdryga/offloader:edge
 </code></pre>
-<p>Wait until the admin <strong>readiness</strong> probe returns 200 (it stays 503 until the snapshot is
-materialized):</p>
+<p>Leave the container running. Open another terminal and check that it is ready.
+The admin readiness check returns 200 once Offloader has loaded the snapshot;
+until then, it returns 503:</p>
 <pre tabindex="0"><code class="language-sh">curl -fsS http://127.0.0.1:4001/ready
 # {&quot;status&quot;:&quot;ok&quot;,&quot;ready&quot;:true}
 </code></pre>
@@ -135,19 +154,20 @@ materialized):</p>
   }
 }
 </code></pre>
-<p>Every response carries <code>snapshot_id</code> and freshness — you always know exactly which snapshot
-you&#39;re reading. (<code>stale:true</code> here just means the demo data is older than its 120-minute
-tolerance.)</p>
+<p>Each successful data response includes its <code>snapshot_id</code> and freshness. Here,
+<code>stale: true</code> means the demo data is older than its 120-minute limit. Offloader
+still serves it; your app decides whether the age is acceptable.</p>
 <h2 id="3-read-the-generated-docs">3. Read the generated docs</h2>
 <p>The endpoint catalog and OpenAPI spec are generated from your endpoint definitions and served on
 the <strong>admin</strong> port (never the API port):</p>
 <pre tabindex="0"><code class="language-sh">curl -s http://127.0.0.1:4001/docs | jq &#39;.endpoints[].name&#39;
 curl -s http://127.0.0.1:4001/openapi.json | jq &#39;.paths | keys&#39;
 </code></pre>
-<p>A product engineer integrates from these — params, defaults, limits, response shape, error
-families, and curl/TypeScript/Python snippets are all there.</p>
-<h2 id="4-see-a-failure-fail-safely">4. See a failure fail safely</h2>
-<p>Bad input is rejected with a named error family — never a leak, never a 500:</p>
+<p>These docs list each endpoint&#39;s parameters, defaults, limits, response fields, and
+errors, with curl, TypeScript, and Python examples.</p>
+<h2 id="4-try-a-request-the-endpoint-rejects">4. Try a request the endpoint rejects</h2>
+<p>This endpoint rejects undeclared parameters. Try adding a tenant ID: the request
+returns <code>422 invalid_param</code>.</p>
 <pre tabindex="0"><code class="language-sh"># an unknown/undeclared param (e.g. smuggling a tenant) -&gt; 422 invalid_param
 curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
   &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&amp;tenant_id=tenant_globex&quot;
@@ -156,7 +176,7 @@ curl -s -o /dev/null -w &quot;%{http_code}\n&quot; -H &quot;Authorization: Beare
 <p>The <a href="https://github.com/AndrewDryga/offloader/blob/main/examples/customer-analytics/failure-lab/README.md">failure lab</a> has the full set (bad
 manifest, stale dataset, forbidden tenant, …) and the exact error each returns.</p>
 <h2 id="5-start-your-own-project">5. Start your own project</h2>
-<p>The bundled example proves the path; to serve <strong>your</strong> data, scaffold a fresh project with the
+<p>To serve <strong>your</strong> data, create a project with the
 <code>offloader</code> CLI (an optional helper — not part of the container). Install or update it:</p>
 <pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh
 </code></pre>
@@ -174,8 +194,8 @@ offloader init --out my-project
 # validate the whole tree before you run anything
 offloader validate --config my-project/offloader.yml
 </code></pre>
-<p>The two files you edit are small and declarative — no SQL. Abridged from what <code>init</code> just
-generated:</p>
+<p>These two configuration files define the dataset and endpoint. This example is
+shortened from what <code>init</code> generated:</p>
 <pre tabindex="0"><code class="language-yaml"># my-project/datasets/events.yml — the table + the columns you serve
 id: events
 manifest: data/events/manifest.json   # point this at your snapshot (Parquet + a manifest.json)
@@ -207,7 +227,8 @@ columns: [account_id, event_count_total]
 <p>Point <code>manifest:</code> at a snapshot of your data, then serve it locally in one command:</p>
 <pre tabindex="0"><code class="language-sh">offloader serve my-project/   # validates the config, pulls the image, runs it against your project
 </code></pre>
-<p>That&#39;s the shortcut for the full <code>docker run</code> in step 1 — handy for a POC. The
+<p>The CLI starts the API on port <strong>8088</strong> and admin pages on <strong>8089</strong>, or the next
+free ports. Use the URLs it prints; these differ from the Docker example above. The
 <a href="developer-experience.html">config guide</a> walks through every file; the
 <a href="config-reference.html">config reference</a> lists every field.</p>
 <details>
@@ -219,7 +240,7 @@ both your code and this repo, and paste:</p>
 <p>You are migrating our existing analytics endpoints to Offloader. Read Offloader&#39;s
 <code>docs/config-reference.md</code> and the <code>examples/customer-analytics/</code> project for the exact schema.
 For <strong>each</strong> of our current endpoints: (1) write a <code>datasets/&lt;id&gt;.yml</code> whose <code>schema</code> matches
-the columns it returns; (2) write an <code>endpoints/&lt;name&gt;.yml</code> reproducing its params, filters,
+the exported Parquet columns, including tenant and filter columns; (2) write an <code>endpoints/&lt;name&gt;.yml</code> reproducing its params, filters,
 aggregation, ordering, and limits using only Offloader&#39;s declarative <code>query:</code> — no raw SQL;
 (3) preserve tenant isolation by setting the dataset&#39;s <code>tenant_column</code> and the endpoint&#39;s
 <code>tenant:</code>. Then run <code>offloader validate --config my-project/offloader.yml</code> and
@@ -232,7 +253,7 @@ pass. Finally, list any endpoint you could not express and exactly why.</p>
 <h2 id="6-next">6. Next</h2>
 <ul>
 <li><a href="developer-experience.html">Config guide</a> — publish your own datasets and endpoints, and load
-config from a <code>gs://</code>/<code>s3://</code> bucket (fully stateless, with zero-downtime hot-reload).</li>
+config from a <code>gs://</code>/<code>s3://</code> bucket. Apply supported updates without restarting.</li>
 <li><a href="operator.html">Operator guide</a> · <a href="deployment.html">Deployment</a> — run it in production: size,
 upgrade, roll back, diagnose.</li>
 <li>Hand the generated endpoint docs (step 3) to a product engineer to integrate against.</li>
@@ -252,7 +273,7 @@ upgrade, roll back, diagnose.</li>
 </tr>
 <tr>
 <td><code>/ready</code> stays 503</td>
-<td>The snapshot hasn&#39;t materialized — check <code>docker logs</code> and admin <code>/diagnostics</code>.</td>
+<td>Offloader has not loaded the snapshot. Check the logs in the terminal running Docker; see the <a href="operator.html">operator guide</a> for diagnostics.</td>
 </tr>
 <tr>
 <td>Endpoint returns 401</td>
@@ -270,7 +291,7 @@ upgrade, roll back, diagnose.</li>
 </div>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
-      <a class="pg prev" href="concepts.html"><span>Previous</span><b>What Offloader is</b></a>
+      <a class="pg prev" href="concepts.html"><span>Previous</span><b>How Offloader works</b></a>
       <a class="pg next" href="developer-experience.html"><span>Next</span><b>Config guide</b></a>
     </nav>
   </main>
@@ -303,7 +324,7 @@ upgrade, roll back, diagnose.</li>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

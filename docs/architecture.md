@@ -11,7 +11,7 @@ there is no separate query cluster to deploy or operate.
 The hot path is local by default. Each refresh materializes the active snapshot
 onto local disk, so requests read from a fast local table instead of the object
 store. Scanning Parquet directly from the object store exists too, but as an
-explicit per-endpoint mode for cold, low-QPS, or oversized data — something you
+explicit per-endpoint mode for selective or low-QPS reads — something you
 opt into after benchmarking, never a silent fallback.
 
 Deployment is environment variables plus config from a mounted directory or a
@@ -60,21 +60,22 @@ enterprise access controls, run the admin port behind the controls you already u
 | Mode | Use for | Notes |
 | --- | --- | --- |
 | `local_table` | High-QPS, tight p95/p99, repeated product APIs. | Default production hot path. |
-| `remote_scan` | Cold endpoints, huge datasets, selective filters, evaluation/debug. | First-class mode, not default. |
+| `remote_scan` | Selective reads, cold endpoints, evaluation/debug. | Changes the query path; refresh still materializes the dataset. |
 | `response_cache` | Same params repeated against same snapshot. | Add when endpoint semantics are stable. |
 
 ### Choosing a serving mode
 
 Set `serving_mode` per endpoint; `local_table` is the default if omitted, and
 the right choice for the common case — hot, high-QPS, tight-p95 product
-endpoints. It materializes the snapshot into a DuckDB table once per refresh, so
-every query after that is a fast in-memory read.
+endpoints. Refresh materializes the snapshot into a DuckDB table; requests then
+query that local table.
 
-`remote_scan` reads the snapshot's source files directly on every request.
-Nothing is materialized, which saves the load time and the memory — but every
-query now pays object-store latency. That trade fits cold, low-QPS, or oversized
-endpoints. Don't put a p95-sensitive endpoint on `remote_scan` without measuring
-it first with the [benchmark harness](benchmarks.md).
+`remote_scan` reads the snapshot's source files for queries that reach the engine,
+so those queries can pay object-store latency. The current refresh path still
+materializes the dataset into DuckDB, including for datasets used by remote-scan
+endpoints. This mode therefore does not eliminate local storage or refresh work.
+Measure a p95-sensitive endpoint with the [benchmark harness](benchmarks.md)
+before choosing it.
 
 Whichever mode an endpoint uses, it runs the identical compiled plan and returns
 identical results — the only difference is where DuckDB reads from.

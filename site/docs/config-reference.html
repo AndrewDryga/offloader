@@ -6,6 +6,15 @@
 <title>Config reference — Offloader docs</title>
 <meta name="description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces
 (dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/config-reference.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/config-reference.html">
+<meta property="og:title" content="Config reference — Offloader docs">
+<meta property="og:description" content="Every field of an Offloader project, with the exact allowed values. New to the pieces
+(dataset, endpoint, snapshot, project)? Read Concepts first. For a…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -95,6 +106,10 @@ keys/keys.yml       # API keys (hashes only) — omit for a public (auth: none) 
 <p>Run <code>offloader validate --config &lt;path&gt;/offloader.yml</code> to check the whole tree; it reports
 every problem at once.</p>
 <hr>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#offloaderyml"><code>offloader.yml</code></a></li>
+<li><a href="#datasetsyml"><code>datasets/*.yml</code></a></li>
+<li><a href="#endpointsyml"><code>endpoints/*.yml</code></a></li>
+<li><a href="#keyskeysyml"><code>keys/keys.yml</code></a></li></ul></nav></details>
 <h2 id="offloaderyml"><code>offloader.yml</code></h2>
 <p>The top-level project file <code>OFFLOADER_CONFIG</code> points at.</p>
 <div class="table-scroll" tabindex="0">
@@ -231,8 +246,16 @@ Offloader fetches the whole tree — <code>manifest.json</code> included — at 
 &quot;remote manifest&quot; is simply a project served from a bucket; you don&#39;t put a bucket URL in the
 <code>manifest:</code> field itself.</li>
 </ul>
-<p>To publish a new snapshot, write a new manifest (or overwrite the file) — Offloader picks it up
-on the next refresh.</p>
+<p>A static manifest loads at boot. The standard server does not poll it on a timer.
+For an update without restarting, publish a manifest with a new <code>snapshot_id</code>
+under a versioned path, change the dataset YAML&#39;s <code>manifest:</code> value to that path, and enable
+<a href="developer-experience.html#hot-config-auto-sync"><code>OFFLOADER_CONFIG_SYNC_INTERVAL</code></a>.
+The changed dataset definition triggers validation and refresh.</p>
+<p>Publish the data files and manifest before changing the YAML. Config sync detects
+YAML changes; overwriting only a manifest JSON or Parquet file does not trigger
+it. An unchanged dataset definition is not refreshed merely because another
+project setting changed. If config sync is disabled, the updated project is
+loaded on the next server start.</p>
 <h3 id="source-a-self-updating-remote-source"><code>source:</code> — a self-updating remote source</h3>
 <p>Instead of a manifest you maintain, a <code>source:</code> <strong>discovers</strong> the latest snapshot itself on each
 refresh — nothing to hand-write.</p>
@@ -559,7 +582,7 @@ with <code>offloader keys create</code> (it prints the token once and its hash).
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

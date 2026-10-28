@@ -1,6 +1,6 @@
 # Documentation
 
-Start with **[What Offloader is, in plain language](concepts.md)**, then pick what
+Start with **[How Offloader works](concepts.md)**, then pick what
 you need next. Docs are versioned with the code, so claims and behavior move
 together.
 
@@ -8,7 +8,7 @@ together.
 
 | Doc | What it covers |
 | --- | --- |
-| **[concepts.md](concepts.md)** | What Offloader is, when it fits, and the few terms the other docs use. **Start here.** |
+| **[concepts.md](concepts.md)** | How Offloader works, when it fits, and the few terms the other docs use. **Start here.** |
 | [quickstart.md](quickstart.md) | Run it against the bundled example in ~15 minutes, no cloud needed. |
 | [developer-experience.md](developer-experience.md) | Config guide: define datasets, endpoints, and keys; load config from disk or a bucket. |
 | [config-reference.md](config-reference.md) | Field-by-field reference for every config file, accepted value, and example shape. |
@@ -20,6 +20,8 @@ together.
 | [public-serving.md](public-serving.md) | Serve public data to a front-end and cache it at the edge (auth, ETags, CORS). |
 | [mcp.md](mcp.md) | Serve the same endpoints to AI agents over the Model Context Protocol. |
 | [benchmarks.md](benchmarks.md) | Measure latency, throughput, and footprint on your own data. |
+| [warehouse-to-api.md](warehouse-to-api.md) | Evaluate one warehouse-backed product endpoint, including freshness and tenant checks. |
+| [warehouse-cache-or-snapshot.md](warehouse-cache-or-snapshot.md) | Choose between direct queries, response caching and snapshot serving. |
 
 ## Deeper reference
 

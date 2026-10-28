@@ -6,6 +6,15 @@
 <title>Serving public data (front-end + CDN) — Offloader docs</title>
 <meta name="description" content="The common case Offloader is built for: public, product-facing data your team builds in the
 warehouse and ships to a front-end — leaderboards, public…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/public-serving.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/public-serving.html">
+<meta property="og:title" content="Serving public data (front-end + CDN) — Offloader docs">
+<meta property="og:description" content="The common case Offloader is built for: public, product-facing data your team builds in the
+warehouse and ships to a front-end — leaderboards, public…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ warehouse and ships to a front-end — leaderboards, public…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ warehouse and ships to a front-end — leaderboards, public…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -82,6 +93,12 @@ warehouse and ships to a front-end — leaderboards, public…">
 warehouse and ships to a front-end — leaderboards, public stats pages, embedded charts. High
 request volume, no per-user data, a few minutes&#39; staleness is fine. This page shows how to serve
 it cheaply and cache it at the edge.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#1-run-it-public">1. Run it public</a></li>
+<li><a href="#2-it39s-cacheable-by-construction">2. It&#39;s cacheable by construction</a></li>
+<li><a href="#3-put-a-cdn-in-front">3. Put a CDN in front</a></li>
+<li><a href="#4-calling-from-a-browser-cors">4. Calling from a browser (CORS)</a></li>
+<li><a href="#5-protect-it">5. Protect it</a></li>
+<li><a href="#what-approaches-zero-assumes">What &quot;approaches zero&quot; assumes</a></li></ul></nav></details>
 <h2 id="1-run-it-public">1. Run it public</h2>
 <p>Set <code>auth: none</code> in <code>offloader.yml</code>. The API then needs no bearer token — accepted only when <strong>no
 endpoint is tenant-scoped</strong> (enforced at config load), so it can never expose per-tenant data
@@ -177,7 +194,7 @@ request has unique params, or you need per-second freshness, the edge can&#39;t 
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

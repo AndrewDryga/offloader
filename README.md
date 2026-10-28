@@ -12,7 +12,7 @@ that data, you pay warehouse cost and latency on every request.
 Offloader lets your pipeline publish that data as snapshots, then serves named REST
 endpoints from those snapshots on your own servers. The warehouse builds the data
 once; your app reads it cheaply until the next snapshot is ready. New to the idea?
-Start with **[What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)**.
+Start with **[How Offloader works](https://offloader.dryga.com/docs/concepts.html)**.
 
 Offloader is a container you run. It reads approved Parquet/CSV snapshots from object
 storage, loads them into DuckDB, and exposes only the REST endpoints you configure.
@@ -26,7 +26,7 @@ platform.
 
 ## Documentation
 
-**New here → [What Offloader is, in plain language](https://offloader.dryga.com/docs/concepts.html)** (the words and
+**New here → [How Offloader works](https://offloader.dryga.com/docs/concepts.html)** (the words and
 the mental model, no jargon).
 
 Then, by what you want to do:
@@ -156,6 +156,7 @@ legal/            Contracting templates (diagnostic + pilot SOW) — fill per de
 The development gate is:
 
 ```sh
+npm ci --prefix dev/docs-site # install the docs renderer
 make check        # format, warnings-as-errors, tests
 make e2e          # manifest -> HTTP smoke
 make deploy-check # build the prod image, boot it, verify both ports
@@ -165,8 +166,9 @@ make deploy-check # build the prod image, boot it, verify both ports
 
 Offloader is source-available under the **[Business Source License 1.1](LICENSE)** (BSL 1.1).
 In plain terms: you may read, modify, redistribute, and self-host it, and **run it in production
-free of charge if your organization's total annual revenue is under $1M**. At or above $1M,
-production use needs a commercial license (that's the paid engagement). Every release
-**automatically converts to Apache-2.0 two years after it ships**, so each version becomes fully
-open-source on a clock — and either way there's **no lock-in**: you keep your container, your
-data, and the full source.
+free of charge if your organization and its affiliates had combined gross revenue under $1M
+in the most recently completed fiscal year**. At or above $1M,
+production use needs a commercial license (that's the paid engagement). The license in this
+revision specifies **July 6, 2028** as its Change Date and **Apache-2.0** as its Change License.
+Check the `LICENSE` shipped with the version you use; change dates can vary by version.
+You keep your container, your data, and the full source.

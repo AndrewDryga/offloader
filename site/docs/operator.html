@@ -6,6 +6,15 @@
 <title>Operator guide — Offloader docs</title>
 <meta name="description" content="Everything an operator needs to run Offloader in production, with real commands and
 diagnostics fields. It links to the deep docs rather than repeating…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/operator.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/operator.html">
+<meta property="og:title" content="Operator guide — Offloader docs">
+<meta property="og:description" content="Everything an operator needs to run Offloader in production, with real commands and
+diagnostics fields. It links to the deep docs rather than repeating…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ diagnostics fields. It links to the deep docs rather than repeating…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ diagnostics fields. It links to the deep docs rather than repeating…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -80,6 +91,17 @@ diagnostics fields. It links to the deep docs rather than repeating…">
 <h1 id="operator-guide">Operator guide</h1>
 <p>Everything an operator needs to run Offloader in production, with real commands and
 diagnostics fields. It links to the deep docs rather than repeating them.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#deploy">Deploy</a></li>
+<li><a href="#upgrade-check-and-rollback">Upgrade check and rollback</a></li>
+<li><a href="#cache-quarantine-and-rebuild">Cache quarantine and rebuild</a></li>
+<li><a href="#sizing">Sizing</a></li>
+<li><a href="#security-model">Security model</a></li>
+<li><a href="#port-exposure">Port exposure</a></li>
+<li><a href="#support-bundle-handling">Support bundle handling</a></li>
+<li><a href="#diagnostics">Diagnostics</a></li>
+<li><a href="#scaling-availability">Scaling &amp; availability</a></li>
+<li><a href="#support">Support</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li></ul></nav></details>
 <h2 id="deploy">Deploy</h2>
 <p>The container reads env vars plus config; nothing is baked into the image. Two
 variables are required — <code>OFFLOADER_CONFIG</code> and <code>OFFLOADER_SECRET_KEY_BASE</code> —
@@ -281,7 +303,7 @@ classification (Offloader vs customer environment vs upstream data) from <code>/
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

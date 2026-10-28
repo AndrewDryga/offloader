@@ -26,6 +26,7 @@ tools-check: ## Helper tooling (Go) gate: gofmt, vet, tidy, race tests
 
 docs-check: ## Docs gate: core docs exist and carry no forbidden overclaims
 	./dev/scripts/docs-check.sh
+	npm run check --prefix dev/docs-site
 
 e2e: ## End-to-end manifest -> materialize -> HTTP smoke against the example
 	./dev/scripts/e2e.sh
@@ -35,7 +36,7 @@ deploy-check: ## Build + boot the production image locally and verify it before 
 
 doctor: ## Print required toolchain checks
 	@missing=0; \
-	for t in go gofmt elixir mix docker; do \
+	for t in go gofmt elixir mix docker node npm; do \
 	  command -v $$t >/dev/null 2>&1 && echo "  ok       $$t" || { echo "  MISSING  $$t"; missing=1; }; \
 	done; \
 	[ $$missing -eq 0 ] && echo "doctor: all good" || { echo "doctor: install the missing tools above"; exit 1; }

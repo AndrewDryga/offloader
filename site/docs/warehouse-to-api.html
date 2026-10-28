@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serve a warehouse-backed API from snapshots — Offloader docs</title>
+<meta name="description" content="Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
+If those answers can be a few minutes or hours old, you can serve them…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/warehouse-to-api.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/warehouse-to-api.html">
+<meta property="og:title" content="Serve a warehouse-backed API from snapshots — Offloader docs">
+<meta property="og:description" content="Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
+If those answers can be a few minutes or hours old, you can serve them…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#proof">Proof</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
+      <li><a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html">Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">How Offloader works</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="cli.html">CLI reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="mcp.html">AI agents (MCP)</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="warehouse-to-api.html" aria-current="page">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Evaluate</p>
+    <article class="prose">
+<h1 id="serve-a-warehouse-backed-api-from-snapshots">Serve a warehouse-backed API from snapshots</h1>
+<p>Your customer dashboard asks for usage totals, billing totals, or a leaderboard.
+If those answers can be a few minutes or hours old, you can serve them from a
+snapshot instead of querying the warehouse on every request.</p>
+<p>This guide uses a customer usage endpoint to show what moving to Offloader
+involves. Your pipeline exports the data; Offloader serves it through a REST API
+on your own servers.</p>
+<p><strong>Before you start:</strong> choose one existing endpoint and decide how old its data
+can be. The <a href="quickstart.html">quickstart</a> supplies the container and sample data for
+trying the API locally with Docker and Git.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#1-choose-what-the-endpoint-returns">1. Choose what the endpoint returns</a></li>
+<li><a href="#2-publish-a-complete-snapshot">2. Publish a complete snapshot</a></li>
+<li><a href="#3-call-the-sample-endpoint">3. Call the sample endpoint</a></li>
+<li><a href="#4-compare-it-with-your-current-api">4. Compare it with your current API</a></li></ul></nav></details>
+<h2 id="1-choose-what-the-endpoint-returns">1. Choose what the endpoint returns</h2>
+<p>List the fields your screen needs and the filters callers may use. For customer
+data, identify the column that separates one customer&#39;s rows from another&#39;s.</p>
+<p>The bundled
+<a href="https://github.com/AndrewDryga/offloader/blob/main/examples/customer-analytics/endpoints/customer_usage_summary.yml"><code>customer_usage_summary</code> definition</a>
+groups usage by account. It accepts <code>from</code>, <code>to</code>, and an optional <code>account_id</code>,
+and returns four columns: account ID, active users, API calls, and average storage.</p>
+<p>Callers supply filters, never SQL. The API key identifies the tenant, and Offloader
+adds the tenant filter to the query. The date range filters rows in the current
+snapshot; it does not select an older snapshot.</p>
+<h2 id="2-publish-a-complete-snapshot">2. Publish a complete snapshot</h2>
+<p>Export the dataset to Parquet, including the tenant column and every field the
+endpoint needs. A small JSON file called a <strong>manifest</strong> lists the files and schema
+for that snapshot. It tells Offloader which files belong together, even if the
+export directory contains several versions.</p>
+<p>Your pipeline owns the export schedule. Offloader loads the result and checks it
+before serving it. How you publish updates depends on the dataset configuration.</p>
+<h3 id="if-you-use-manifest">If you use <code>manifest:</code></h3>
+<p>A static manifest lives inside the project. Offloader does not poll it by default.
+To publish an update through config sync:</p>
+<ol>
+<li>Write the new data files and a manifest with a new <code>snapshot_id</code>.</li>
+<li>Update the dataset YAML to point to the new manifest.</li>
+<li>Let enabled config sync load the change. If sync is off, restart Offloader
+with the updated project.</li>
+</ol>
+<p>Replacing only the JSON or Parquet files does not trigger config sync.</p>
+<h3 id="if-you-use-source">If you use <code>source:</code></h3>
+<p>Offloader can discover supported exports on its refresh schedule. For example,
+the Databricks source uses completed export metadata to find the files.</p>
+<p>See the <a href="config-reference.html">configuration reference</a> for both options.
+Offloader does not schedule warehouse exports for you.</p>
+<h2 id="3-call-the-sample-endpoint">3. Call the sample endpoint</h2>
+<p>Follow the <a href="quickstart.html">quickstart</a> to run the container and wait for it to
+be ready. Then call the sample endpoint with its demo key:</p>
+<pre tabindex="0"><code class="language-sh">curl -H &quot;Authorization: Bearer offl_demo_acme_key&quot; \
+  &quot;http://localhost:4000/v1/endpoints/customer_usage_summary?from=2026-05-30&amp;to=2026-06-01&quot;
+</code></pre>
+<p>Check the <code>data</code> rows and the <code>meta</code> fields:</p>
+<ul>
+<li>The rows should belong to the tenant named by the key.</li>
+<li><code>snapshot_id</code> identifies the snapshot that answered the request.</li>
+<li>The freshness <code>watermark</code> tells you when the data was current.</li>
+<li><code>stale: true</code> means the data is older than the configured limit. That is expected
+for this old sample data. <strong>Offloader still serves it</strong>; your app decides whether
+to accept it.</li>
+</ul>
+<p>Try adding a <code>tenant_id</code> parameter. This endpoint does not accept it, so the
+request returns <code>422 invalid_param</code>, as shown in the quickstart. Before serving
+real customers, test with separate tenants and check each key&#39;s results.</p>
+<h2 id="4-compare-it-with-your-current-api">4. Compare it with your current API</h2>
+<p>Replay a realistic set of requests against both APIs, using non-sensitive data
+from the same point in time. Check that the results match, including empty
+responses, date boundaries, and pagination. Test a failed refresh too: requests
+should keep using the last working snapshot.</p>
+<p>Under the load you expect, measure response times, errors, refresh time, and data
+age. The <a href="benchmarks.html">benchmark guide</a> shows how to run those checks.</p>
+<p>For cost, start with warehouse compute you can actually remove. Subtract export,
+storage, serving, and license costs. If you pay for reserved warehouse capacity,
+fewer queries may not lower the bill until you downsize. The
+<a href="https://offloader.dryga.com/roi.html">ROI calculator</a> gives an initial estimate;
+it does not include every running cost.</p>
+<p>You should now know whether this endpoint returns the right data, stays fresh
+enough, and saves enough to justify the move. Read the
+<a href="security-model.html">security model</a> and <a href="deployment.html">deployment guide</a> before
+exposing it. If snapshots do not fit, compare
+<a href="warehouse-cache-or-snapshot.html">direct queries and response caching</a>.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="ownership.html"><span>Previous</span><b>Ownership & support</b></a>
+      <a class="pg next" href="warehouse-cache-or-snapshot.html"><span>Next</span><b>Choose a serving path</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+      <p class="foot-tag">If your warehouse can publish Parquet, Offloader can serve it through REST.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <div>
+        <h3>Product</h3>
+        <a href="../index.html#how">How it works</a>
+        <a href="../index.html#pricing">Pricing</a>
+        <a href="../index.html#faq">FAQ</a>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <a href="concepts.html">Concepts</a>
+        <a href="quickstart.html">Quickstart</a>
+        <a href="cli.html">CLI reference</a>
+        <a href="security-model.html">Security</a>
+      </div>
+      <div>
+        <h3>Evaluate</h3>
+        <a href="../roi.html">ROI calculator</a>
+        <a href="benchmarks.html">Benchmarks</a>
+      </div>
+      <div>
+        <h3>Talk to us</h3>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+      </div>
+    </nav>
+  </div>
+</footer>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
+</body>
+</html>

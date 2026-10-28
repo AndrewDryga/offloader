@@ -6,6 +6,15 @@
 <title>Deployment — Offloader docs</title>
 <meta name="description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
 conventions, health checks, metrics, and smoke tests — you…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/deployment.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/deployment.html">
+<meta property="og:title" content="Deployment — Offloader docs">
+<meta property="og:description" content="Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
+conventions, health checks, metrics, and smoke tests — you…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ conventions, health checks, metrics, and smoke tests — you…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ conventions, health checks, metrics, and smoke tests — you…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -81,6 +92,9 @@ conventions, health checks, metrics, and smoke tests — you…">
 <p>Offloader is a self-hosted container. It ships an image, documented env vars, mounted-config
 conventions, health checks, metrics, and smoke tests — you decide how to run it (VMs,
 Kubernetes, Nomad, ECS, or your own platform).</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#runtime-shape">Runtime shape</a></li>
+<li><a href="#deployment-examples">Deployment examples</a></li>
+<li><a href="#rollout-verification-and-rollback">Rollout verification and rollback</a></li></ul></nav></details>
 <h2 id="runtime-shape">Runtime shape</h2>
 <p>Two ports, with different audiences:</p>
 <figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
@@ -159,7 +173,7 @@ snapshot, roll the dataset back to its previous good snapshot (see
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

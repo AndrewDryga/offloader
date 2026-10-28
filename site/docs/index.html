@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Documentation — Offloader</title>
 <meta name="description" content="Run Offloader from first boot to production: concepts, quickstart, config and API reference, security, deployment, and ROI.">
+<link rel="canonical" href="https://offloader.dryga.com/docs/index.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/index.html">
+<meta property="og:title" content="Documentation — Offloader">
+<meta property="og:description" content="Run Offloader from first boot to production: concepts, quickstart, config and API reference, security, deployment, and ROI.">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -35,7 +43,7 @@
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -68,6 +76,8 @@
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -79,13 +89,13 @@
       <h1>Run Offloader from first boot to production.</h1>
       <p class="lede">Serve repeated product API reads from warehouse snapshots on your own
       servers. New here? Start with
-      <a href="concepts.html">what Offloader is</a>, then run the
+      <a href="concepts.html">how Offloader works</a>, then run the
       <a href="quickstart.html">15-minute quickstart</a>.</p>
     </header>
     <section class="doc-group">
       <h2>Start</h2>
       <ul class="doc-index">
-      <li><a href="concepts.html"><b>What Offloader is</b><span>The short explanation, plus the few terms the rest of the docs use.</span></a></li>
+      <li><a href="concepts.html"><b>How Offloader works</b><span>From warehouse exports to REST requests, with the terms you need to get started.</span></a></li>
       <li><a href="quickstart.html"><b>Quickstart</b><span>Boot the bundled example and serve a real endpoint in about 15 minutes.</span></a></li>
       </ul>
     </section>
@@ -95,7 +105,7 @@
       <li><a href="developer-experience.html"><b>Config guide</b><span>Define datasets, endpoints, and keys; load config from disk or a bucket.</span></a></li>
       <li><a href="config-reference.html"><b>Config reference</b><span>Every config field, accepted value, and example shape.</span></a></li>
       <li><a href="cli.html"><b>CLI reference</b><span>The optional `offloader` helper: every command, its flags, and an example.</span></a></li>
-      <li><a href="api.html"><b>API reference</b><span>The consumer request/response contract and the error-to-status-code table.</span></a></li>
+      <li><a href="api.html"><b>API reference</b><span>Requests, responses, authentication, and HTTP error codes.</span></a></li>
       </ul>
     </section>
     <section class="doc-group">
@@ -109,15 +119,17 @@
     <section class="doc-group">
       <h2>Operate</h2>
       <ul class="doc-index">
-      <li><a href="deployment.html"><b>Deploy</b><span>Docker, Compose, and Kubernetes shapes, with rollout verification.</span></a></li>
+      <li><a href="deployment.html"><b>Deploy</b><span>Deploy with Docker, Compose, or Kubernetes, then check the running service.</span></a></li>
       <li><a href="operator.html"><b>Operator guide</b><span>Run it in production: size it, upgrade, roll back, diagnose.</span></a></li>
       <li><a href="runbooks.html"><b>Runbooks</b><span>Step-by-step responses to the alerts that can fire.</span></a></li>
-      <li><a href="ownership.html"><b>Ownership & support</b><span>The responsibility matrix for a deployment you run yourself.</span></a></li>
+      <li><a href="ownership.html"><b>Ownership & support</b><span>What your team operates and how to get support.</span></a></li>
       </ul>
     </section>
     <section class="doc-group">
       <h2>Evaluate</h2>
       <ul class="doc-index">
+      <li><a href="warehouse-to-api.html"><b>Warehouse to API</b><span>Evaluate one customer-facing endpoint using a published snapshot.</span></a></li>
+      <li><a href="warehouse-cache-or-snapshot.html"><b>Choose a serving path</b><span>Compare direct warehouse queries, response caching and snapshot serving.</span></a></li>
       <li><a href="benchmarks.html"><b>Benchmarks</b><span>Measure latency, throughput, and footprint on your own data.</span></a></li>
       </ul>
     </section>
@@ -151,7 +163,7 @@
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

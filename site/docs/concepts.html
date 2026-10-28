@@ -3,9 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>What Offloader is (in plain language) — Offloader docs</title>
-<meta name="description" content="New here? Read this first. It explains what Offloader does, why you&amp;#39;d want it, and
-the handful of words the rest of the docs use — no prior…">
+<title>How Offloader works — Offloader docs</title>
+<meta name="description" content="Offloader serves REST APIs from snapshots of your warehouse data. You run it on
+your own servers, so your product can read the same data many times…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/concepts.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/concepts.html">
+<meta property="og:title" content="How Offloader works — Offloader docs">
+<meta property="og:description" content="Offloader serves REST APIs from snapshots of your warehouse data. You run it on
+your own servers, so your product can read the same data many times…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ the handful of words the rest of the docs use — no prior…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html" aria-current="page">What Offloader is</a></li>
+        <li><a href="concepts.html" aria-current="page">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ the handful of words the rest of the docs use — no prior…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -77,22 +88,30 @@ the handful of words the rest of the docs use — no prior…">
   <main id="main" class="docs-main">
     <p class="doc-kicker">Start</p>
     <article class="prose">
-<h1 id="what-offloader-is-in-plain-language">What Offloader is (in plain language)</h1>
-<p>New here? Read this first. It explains what Offloader does, why you&#39;d want it, and
-the handful of words the rest of the docs use — no prior data-engineering knowledge
-assumed.</p>
+<h1 id="how-offloader-works">How Offloader works</h1>
+<p>Offloader serves REST APIs from snapshots of your warehouse data. You run it on
+your own servers, so your product can read the same data many times without
+querying the warehouse for every request.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#the-problem-it-solves">The problem it solves</a></li>
+<li><a href="#what-offloader-does">What Offloader does</a></li>
+<li><a href="#is-it-a-fit">Is it a fit?</a></li>
+<li><a href="#the-words-we-use">The words we use</a></li>
+<li><a href="#how-the-pieces-fit">How the pieces fit</a></li>
+<li><a href="#how-updates-work">How updates work</a></li>
+<li><a href="#the-two-ports">The two ports</a></li>
+<li><a href="#where-to-go-next">Where to go next</a></li></ul></nav></details>
 <h2 id="the-problem-it-solves">The problem it solves</h2>
 <p>Your product needs data the warehouse produces: usage meters, billing totals,
 leaderboards, recommendations, customer analytics. A user is often waiting for that
 answer. For example, your backend may need one account&#39;s usage, one customer&#39;s billing
 total, or one leaderboard page before it can return an API response.</p>
-<p>Warehouses (Snowflake, Databricks, BigQuery, and similar systems) are good at the
-big job: crunching a lot of data and producing the answer set. They are a poor place
-to send every small product API read. Each request can pay warehouse cost, inherit
-warehouse latency, or depend on a cache your team built in a hurry.</p>
+<p>Warehouses such as Snowflake, Databricks, and BigQuery process large datasets.
+Calling them for every small API read can add cost and latency. A cache helps
+when requests repeat, but its misses still reach the warehouse.</p>
 <p>Most of these APIs ask the same known questions over and over: &quot;usage for account X
 over the last 30 days,&quot; &quot;top 50 leaderboard rows,&quot; &quot;billing totals for this customer.&quot;
-They usually need data that is 15-120 minutes fresh, not up-to-the-second.</p>
+A published snapshot fits only when its age stays within the product&#39;s freshness
+requirement.</p>
 <h2 id="what-offloader-does">What Offloader does</h2>
 <p>Offloader lets your pipeline publish those answers as snapshots, then serves REST
 endpoints from the snapshots on your own servers. The warehouse builds the data once.
@@ -103,7 +122,7 @@ Your app reads it many times until the next snapshot is ready.</p>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
       <div class="hop"><span class="hop-l">warehouse query</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
+      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>Query execution</strong><span class="node-sub">warehouse work per request</span></div>
     </div>
   </div>
   <div class="flow-lane">
@@ -111,19 +130,22 @@ Your app reads it many times until the next snapshot is ready.</p>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
       <div class="hop"><span class="hop-l">REST API</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
+      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">serving compute</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
     </div>
   </div>
 </figure>
 
-<p>You publish periodic <strong>snapshots</strong> of the data to object storage. Offloader checks the
-snapshot, loads it into a fast local engine, and answers your product&#39;s REST calls from
-it. When a newer snapshot appears, it switches to the new one without taking the API
-down. If the new snapshot is bad, the last good one keeps serving.</p>
+<p>Offloader checks each new snapshot before using it. By default, it loads the data
+into DuckDB inside the container. If an update fails, requests keep using the
+last working snapshot.</p>
 <p>It runs as a <strong>single container on your own infrastructure</strong>: there&#39;s no Offloader
 cloud, and private data stays in your environment by default.</p>
+<p>Offloader is <strong>source-available under the <a href="https://github.com/AndrewDryga/offloader/blob/main/LICENSE">Business Source License 1.1</a></strong>.
+Production use follows the license&#39;s Additional Use Grant. The license in this
+revision specifies a change to Apache-2.0 on July 6, 2028; see the
+<a href="https://github.com/AndrewDryga/offloader/blob/main/README.md#license">license overview</a> for the current commercial terms.</p>
 <h2 id="is-it-a-fit">Is it a fit?</h2>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -142,11 +164,11 @@ cloud, and private data stays in your environment by default.</p>
 <td>Every query is different / ad-hoc SQL</td>
 </tr>
 <tr>
-<td>15-120 minute freshness is fine</td>
+<td>Your freshness tolerance matches the export and refresh schedule</td>
 <td>You need up-to-the-second data</td>
 </tr>
 <tr>
-<td>You can export snapshots to S3/GCS</td>
+<td>You can publish consistent Parquet snapshots, locally or in supported object storage</td>
 <td>You can&#39;t produce snapshots</td>
 </tr>
 <tr>
@@ -156,7 +178,7 @@ cloud, and private data stays in your environment by default.</p>
 </tbody></table>
 </div>
 <h2 id="the-words-we-use">The words we use</h2>
-<p>You only need these dozen terms to read the rest of the docs.</p>
+<p>These terms appear in the configuration and the guides.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -179,7 +201,7 @@ cloud, and private data stays in your environment by default.</p>
 </tr>
 <tr>
 <td><strong>Manifest</strong></td>
-<td>A small JSON file that says &quot;this snapshot uses these files and this schema.&quot; Offloader follows that pointer.</td>
+<td>A JSON file identifying one snapshot&#39;s files and schema; a static manifest lives inside the project, while its data files can be remote.</td>
 </tr>
 <tr>
 <td><strong>Dataset</strong></td>
@@ -195,15 +217,15 @@ cloud, and private data stays in your environment by default.</p>
 </tr>
 <tr>
 <td><strong>Materialize</strong></td>
-<td>Load a snapshot&#39;s Parquet into Offloader&#39;s local engine (DuckDB) so reads are fast. Happens automatically.</td>
+<td>Load a snapshot&#39;s Parquet into DuckDB for <code>local_table</code> serving.</td>
 </tr>
 <tr>
 <td><strong>Refresh</strong></td>
-<td>Check for a newer snapshot and switch to it. Automatic, on a schedule.</td>
+<td>Check a new snapshot and start serving it. How Offloader finds updates depends on your configuration.</td>
 </tr>
 <tr>
 <td><strong>Freshness / watermark</strong></td>
-<td>How old the data is; the <code>watermark</code> is the snapshot&#39;s timestamp. Every response includes it.</td>
+<td>How old the data is; the <code>watermark</code> is the snapshot&#39;s timestamp. Each successful data response includes it.</td>
 </tr>
 <tr>
 <td><strong>Tenant</strong></td>
@@ -218,22 +240,34 @@ cloud, and private data stays in your environment by default.</p>
 <p>Two more you&#39;ll see in operations:</p>
 <ul>
 <li><strong>DuckDB</strong> — the small, fast engine embedded inside the container that runs the queries. You don&#39;t install or manage it; it&#39;s just there.</li>
-<li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the fast default) or straight from the snapshot files (<code>remote_scan</code>, for big/cold data). Most endpoints use the default.</li>
+<li><strong>Serving mode</strong> — where a query reads from: a pre-loaded local table (<code>local_table</code>, the default) or straight from the snapshot files (<code>remote_scan</code>). Both currently materialize during refresh, so choose by measuring your workload rather than assuming that remote scans eliminate local storage.</li>
 </ul>
 <h2 id="how-the-pieces-fit">How the pieces fit</h2>
-<figure class="flow" aria-label="Your pipeline exports a snapshot to object storage; Offloader checks it, loads it into DuckDB, and serves REST; a newer valid snapshot replaces the old one.">
+<p>The default <code>local_table</code> request path:</p>
+<figure class="flow" aria-label="Default local_table mode: your pipeline exports a snapshot to object storage; Offloader checks the configured snapshot, loads it into DuckDB, and serves REST.">
   <div class="flow-track">
     <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
     <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
     <div class="hop"><span class="hop-l">load locally</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
+    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the configured snapshot</span></div>
     <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">no warehouse call</span></div>
   </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot is checked before it replaces the old one — the warehouse is used by the export job, not by each customer request.</figcaption>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> The default mode loads the configured snapshot into DuckDB. Your export job uses the warehouse; customer requests use the snapshot.</figcaption>
 </figure>
 
+<h2 id="how-updates-work">How updates work</h2>
+<p>With a configured <code>source:</code>, Offloader can find supported exports on a schedule.
+With a static <code>manifest:</code>, it loads the snapshot named by that file and does not
+poll for updates by default.</p>
+<p>To update a static manifest through config sync, publish the new data and a
+manifest with a new <code>snapshot_id</code>. Then change the dataset YAML to point to it.
+Enabled config sync loads that change; otherwise, restart with the updated
+project. Changing only JSON or Parquet files does not trigger sync.</p>
+<p>The <a href="warehouse-to-api.html#2-publish-a-complete-snapshot">warehouse-to-API guide</a>
+walks through both options. The <a href="config-reference.html">configuration reference</a>
+lists the settings.</p>
 <h2 id="the-two-ports">The two ports</h2>
 <p>Offloader listens on two ports, on purpose:</p>
 <ul>
@@ -242,6 +276,8 @@ cloud, and private data stays in your environment by default.</p>
 </ul>
 <h2 id="where-to-go-next">Where to go next</h2>
 <ul>
+<li><strong><a href="warehouse-to-api.html">Warehouse to API</a></strong> — evaluate one product endpoint with concrete freshness and tenant checks.</li>
+<li><strong><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></strong> — compare direct queries, response caching and snapshots.</li>
 <li><strong><a href="quickstart.html">Quickstart</a></strong> — run it against a bundled example in ~15 minutes, no cloud needed.</li>
 <li><strong><a href="developer-experience.html">Define your own endpoints</a></strong> — what the config files look like.</li>
 <li><strong><a href="operator.html">Run it in production</a></strong> — deploy, size, upgrade, roll back.</li>
@@ -283,7 +319,7 @@ cloud, and private data stays in your environment by default.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

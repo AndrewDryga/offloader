@@ -1,8 +1,10 @@
 # Offloader marketing site
 
-A self-contained marketing page plus a browsable docs site. No framework, no CDN, no
-tracking — `index.html` + `styles.css` + a tiny `app.js`, the rendered docs under
+A self-contained marketing page plus a browsable docs site. No framework —
+`index.html` + `styles.css` + a tiny `app.js`, the rendered docs under
 `docs/`, with fonts, favicon, and the OG image all served from this folder.
+Public pages load Mixpanel through `analytics.js`; booking-link clicks measure
+intent, not completed bookings. ROI calculator inputs are not sent as events.
 
 ## Preview
 
@@ -20,12 +22,15 @@ repo's `docs/*.md` (the committed source of truth). The generated pages are comm
 the site deploys with no build step. Regenerate after editing any doc:
 
 ```sh
-cd ../dev/docs-site && npm install && npm run build   # → site/docs/*.html
+cd ../dev/docs-site && npm ci && npm run build
+npm run check   # read-only comparison of docs HTML and sitemap with their sources
 ```
 
 The generator (`dev/docs-site/build.mjs`) reuses this site's `styles.css` tokens plus
 `docs.css`, so the docs inherit the same type, color, and light/dark behavior. It renders
 the customer-facing docs only; internal planning docs stay out of the public site.
+The same inventory generates `sitemap.xml`. Both CI and the Pages workflow reject
+stale output. Existing `.html` URLs remain canonical, including `/docs/index.html`.
 
 ## Design
 
@@ -44,3 +49,8 @@ the customer-facing docs only; internal planning docs stay out of the public sit
 [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono), both under the **SIL Open Font
 License 1.1**. For a production deploy, ship the upstream `OFL.txt` alongside these files to
 satisfy the license's bundling requirement.
+
+Long documentation pages get an “On this page” disclosure from their level-two
+headings. Keep those headings useful as navigation labels. Wide tables stay
+readable and scroll within the page on smaller screens. Both behaviors are
+shared in `dev/docs-site/build.mjs` and `site/docs.css`.

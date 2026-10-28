@@ -93,8 +93,17 @@ box:
   "remote manifest" is simply a project served from a bucket; you don't put a bucket URL in the
   `manifest:` field itself.
 
-To publish a new snapshot, write a new manifest (or overwrite the file) — Offloader picks it up
-on the next refresh.
+A static manifest loads at boot. The standard server does not poll it on a timer.
+For an update without restarting, publish a manifest with a new `snapshot_id`
+under a versioned path, change the dataset YAML's `manifest:` value to that path, and enable
+[`OFFLOADER_CONFIG_SYNC_INTERVAL`](developer-experience.md#hot-config-auto-sync).
+The changed dataset definition triggers validation and refresh.
+
+Publish the data files and manifest before changing the YAML. Config sync detects
+YAML changes; overwriting only a manifest JSON or Parquet file does not trigger
+it. An unchanged dataset definition is not refreshed merely because another
+project setting changed. If config sync is disabled, the updated project is
+loaded on the next server start.
 
 ### `source:` — a self-updating remote source
 

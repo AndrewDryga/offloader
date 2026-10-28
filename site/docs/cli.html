@@ -6,6 +6,15 @@
 <title>CLI reference — the offloader helper — Offloader docs</title>
 <meta name="description" content="offloader is an optional command-line helper for authoring and operating a deployment. It
 is not part of the container — the server needs only its config…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/cli.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/cli.html">
+<meta property="og:title" content="CLI reference — the offloader helper — Offloader docs">
+<meta property="og:description" content="offloader is an optional command-line helper for authoring and operating a deployment. It
+is not part of the container — the server needs only its config…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ is not part of the container — the server needs only its config…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ is not part of the container — the server needs only its config…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -81,6 +92,11 @@ is not part of the container — the server needs only its config…">
 <p><code>offloader</code> is an <strong>optional</strong> command-line helper for authoring and operating a deployment. It
 is <strong>not</strong> part of the container — the server needs only its config files and env vars — so you
 install it only for the scaffolding, validation, and diagnostics commands below.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#install">Install</a></li>
+<li><a href="#author-a-project">Author a project</a></li>
+<li><a href="#run-it">Run it</a></li>
+<li><a href="#verify-and-operate">Verify and operate</a></li>
+<li><a href="#version">Version</a></li></ul></nav></details>
 <h2 id="install">Install</h2>
 <pre tabindex="0"><code class="language-sh">curl -fsSL https://offloader.dryga.com/install.sh | sh
 </code></pre>
@@ -435,7 +451,7 @@ and credentialed URIs are masked; safe key hashes are kept.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

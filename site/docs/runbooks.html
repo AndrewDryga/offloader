@@ -6,6 +6,15 @@
 <title>Runbooks — Offloader docs</title>
 <meta name="description" content="One short runbook per incident class. The first job is classification — is
 this an Offloader bug, the customer environment, or upstream data? The…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/runbooks.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/runbooks.html">
+<meta property="og:title" content="Runbooks — Offloader docs">
+<meta property="og:description" content="One short runbook per incident class. The first job is classification — is
+this an Offloader bug, the customer environment, or upstream data? The…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@ this an Offloader bug, the customer environment, or upstream data? The…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@ this an Offloader bug, the customer environment, or upstream data? The…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -86,6 +97,17 @@ symptom → signals → likely owner → action → escalation.</p>
 <p>Commands assume the admin port is reachable privately and <code>OFFLOADER_ADMIN_TOKEN</code>
 is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer $TOKEN&quot; $ADMIN/diagnostics</code>.</p>
 </blockquote>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#server-does-not-start">Server does not start</a></li>
+<li><a href="#source-credentials-fail-bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</a></li>
+<li><a href="#bad-manifest-dataset-refresh-fails">Bad manifest / dataset refresh fails</a></li>
+<li><a href="#dataset-stale">Dataset stale</a></li>
+<li><a href="#duckdb-cache-corrupted-duckdb-failure">DuckDB cache corrupted / DuckDB failure</a></li>
+<li><a href="#disk-full">Disk full</a></li>
+<li><a href="#pool-busy-endpoint-latency-regression-sizing-the-read-pool">Pool busy / endpoint latency regression — sizing the read pool</a></li>
+<li><a href="#tenantauth-misconfiguration-key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</a></li>
+<li><a href="#rollback-to-previous-image">Rollback to previous image</a></li>
+<li><a href="#rollback-to-previous-snapshot">Rollback to previous snapshot</a></li>
+<li><a href="#cache-quarantine-and-rebuild-clear-cache">Cache quarantine and rebuild / clear cache</a></li></ul></nav></details>
 <h2 id="server-does-not-start">Server does not start</h2>
 <ul>
 <li><strong>Signals:</strong> container exits on boot; <code>docker logs</code> shows a config/secret error.</li>
@@ -220,7 +242,7 @@ from the current manifest on boot.</li>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

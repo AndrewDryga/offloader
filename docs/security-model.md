@@ -2,7 +2,7 @@
 
 Offloader runs **in your environment** and serves **read-only** data. This page explains,
 in plain terms, what it protects for you and what you remain responsible for. (Newer to the
-concepts? See [What Offloader is](concepts.md).)
+concepts? See [How Offloader works](concepts.md).)
 
 ## The short version
 

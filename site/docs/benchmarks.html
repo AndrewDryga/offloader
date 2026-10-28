@@ -6,6 +6,15 @@
 <title>Benchmarking — Offloader docs</title>
 <meta name="description" content="The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
 1, 10, and 50 — so you can size and tune Offloader on your own…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/benchmarks.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/benchmarks.html">
+<meta property="og:title" content="Benchmarking — Offloader docs">
+<meta property="og:description" content="The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
+1, 10, and 50 — so you can size and tune Offloader on your own…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -36,7 +45,7 @@
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -69,6 +78,8 @@
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html" aria-current="page">Benchmarks</a></li>
       </ul>
     </div>
@@ -80,6 +91,10 @@
 <h1 id="benchmarking">Benchmarking</h1>
 <p>The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
 1, 10, and 50 — so you can size and tune Offloader on your own data before a pilot.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#run-it">Run it</a></li>
+<li><a href="#what-each-number-means">What each number means</a></li>
+<li><a href="#how-to-read-it">How to read it</a></li>
+<li><a href="#what-these-numbers-are-and-aren39t">What these numbers are (and aren&#39;t)</a></li></ul></nav></details>
 <h2 id="run-it">Run it</h2>
 <pre tabindex="0"><code class="language-sh">./dev/scripts/benchmark.sh [out_dir]
 # quick run (default 300 req/scenario); deeper run:
@@ -115,7 +130,7 @@ production SLA. Your real latency and savings depend on your own data, payloads,
 measure them with a pilot benchmark before you commit.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
-      <a class="pg prev" href="ownership.html"><span>Previous</span><b>Ownership & support</b></a>
+      <a class="pg prev" href="warehouse-cache-or-snapshot.html"><span>Previous</span><b>Choose a serving path</b></a>
       <span></span>
     </nav>
   </main>
@@ -148,7 +163,7 @@ measure them with a pilot benchmark before you commit.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

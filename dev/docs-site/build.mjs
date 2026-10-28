@@ -8,7 +8,7 @@
 //   cd dev/docs-site && npm install && npm run build
 //
 // The generated site/docs/*.html is committed; re-run this after editing any doc.
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
@@ -17,6 +17,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..");
 const OUT = join(ROOT, "site", "docs");
 const REPO = "https://github.com/AndrewDryga/offloader";
+const ORIGIN = "https://offloader.dryga.com";
+const CHECK = process.argv.includes("--check");
+const outputs = new Map();
 
 // The docs site: ordered groups → pages. Each page is
 // [slug, source (repo-relative), sidebar title, one-line blurb for the index].
@@ -24,7 +27,7 @@ const GROUPS = [
   {
     name: "Start",
     items: [
-      ["concepts", "docs/concepts.md", "What Offloader is", "The short explanation, plus the few terms the rest of the docs use."],
+      ["concepts", "docs/concepts.md", "How Offloader works", "From warehouse exports to REST requests, with the terms you need to get started."],
       ["quickstart", "docs/quickstart.md", "Quickstart", "Boot the bundled example and serve a real endpoint in about 15 minutes."],
     ],
   },
@@ -34,7 +37,7 @@ const GROUPS = [
       ["developer-experience", "docs/developer-experience.md", "Config guide", "Define datasets, endpoints, and keys; load config from disk or a bucket."],
       ["config-reference", "docs/config-reference.md", "Config reference", "Every config field, accepted value, and example shape."],
       ["cli", "docs/cli.md", "CLI reference", "The optional `offloader` helper: every command, its flags, and an example."],
-      ["api", "docs/api.md", "API reference", "The consumer request/response contract and the error-to-status-code table."],
+      ["api", "docs/api.md", "API reference", "Requests, responses, authentication, and HTTP error codes."],
     ],
   },
   {
@@ -48,15 +51,17 @@ const GROUPS = [
   {
     name: "Operate",
     items: [
-      ["deployment", "docs/deployment.md", "Deploy", "Docker, Compose, and Kubernetes shapes, with rollout verification."],
+      ["deployment", "docs/deployment.md", "Deploy", "Deploy with Docker, Compose, or Kubernetes, then check the running service."],
       ["operator", "docs/operator.md", "Operator guide", "Run it in production: size it, upgrade, roll back, diagnose."],
       ["runbooks", "docs/operations/runbooks.md", "Runbooks", "Step-by-step responses to the alerts that can fire."],
-      ["ownership", "docs/operations/ownership.md", "Ownership & support", "The responsibility matrix for a deployment you run yourself."],
+      ["ownership", "docs/operations/ownership.md", "Ownership & support", "What your team operates and how to get support."],
     ],
   },
   {
     name: "Evaluate",
     items: [
+      ["warehouse-to-api", "docs/warehouse-to-api.md", "Warehouse to API", "Evaluate one customer-facing endpoint using a published snapshot."],
+      ["warehouse-cache-or-snapshot", "docs/warehouse-cache-or-snapshot.md", "Choose a serving path", "Compare direct warehouse queries, response caching and snapshot serving."],
       ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data."],
     ],
   },
@@ -80,7 +85,7 @@ const FIGURES = {
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
       <div class="hop"><span class="hop-l">warehouse query</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>$$$ · slow</strong><span class="node-sub">billed per query</span></div>
+      <div class="node node-warn"><span class="node-k">Data warehouse</span><strong>Query execution</strong><span class="node-sub">warehouse work per request</span></div>
     </div>
   </div>
   <div class="flow-lane">
@@ -88,23 +93,23 @@ const FIGURES = {
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
       <div class="hop"><span class="hop-l">REST API</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">cheap · fast</span></div>
+      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">serving compute</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
     </div>
   </div>
 </figure>`,
-  "snapshot-pipeline": `<figure class="flow" aria-label="Your pipeline exports a snapshot to object storage; Offloader checks it, loads it into DuckDB, and serves REST; a newer valid snapshot replaces the old one.">
+  "snapshot-pipeline": `<figure class="flow" aria-label="Default local_table mode: your pipeline exports a snapshot to object storage; Offloader checks the configured snapshot, loads it into DuckDB, and serves REST.">
   <div class="flow-track">
     <div class="node node-batch"><span class="node-k">On your schedule</span><strong>Your pipeline</strong><span class="node-sub">warehouse export</span></div>
     <div class="hop hop-batch"><span class="hop-l">export</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Object store</span><strong>Parquet + manifest</strong><span class="node-sub">S3 · GCS</span></div>
     <div class="hop"><span class="hop-l">load locally</span><span class="arw" aria-hidden="true"></span></div>
-    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the latest snapshot</span></div>
+    <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader · DuckDB</strong><span class="node-sub">loads the configured snapshot</span></div>
     <div class="hop hop-rev"><span class="hop-l">REST</span><span class="arw" aria-hidden="true"></span></div>
     <div class="node"><span class="node-k">Every request</span><strong>Your app</strong><span class="node-sub">no warehouse call</span></div>
   </div>
-  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> A newer snapshot is checked before it replaces the old one — the warehouse is used by the export job, not by each customer request.</figcaption>
+  <figcaption class="flow-cap"><span class="flow-mark" aria-hidden="true">↻</span> The default mode loads the configured snapshot into DuckDB. Your export job uses the warehouse; customer requests use the snapshot.</figcaption>
 </figure>`,
   "two-ports": `<figure class="flow" aria-label="Product traffic hits the API port (4000), guarded by endpoint API keys and tenant enforcement. Operators hit a separate admin port (4001) for health, metrics, diagnostics, and docs — keep it private.">
   <div class="ports">
@@ -161,7 +166,10 @@ function resolveHref(href, srcRepoRel) {
   if (path === "") return href;
   const target = posix.normalize(posix.join(posix.dirname(srcRepoRel), path));
   if (BY_SRC.has(target)) return BY_SRC.get(target) + anchor;
-  const isDir = path.endsWith("/") || !posix.basename(target).includes(".");
+  const localTarget = join(ROOT, target);
+  const isDir = existsSync(localTarget)
+    ? statSync(localTarget).isDirectory()
+    : path.endsWith("/") || !posix.basename(target).includes(".");
   return `${REPO}/${isDir ? "tree" : "blob"}/main/${target}${anchor}`;
 }
 
@@ -178,6 +186,15 @@ function makeScrollRegionsFocusable(html) {
     .replace(/<pre>/g, '<pre tabindex="0">')
     .replace(/<table>/g, '<div class="table-scroll" tabindex="0">\n<table>')
     .replace(/<\/table>/g, "</table>\n</div>");
+}
+
+// A compact contents disclosure keeps long guides easy to scan without crowding the intro.
+function addContents(html) {
+  const headings = [...html.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)];
+  if (headings.length < 3) return html;
+  const links = headings.map(([, id, text]) => `<li><a href="#${id}">${text.replace(/<a[^>]*>|<\/a>/g, "")}</a></li>`).join("\n");
+  const contents = `<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul>${links}</ul></nav></details>\n`;
+  return html.replace(/<h2 /, contents + "<h2 ");
 }
 
 const firstText = (html, tag) => {
@@ -266,7 +283,7 @@ const FOOT = `<footer class="site-foot">
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="${REPO}">GitHub</a>
       </div>
     </nav>
@@ -278,6 +295,7 @@ const FOOT = `<footer class="site-foot">
 const NAV_COLLAPSE = `<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>`;
 
 function page({ title, description, active, activeSlug, main }) {
+  const canonical = `${ORIGIN}/docs/${activeSlug || "index"}.html`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -285,6 +303,14 @@ function page({ title, description, active, activeSlug, main }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
+<link rel="canonical" href="${canonical}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="${canonical}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:image" content="${ORIGIN}/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -310,7 +336,6 @@ ${NAV_COLLAPSE}
 
 // ── render each doc ────────────────────────────────────────────────────────
 marked.setOptions({ gfm: true });
-mkdirSync(OUT, { recursive: true });
 
 for (let i = 0; i < FLAT.length; i++) {
   const p = FLAT[i];
@@ -319,6 +344,7 @@ for (let i = 0; i < FLAT.length; i++) {
   body = addHeadingIds(body);
   body = rewriteLinks(body, p.src);
   body = makeScrollRegionsFocusable(body);
+  body = addContents(body);
 
   const h1 = firstText(body, "h1") || p.title;
   const desc = truncate(firstText(body, "p") || p.blurb, 155);
@@ -335,7 +361,7 @@ for (let i = 0; i < FLAT.length; i++) {
 ${body}</article>
     ${pager}`;
 
-  writeFileSync(join(OUT, `${p.slug}.html`), page({
+  outputs.set(join(OUT, `${p.slug}.html`), page({
     title: `${h1} — Offloader docs`,
     description: desc,
     active: "docs",
@@ -362,12 +388,12 @@ const indexMain = `    <header class="docs-hero">
       <h1>Run Offloader from first boot to production.</h1>
       <p class="lede">Serve repeated product API reads from warehouse snapshots on your own
       servers. New here? Start with
-      <a href="concepts.html">what Offloader is</a>, then run the
+      <a href="concepts.html">how Offloader works</a>, then run the
       <a href="quickstart.html">15-minute quickstart</a>.</p>
     </header>
 ${cards}`;
 
-writeFileSync(join(OUT, "index.html"), page({
+outputs.set(join(OUT, "index.html"), page({
   title: "Documentation — Offloader",
   description: "Run Offloader from first boot to production: concepts, quickstart, config and API reference, security, deployment, and ROI.",
   active: "docs",
@@ -375,4 +401,29 @@ writeFileSync(join(OUT, "index.html"), page({
   main: indexMain,
 }));
 
-console.log(`docs-site: rendered ${FLAT.length} pages + index → site/docs/`);
+// One inventory drives navigation, generated pages, and discovery. Omit lastmod:
+// a build date is not evidence that the page's substance changed.
+const paths = ["/", "/roi.html", "/docs/index.html", ...FLAT.map((p) => `/docs/${p.slug}.html`)];
+outputs.set(join(ROOT, "site", "sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+  paths.map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join("\n") +
+  "\n</urlset>\n");
+
+const unexpected = existsSync(OUT)
+  ? readdirSync(OUT).filter((name) => name.endsWith(".html") && !outputs.has(join(OUT, name)))
+  : [];
+if (unexpected.length) {
+  console.error(`docs-site: unlisted public HTML: ${unexpected.join(", ")}. Review before removing or adding to the inventory.`);
+  process.exitCode = 1;
+}
+if (CHECK) {
+  const stale = [...outputs].filter(([path, content]) =>
+    !existsSync(path) || readFileSync(path, "utf8") !== content);
+  for (const [path] of stale) console.error(`docs-site: stale or missing ${path.slice(ROOT.length + 1)}`);
+  if (stale.length) process.exitCode = 1;
+  else if (!unexpected.length) console.log(`docs-site: ${outputs.size} generated files are current`);
+} else if (!unexpected.length) {
+  mkdirSync(OUT, { recursive: true });
+  for (const [path, content] of outputs) writeFileSync(path, content);
+  console.log(`docs-site: rendered ${FLAT.length} pages + index and sitemap`);
+}

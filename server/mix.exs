@@ -1,9 +1,8 @@
 defmodule Offloader.MixProject do
   use Mix.Project
 
-  # Source-available under the Business Source License 1.1 (BSL 1.1): production use is free
-  # under $1M org annual revenue, and each release converts to Apache-2.0 two years after it
-  # ships. See LICENSE at the repository root.
+  # Source-available under the Business Source License 1.1 (BSL 1.1).
+  # See the root LICENSE for production-use terms and this version's Change Date.
   def project do
     [
       app: :offloader,

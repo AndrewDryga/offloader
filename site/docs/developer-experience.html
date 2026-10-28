@@ -6,7 +6,17 @@
 <title>Config guide — publish your datasets and endpoints — Offloader docs</title>
 <meta name="description" content="The reference for the config files Offloader loads. New to the ideas here (dataset,
 endpoint, snapshot, manifest, project)? Read
-What Offloader is, in…">
+How Offloader works first.">
+<link rel="canonical" href="https://offloader.dryga.com/docs/developer-experience.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/developer-experience.html">
+<meta property="og:title" content="Config guide — publish your datasets and endpoints — Offloader docs">
+<meta property="og:description" content="The reference for the config files Offloader loads. New to the ideas here (dataset,
+endpoint, snapshot, manifest, project)? Read
+How Offloader works first.">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
@@ -37,7 +47,7 @@ What Offloader is, in…">
     <div class="nav-group">
       <p class="nav-group-h">Start</p>
       <ul>
-        <li><a href="concepts.html">What Offloader is</a></li>
+        <li><a href="concepts.html">How Offloader works</a></li>
         <li><a href="quickstart.html">Quickstart</a></li>
       </ul>
     </div>
@@ -70,6 +80,8 @@ What Offloader is, in…">
     <div class="nav-group">
       <p class="nav-group-h">Evaluate</p>
       <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html">Choose a serving path</a></li>
         <li><a href="benchmarks.html">Benchmarks</a></li>
       </ul>
     </div>
@@ -81,7 +93,15 @@ What Offloader is, in…">
 <h1 id="config-guide-publish-your-datasets-and-endpoints">Config guide — publish your datasets and endpoints</h1>
 <p>The reference for the config files Offloader loads. New to the ideas here (dataset,
 endpoint, snapshot, manifest, project)? Read
-<a href="concepts.html">What Offloader is, in plain language</a> first.</p>
+<a href="concepts.html">How Offloader works</a> first.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#a-project-is-just-files">A project is just files</a></li>
+<li><a href="#the-offloader-cli-optional">The <code>offloader</code> CLI (optional)</a></li>
+<li><a href="#start-a-new-project-scaffold">Start a new project (scaffold)</a></li>
+<li><a href="#container-env-vars">Container env vars</a></li>
+<li><a href="#sources-refresh">Sources &amp; refresh</a></li>
+<li><a href="#the-cache-directory-warm-vs-cold-restarts">The cache directory (warm vs. cold restarts)</a></li>
+<li><a href="#config-from-object-storage-optional">Config from object storage (optional)</a></li>
+<li><a href="#where-to-go-next">Where to go next</a></li></ul></nav></details>
 <h2 id="a-project-is-just-files">A project is just files</h2>
 <p>Your configuration — your <strong>project</strong> — is a small tree of YAML:</p>
 <pre tabindex="0"><code class="language-text">offloader.yml       # top level: which dirs to load, the auth mode, the keys file
@@ -175,9 +195,10 @@ support bundles — values are scrubbed and bundles are redacted.</p>
 <p>A dataset gets its data one of two ways, chosen per dataset:</p>
 <ul>
 <li><strong>A static <code>manifest:</code></strong> — you publish each snapshot: write the Parquet plus a manifest
-carrying a new <code>snapshot_id</code>, then point the dataset at it. A running container picks up a
-new <code>snapshot_id</code> at <strong>boot</strong>, on a <strong>manual/admin refresh</strong>, or when <strong>config auto-sync</strong>
-reloads the config (below). This is the path for any warehouse that can export Parquet —
+carrying a new <code>snapshot_id</code>, then change the dataset YAML to point at that manifest.
+Offloader loads it at <strong>startup</strong>, or when enabled <strong>config auto-sync</strong> detects the
+changed dataset definition (below). Updating only the JSON or Parquet files does not
+trigger config sync. This is the path for any warehouse that can export Parquet —
 Snowflake, BigQuery, Redshift, a Spark job.</li>
 <li><strong>A remote <code>source:</code></strong> — the container discovers the newest snapshot itself and swaps it in
 on a poll (<code>source.interval_seconds</code>), hands-off. The shipped connector is <strong>Databricks</strong>
@@ -204,19 +225,20 @@ present twice during its swap.</li>
 <li><strong>It is disposable.</strong> Losing the volume (a new host, a wiped disk) only forces one cold start;
 it never risks data, because the bucket is authoritative.</li>
 </ul>
-<p><strong>If a dataset is too large to materialize on the box, don&#39;t size the disk to it — serve it
-remotely.</strong> Set that endpoint&#39;s <a href="config-reference.html#endpointsyml"><code>serving_mode: remote_scan</code></a> and
-DuckDB scans the snapshot&#39;s Parquet <strong>directly from object storage per request</strong> — nothing is
-copied into the cache dir. You trade a little per-request latency for not needing local disk (or a
-cold-start rematerialization) proportional to the dataset. It&#39;s the right mode for huge, cold, or
-low-QPS endpoints; keep <code>local_table</code> (the default) for the hot ones.</p>
+<p>An endpoint&#39;s <a href="config-reference.html#endpointsyml"><code>serving_mode: remote_scan</code></a> makes
+DuckDB query the active snapshot&#39;s Parquet <strong>directly from object storage</strong> instead
+of its local table. This changes the request path. The current refresh process
+still materializes the dataset, so <code>remote_scan</code> does not remove its local disk
+or refresh-time requirements. Measure object-store latency and concurrency before
+using it; keep <code>local_table</code> as the default for hot endpoints.</p>
 <h2 id="config-from-object-storage-optional">Config from object storage (optional)</h2>
 <p><code>OFFLOADER_CONFIG</code> may be a <strong><code>gs://bucket/prefix/</code> or <code>s3://bucket/prefix/</code> URL</strong> instead of a
 mounted path. At boot Offloader fetches the whole project tree (<code>offloader.yml</code>, <code>datasets/</code>,
 <code>endpoints/</code>, the keys file) into <code>&lt;cache_dir&gt;/config/</code> and loads it from there — so the container
 is fully stateless: env vars in, config and data both in the bucket, nothing mounted. With
-<code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set it keeps watching the prefix and <strong>hot-reloads any change
-with no restart</strong> (see <a href="#hot-config-auto-sync">Hot config auto-sync</a> below).</p>
+<code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set it watches the project&#39;s YAML files and
+<strong>hot-reloads configuration changes with no restart</strong>
+(see <a href="#hot-config-auto-sync">Hot config auto-sync</a> below).</p>
 <p>Host your <code>offloader.yml</code> (and its <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code> tree) under a <code>gs://…</code> prefix
 and boot the published image straight against it — the only volume is the optional
 <a href="#the-cache-directory-warm-vs-cold-restarts">warm-start cache</a>:</p>
@@ -231,8 +253,8 @@ and boot the published image straight against it — the only volume is the opti
   ghcr.io/andrewdryga/offloader:edge   # or pin a release, e.g. :0.1.9
 </code></pre>
 <p>On GKE/GCE the bearer token comes from the metadata server (no credential env needed); on a
-laptop it falls back to <code>gcloud</code>. Add <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> and edits you publish to
-the prefix hot-reload with no restart (below).</p>
+laptop it falls back to <code>gcloud</code>. Add <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> and YAML
+configuration changes you publish to the prefix hot-reload with no restart (below).</p>
 <ul>
 <li><strong><code>gs://</code></strong> uses the GCS bearer token chain (<code>OFFLOADER_GCS_TOKEN</code>, the GCE metadata server, or
 <code>gcloud</code> — set <code>OFFLOADER_GCS_AUTH=bearer</code>), or <strong>no credentials</strong> with <code>OFFLOADER_GCS_AUTH=none</code>
@@ -244,9 +266,10 @@ data (a static <code>manifest.json</code> + the small snapshot files a relative 
 bounded to 500 files / 32 MiB, so a self-contained project boots straight from the bucket. A
 transient error at boot is retried a few times; an invalid config fails boot loudly, exactly as
 a bad mounted config does.</li>
-<li>Datasets served from a remote config should use a remote <code>source:</code> (Databricks/GCS) or an
-absolute/remote <code>manifest:</code> — a <em>relative local</em> <code>manifest:</code> has no mounted data to resolve
-against.</li>
+<li>A static <code>manifest:</code> resolves inside the fetched project tree, so include that manifest
+in the bucket-hosted project. Its data-file entries can point to remote objects. For
+automatic discovery of supported exports, configure <code>source:</code> instead; the <code>manifest:</code>
+field itself is not a bucket URL. See the <a href="config-reference.html">snapshot contracts</a>.</li>
 <li><strong>Security — co-hosting config with data:</strong> the keys file stores <strong>SHA-256 hashes of bearer
 tokens, never the tokens</strong> (see <code>security-model.md</code>), so bucket-read exposure leaks hashes plus
 the endpoint/tenant access map, not usable credentials. A <strong>public</strong> deployment (<code>auth: none</code>)
@@ -258,7 +281,8 @@ read the hashes.</li>
 <p>Set <code>OFFLOADER_CONFIG_SYNC_INTERVAL=&lt;seconds&gt;</code> (unset/0 = off) and Offloader re-checks the config
 on that interval and hot-reloads changes <strong>with no restart</strong>:</p>
 <ul>
-<li>Change detection is cheap — a single object LIST (no downloads) when nothing changed.</li>
+<li>Change detection watches <code>.yml</code>/<code>.yaml</code> files — a single object LIST for remote
+projects, with no downloads when that YAML inventory is unchanged.</li>
 <li>Endpoint, key, and data-source changes apply at once (the response cache is flushed).</li>
 <li>A dataset <strong>schema</strong> change is applied <strong>blue-green with zero downtime</strong>: the old snapshot and its
 endpoints keep serving while the new-schema table is materialized off to the side, then that
@@ -270,9 +294,14 @@ a broken bucket revision never takes the service down.</li>
 <li><code>/metrics</code> exposes <code>offloader_config_sync_enabled</code> and <code>offloader_config_sync_ok</code> (alert on the
 latter == 0); admin <code>/diagnostics</code> shows the last sync result + timestamps.</li>
 </ul>
-<p>Push a new revision the boring way: update the objects under the config prefix and the next tick picks
-them up. Sequence a schema change as <strong>data first, then config</strong>, so the new-schema build succeeds on
-the first try.</p>
+<p>For a static snapshot update, publish data and a versioned manifest with a new
+<code>snapshot_id</code> first, then change the dataset YAML&#39;s <code>manifest:</code> path. The next config-sync tick sees that
+dataset change and starts validation and refresh. Replacing only manifest JSON
+or Parquet does not trigger sync, and unchanged dataset definitions are not
+refreshed by an unrelated YAML edit. A configured <code>source:</code> has its own discovery
+schedule; see <a href="config-reference.html">the snapshot contracts</a>.</p>
+<p>Sequence a schema change as <strong>data first, then config</strong>, so the new-schema build
+has matching data available.</p>
 <h2 id="where-to-go-next">Where to go next</h2>
 <ul>
 <li>The <strong><a href="cli.html">CLI reference</a></strong> — every <code>offloader</code> command, its flags, and an example.</li>
@@ -314,7 +343,7 @@ the first try.</p>
       </div>
       <div>
         <h3>Talk to us</h3>
-        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Book a diagnostic</a>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
         <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
       </div>
     </nav>

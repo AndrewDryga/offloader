@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse queries, a cache, or snapshots? — Offloader docs</title>
+<meta name="description" content="Start with what your product needs: how fresh the data must be, which requests
+repeat, and what those requests cost. A cache may be enough. A snapshot API…">
+<link rel="canonical" href="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Offloader">
+<meta property="og:url" content="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
+<meta property="og:title" content="Warehouse queries, a cache, or snapshots? — Offloader docs">
+<meta property="og:description" content="Start with what your product needs: how fresh the data must be, which requests
+repeat, and what those requests cost. A cache may be enough. A snapshot API…">
+<meta property="og:image" content="https://offloader.dryga.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" as="font" type="font/woff2" href="../fonts/SpaceGrotesk-700.woff2" crossorigin>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../docs.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site" role="banner">
+  <nav class="wrap nav" aria-label="Primary">
+    <a class="brand" href="../index.html" aria-label="Offloader home"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg><span class="brand-word">Offloader</span></a>
+    <ul class="nav-links">
+      <li><a href="../index.html#how">How it works</a></li>
+      <li><a href="../index.html#proof">Proof</a></li>
+      <li><a href="../index.html#pricing">Pricing</a></li>
+      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="index.html" aria-current="true">Docs</a></li>
+      <li><a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
+    </ul>
+  </nav>
+</header>
+<div class="wrap docs-layout">
+  <details id="docsnav" class="docs-nav" open>
+    <summary>Browse the docs</summary>
+    <nav aria-label="Documentation">
+    <a class="docs-home" href="index.html">Docs home</a>
+    <div class="nav-group">
+      <p class="nav-group-h">Start</p>
+      <ul>
+        <li><a href="concepts.html">How Offloader works</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Configure</p>
+      <ul>
+        <li><a href="developer-experience.html">Config guide</a></li>
+        <li><a href="config-reference.html">Config reference</a></li>
+        <li><a href="cli.html">CLI reference</a></li>
+        <li><a href="api.html">API reference</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Serve</p>
+      <ul>
+        <li><a href="public-serving.html">Public data & CDN</a></li>
+        <li><a href="mcp.html">AI agents (MCP)</a></li>
+        <li><a href="security-model.html">Security model</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Operate</p>
+      <ul>
+        <li><a href="deployment.html">Deploy</a></li>
+        <li><a href="operator.html">Operator guide</a></li>
+        <li><a href="runbooks.html">Runbooks</a></li>
+        <li><a href="ownership.html">Ownership & support</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <p class="nav-group-h">Evaluate</p>
+      <ul>
+        <li><a href="warehouse-to-api.html">Warehouse to API</a></li>
+        <li><a href="warehouse-cache-or-snapshot.html" aria-current="page">Choose a serving path</a></li>
+        <li><a href="benchmarks.html">Benchmarks</a></li>
+      </ul>
+    </div>
+    </nav>
+  </details>
+  <main id="main" class="docs-main">
+    <p class="doc-kicker">Evaluate</p>
+    <article class="prose">
+<h1 id="warehouse-queries-a-cache-or-snapshots">Warehouse queries, a cache, or snapshots?</h1>
+<p>Start with what your product needs: how fresh the data must be, which requests
+repeat, and what those requests cost. A cache may be enough. A snapshot API can
+remove warehouse queries from the request path, but adds exports and a service
+you need to run.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Direct queries</th>
+<th>Response cache</th>
+<th>Offloader snapshots</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Reads from</td>
+<td>The warehouse</td>
+<td>A saved response</td>
+<td>A published dataset</td>
+</tr>
+<tr>
+<td>On a cache miss</td>
+<td>Queries the warehouse</td>
+<td>Calls your existing API</td>
+<td>Queries the snapshot</td>
+</tr>
+<tr>
+<td>Freshness depends on</td>
+<td>Warehouse ingestion</td>
+<td>Expiry and invalidation</td>
+<td>Exports and refreshes</td>
+</tr>
+<tr>
+<td>You manage</td>
+<td>Warehouse and app</td>
+<td>Existing API plus cache</td>
+<td>Export pipeline and container</td>
+</tr>
+</tbody></table>
+</div>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</a></li>
+<li><a href="#use-a-cache-when-the-same-requests-repeat">Use a cache when the same requests repeat</a></li>
+<li><a href="#use-snapshots-when-many-requests-can-share-one-dataset">Use snapshots when many requests can share one dataset</a></li>
+<li><a href="#compare-one-real-endpoint">Compare one real endpoint</a></li></ul></nav></details>
+<h2 id="keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</h2>
+<p>A screen that must reflect a just-completed transaction may not tolerate a
+snapshot delay. Exploratory queries may also need more freedom than a fixed set
+of endpoints allows. Measure your current API first: query optimization or
+warehouse acceleration may solve the problem without another service.</p>
+<h2 id="use-a-cache-when-the-same-requests-repeat">Use a cache when the same requests repeat</h2>
+<p>A cache can be a smaller change when callers often ask the same question and you
+know when saved answers should expire. Include everything that changes the answer
+in the cache key, including the caller&#39;s permissions and tenant. Test cache
+misses and cold starts as well as hits.</p>
+<p>If users vary filters enough that most requests miss, the warehouse may still do
+most of the work. Check your hit rate before changing the architecture. A
+snapshot API adds export and operating costs, so compare the full cost of both
+approaches.</p>
+<h2 id="use-snapshots-when-many-requests-can-share-one-dataset">Use snapshots when many requests can share one dataset</h2>
+<p>Your export job produces the snapshot. Offloader answers REST requests from it,
+without querying the warehouse for each request. This suits APIs with known
+fields and filters whose data can wait for the next export and refresh.</p>
+<p>You run the service and monitor its capacity, exports, and data age. Offloader
+marks old responses as <code>stale</code>, but keeps serving them. Your app decides what to
+do when the data is too old. Try the
+<a href="warehouse-to-api.html">warehouse-to-API walkthrough</a> with one of your endpoints.</p>
+<p>You can use caching with snapshots too. Offloader&#39;s response cache distinguishes
+endpoint versions, tenants, parameters, and snapshot IDs, so a response from an
+older snapshot does not get reused after an update.</p>
+<h2 id="compare-one-real-endpoint">Compare one real endpoint</h2>
+<p>Use the same data, freshness requirement, and realistic requests for each option.
+Check:</p>
+<ul>
+<li>Do the results match, and can each customer read only their own data?</li>
+<li>How fast are typical and slow requests? What happens on errors or a cold start?</li>
+<li>How often does the cache help, how long do refreshes take, and how old is the data?</li>
+<li>Which warehouse costs disappear? What do exports, storage, servers, licenses,
+and operating time add?</li>
+</ul>
+<p>Reserved capacity and shared workloads can keep the warehouse bill unchanged
+even after you remove queries. Compare invoices as well as query counts. The
+<a href="benchmarks.html">benchmark guide</a>, <a href="quickstart.html">quickstart</a>, and
+<a href="https://offloader.dryga.com/roi.html">ROI calculator</a> help you test the options.</p>
+</article>
+    <nav class="doc-pager" aria-label="Pagination">
+      <a class="pg prev" href="warehouse-to-api.html"><span>Previous</span><b>Warehouse to API</b></a>
+      <a class="pg next" href="benchmarks.html"><span>Next</span><b>Benchmarks</b></a>
+    </nav>
+  </main>
+</div>
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <p class="foot-word"><svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg> Offloader</p>
+      <p class="foot-tag">If your warehouse can publish Parquet, Offloader can serve it through REST.</p>
+      <p class="foot-copy">© 2026 Offloader</p>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <div>
+        <h3>Product</h3>
+        <a href="../index.html#how">How it works</a>
+        <a href="../index.html#pricing">Pricing</a>
+        <a href="../index.html#faq">FAQ</a>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <a href="concepts.html">Concepts</a>
+        <a href="quickstart.html">Quickstart</a>
+        <a href="cli.html">CLI reference</a>
+        <a href="security-model.html">Security</a>
+      </div>
+      <div>
+        <h3>Evaluate</h3>
+        <a href="../roi.html">ROI calculator</a>
+        <a href="benchmarks.html">Benchmarks</a>
+      </div>
+      <div>
+        <h3>Talk to us</h3>
+        <a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener">Discuss a diagnostic</a>
+        <a href="https://github.com/AndrewDryga/offloader">GitHub</a>
+      </div>
+    </nav>
+  </div>
+</footer>
+<script>(function(){var n=document.getElementById('docsnav');if(!n)return;var q=matchMedia('(max-width: 980px)');function s(){n.open=!q.matches;}s();q.addEventListener('change',s);})();</script>
+</body>
+</html>

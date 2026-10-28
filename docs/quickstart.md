@@ -1,11 +1,10 @@
 # Quickstart — serve a real endpoint in 15 minutes
 
-Pull the published image, run it against a ready-made example project (real sample data
-included), call an endpoint, read the generated docs, and watch a bad request fail safely —
-about fifteen minutes, no cloud required.
+Run Offloader with sample data, call a REST endpoint, and check that it rejects an
+invalid request. You need Docker, Git, and about 15 minutes. No cloud account is
+required. The docs examples also use `curl` and `jq`.
 
-New to Offloader? Read [What Offloader is, in plain language](concepts.md) first (5 minutes) —
-it defines the words used below.
+New to the product? Start with [How Offloader works](concepts.md).
 
 ## 0. Get the example and the image
 
@@ -50,8 +49,9 @@ docker run --rm \
   ghcr.io/andrewdryga/offloader:edge
 ```
 
-Wait until the admin **readiness** probe returns 200 (it stays 503 until the snapshot is
-materialized):
+Leave the container running. Open another terminal and check that it is ready.
+The admin readiness check returns 200 once Offloader has loaded the snapshot;
+until then, it returns 503:
 
 ```sh
 curl -fsS http://127.0.0.1:4001/ready
@@ -79,9 +79,9 @@ curl -H "Authorization: Bearer offl_demo_acme_key" \
 }
 ```
 
-Every response carries `snapshot_id` and freshness — you always know exactly which snapshot
-you're reading. (`stale:true` here just means the demo data is older than its 120-minute
-tolerance.)
+Each successful data response includes its `snapshot_id` and freshness. Here,
+`stale: true` means the demo data is older than its 120-minute limit. Offloader
+still serves it; your app decides whether the age is acceptable.
 
 ## 3. Read the generated docs
 
@@ -93,12 +93,13 @@ curl -s http://127.0.0.1:4001/docs | jq '.endpoints[].name'
 curl -s http://127.0.0.1:4001/openapi.json | jq '.paths | keys'
 ```
 
-A product engineer integrates from these — params, defaults, limits, response shape, error
-families, and curl/TypeScript/Python snippets are all there.
+These docs list each endpoint's parameters, defaults, limits, response fields, and
+errors, with curl, TypeScript, and Python examples.
 
-## 4. See a failure fail safely
+## 4. Try a request the endpoint rejects
 
-Bad input is rejected with a named error family — never a leak, never a 500:
+This endpoint rejects undeclared parameters. Try adding a tenant ID: the request
+returns `422 invalid_param`.
 
 ```sh
 # an unknown/undeclared param (e.g. smuggling a tenant) -> 422 invalid_param
@@ -112,7 +113,7 @@ manifest, stale dataset, forbidden tenant, …) and the exact error each returns
 
 ## 5. Start your own project
 
-The bundled example proves the path; to serve **your** data, scaffold a fresh project with the
+To serve **your** data, create a project with the
 `offloader` CLI (an optional helper — not part of the container). Install or update it:
 
 ```sh
@@ -137,8 +138,8 @@ offloader init --out my-project
 offloader validate --config my-project/offloader.yml
 ```
 
-The two files you edit are small and declarative — no SQL. Abridged from what `init` just
-generated:
+These two configuration files define the dataset and endpoint. This example is
+shortened from what `init` generated:
 
 ```yaml
 # my-project/datasets/events.yml — the table + the columns you serve
@@ -178,7 +179,8 @@ Point `manifest:` at a snapshot of your data, then serve it locally in one comma
 offloader serve my-project/   # validates the config, pulls the image, runs it against your project
 ```
 
-That's the shortcut for the full `docker run` in step 1 — handy for a POC. The
+The CLI starts the API on port **8088** and admin pages on **8089**, or the next
+free ports. Use the URLs it prints; these differ from the Docker example above. The
 [config guide](developer-experience.md) walks through every file; the
 [config reference](config-reference.md) lists every field.
 
@@ -191,7 +193,7 @@ both your code and this repo, and paste:
 > You are migrating our existing analytics endpoints to Offloader. Read Offloader's
 > `docs/config-reference.md` and the `examples/customer-analytics/` project for the exact schema.
 > For **each** of our current endpoints: (1) write a `datasets/<id>.yml` whose `schema` matches
-> the columns it returns; (2) write an `endpoints/<name>.yml` reproducing its params, filters,
+> the exported Parquet columns, including tenant and filter columns; (2) write an `endpoints/<name>.yml` reproducing its params, filters,
 > aggregation, ordering, and limits using only Offloader's declarative `query:` — no raw SQL;
 > (3) preserve tenant isolation by setting the dataset's `tenant_column` and the endpoint's
 > `tenant:`. Then run `offloader validate --config my-project/offloader.yml` and
@@ -204,7 +206,7 @@ It produces a project you own and can diff — review it before serving.
 ## 6. Next
 
 - [Config guide](developer-experience.md) — publish your own datasets and endpoints, and load
-  config from a `gs://`/`s3://` bucket (fully stateless, with zero-downtime hot-reload).
+  config from a `gs://`/`s3://` bucket. Apply supported updates without restarting.
 - [Operator guide](operator.md) · [Deployment](deployment.md) — run it in production: size,
   upgrade, roll back, diagnose.
 - Hand the generated endpoint docs (step 3) to a product engineer to integrate against.
@@ -214,7 +216,7 @@ It produces a project you own and can diff — review it before serving.
 | Symptom | Cause / fix |
 | --- | --- |
 | Container exits immediately | Missing `OFFLOADER_SECRET_KEY_BASE`, or `OFFLOADER_CONFIG` not mounted. |
-| `/ready` stays 503 | The snapshot hasn't materialized — check `docker logs` and admin `/diagnostics`. |
+| `/ready` stays 503 | Offloader has not loaded the snapshot. Check the logs in the terminal running Docker; see the [operator guide](operator.md) for diagnostics. |
 | Endpoint returns 401 | Missing/invalid/revoked key. Mint one with `offloader keys create`. |
 | Endpoint returns 404 | Unknown endpoint, or the key isn't granted it (indistinguishable, on purpose). |
 | Endpoint returns 422 | A param is missing/mistyped/out of range, or an undeclared param was sent. |
