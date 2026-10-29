@@ -206,6 +206,31 @@ defmodule Offloader.EngineTest do
     assert {:ok, %{rows: [[36]]}} = Engine.execute(eng2, "SELECT count(*)::BIGINT FROM warm")
   end
 
+  test "a killed engine leaves nothing behind that holds its database open" do
+    # An engine that dies through its link (ExUnit ends every test process that way) never
+    # runs terminate/2, so its persistent_term pool entry stays. If that entry reached the
+    # database, the database (its threads and its file lock) would live as long as the VM.
+    {eng, _dir} = start_engine()
+    %{db: db} = :sys.get_state(eng)
+    on_exit(fn -> :persistent_term.erase({Engine, eng}) end)
+
+    Process.unlink(eng)
+    ref = Process.monitor(eng)
+    Process.exit(eng, :kill)
+    assert_receive {:DOWN, ^ref, :process, ^eng, :killed}
+
+    refute reaches?(:persistent_term.get({Engine, eng}, nil), db)
+  end
+
+  defp reaches?(term, target) when term === target, do: true
+  defp reaches?(term, target) when is_tuple(term), do: reaches?(Tuple.to_list(term), target)
+  defp reaches?(term, target) when is_list(term), do: Enum.any?(term, &reaches?(&1, target))
+
+  defp reaches?(term, target) when is_map(term),
+    do: Enum.any?(term, fn {k, v} -> reaches?(k, target) or reaches?(v, target) end)
+
+  defp reaches?(_term, _target), do: false
+
   test "pool_stats reports the configured connection count", %{eng: eng} do
     assert %{connections: n, busy: 0, saturated: false} = Engine.pool_stats(eng)
     assert n > 0

@@ -523,7 +523,9 @@ defmodule Offloader.Engine do
 
   defp checkin(%{locks: locks}, idx), do: :atomics.put(locks, idx + 1, 0)
 
-  defp reconnect(%{table: table, db: db, object_store: object_store}, idx) do
+  defp reconnect(%{table: table, object_store: object_store}, idx) do
+    [{:db, db}] = :ets.lookup(table, :db)
+
     case new_connection(db, object_store) do
       {:ok, conn} ->
         :ets.insert(table, {{:conn, idx}, conn})
@@ -538,8 +540,12 @@ defmodule Offloader.Engine do
 
   # ── setup ──────────────────────────────────────────────────────────────────────
 
+  # The database handle lives in this engine-owned table, never in the persistent_term pool: an
+  # engine killed through its link never runs terminate/2, and a handle left in persistent_term
+  # would keep the database open (its threads and its file lock) for the life of the VM.
   defp build_pool(db, size, object_store) do
     table = :ets.new(:offloader_engine_pool, [:public, :set, read_concurrency: true])
+    :ets.insert(table, {:db, db})
     locks = :atomics.new(size, [])
 
     Enum.reduce_while(0..(size - 1), :ok, fn i, :ok ->
@@ -560,7 +566,6 @@ defmodule Offloader.Engine do
            locks: locks,
            size: size,
            remote_cap: remote_cap(size),
-           db: db,
            object_store: object_store
          }}
 
