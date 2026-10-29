@@ -79,6 +79,8 @@ const GROUPS = [
         "If your API can return data that is minutes or hours old, serve it from a warehouse snapshot instead of querying the warehouse on every request."],
       ["warehouse-cache-or-snapshot", "docs/warehouse-cache-or-snapshot.md", "Choose a serving path", "Compare direct warehouse queries, response caching and snapshot serving.",
         "Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset."],
+      ["cache-check", "docs/cache-check.md", "Check the cache", "Repeat a small test of cached results, tenant boundaries and stale data.",
+        "Repeat a local Offloader cache check: compare data, verify tenant boundaries, reject invalid keys and inspect stale snapshot behavior."],
       ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data.",
         "Measure Offloader on your own data before a pilot: load time, memory, disk, and p50, p95 and p99 latency at 1, 10 and 50 concurrent requests."],
     ],

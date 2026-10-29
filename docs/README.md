@@ -19,6 +19,7 @@ together.
 | [security-model.md](security-model.md) | What Offloader protects for you, and what you're responsible for. |
 | [public-serving.md](public-serving.md) | Serve public data to a front-end and cache it at the edge (auth, ETags, CORS). |
 | [mcp.md](mcp.md) | Serve the same endpoints to AI agents over the Model Context Protocol. |
+| [cache-check.md](cache-check.md) | A worked cache example with a checker for data, tenants and rejected requests. |
 | [benchmarks.md](benchmarks.md) | Measure latency, throughput, and footprint on your own data. |
 | [warehouse-to-api.md](warehouse-to-api.md) | Evaluate one warehouse-backed product endpoint, including freshness and tenant checks. |
 | [warehouse-cache-or-snapshot.md](warehouse-cache-or-snapshot.md) | Choose between direct queries, response caching and snapshot serving. |

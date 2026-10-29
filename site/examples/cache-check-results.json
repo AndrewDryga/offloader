@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-29",
+  "image": "sha256:5fd0e03400c0b2ed88011e9eb0e932532771c831901e87da9fa08d2df3e043b1",
+  "scenarios": [
+    {
+      "policy": "none",
+      "status": "passed",
+      "rows_per_response": 2,
+      "tenant_checks": [
+        "acme",
+        "globex"
+      ],
+      "tenant_override_status": 422,
+      "invalid_and_revoked_key_status": 401,
+      "stale": true,
+      "runs": [
+        {
+          "concurrency": 1,
+          "checked_requests": 100,
+          "cache": "off"
+        },
+        {
+          "concurrency": 10,
+          "checked_requests": 100,
+          "cache": "off"
+        }
+      ]
+    },
+    {
+      "policy": "snapshot",
+      "status": "passed",
+      "rows_per_response": 2,
+      "tenant_checks": [
+        "acme",
+        "globex"
+      ],
+      "tenant_override_status": 422,
+      "invalid_and_revoked_key_status": 401,
+      "stale": true,
+      "runs": [
+        {
+          "concurrency": 1,
+          "checked_requests": 100,
+          "cache": "hit"
+        },
+        {
+          "concurrency": 10,
+          "checked_requests": 100,
+          "cache": "hit"
+        }
+      ]
+    }
+  ],
+  "cleanup": [
+    {
+      "policy": "none",
+      "container_stopped_and_removed": true
+    },
+    {
+      "policy": "snapshot",
+      "container_stopped_and_removed": true
+    }
+  ],
+  "fixture_revision": "8d0794741826e00d8efaf9f333d3b71a08ac9c7a",
+  "image_reference": "ghcr.io/andrewdryga/offloader@sha256:d8bebb86b6de6bab853c88e28847043cc253e9a5807b5f4c76e5c572ce27254f",
+  "image_tag_observed": "0.1.12",
+  "scope": "400 checked synthetic responses on one laptop, not a performance or cost benchmark",
+  "platform": "linux/arm64 container, Darwin arm64 host"
+}

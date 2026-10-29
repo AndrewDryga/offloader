@@ -100,3 +100,5 @@ enough, and saves enough to justify the move. Read the
 [security model](security-model.md) and [deployment guide](deployment.md) before
 exposing it. If snapshots do not fit, compare
 [direct queries and response caching](warehouse-cache-or-snapshot.md).
+
+For a small, repeatable first check, try [One endpoint, two cache settings](cache-check.md).

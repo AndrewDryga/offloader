@@ -41,3 +41,5 @@ These latency and throughput figures come from a fixed nested-JSON payload on a 
 machine, so treat them as **relative** — good for comparing modes and settings, not as a
 production SLA. Your real latency and savings depend on your own data, payloads, and hardware:
 measure them with a pilot benchmark before you commit.
+
+For a small, repeatable first check, try [One endpoint, two cache settings](cache-check.md).
