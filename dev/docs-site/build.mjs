@@ -22,52 +22,75 @@ const CHECK = process.argv.includes("--check");
 const outputs = new Map();
 
 // The docs site: ordered groups → pages. Each page is
-// [slug, source (repo-relative), sidebar title, one-line blurb for the index].
+// [slug, source (repo-relative), sidebar title, one-line blurb for the index, meta description].
+// The meta description is what search results show under the title: a complete sentence of at
+// most 155 characters, so it is never cut mid-thought.
 const GROUPS = [
   {
     name: "Start",
     items: [
-      ["concepts", "docs/concepts.md", "How Offloader works", "From warehouse exports to REST requests, with the terms you need to get started."],
-      ["quickstart", "docs/quickstart.md", "Quickstart", "Boot the bundled example and serve a real endpoint in about 15 minutes."],
+      ["concepts", "docs/concepts.md", "How Offloader works", "From warehouse exports to REST requests, with the terms you need to get started.",
+        "Offloader serves REST APIs from snapshots of your warehouse data, on your own servers. Learn how datasets, endpoints and snapshots fit together."],
+      ["quickstart", "docs/quickstart.md", "Quickstart", "Boot the bundled example and serve a real endpoint in about 15 minutes.",
+        "Run Offloader with sample data, call a REST endpoint and watch it reject an invalid request. You need Docker, Git and about 15 minutes."],
     ],
   },
   {
     name: "Configure",
     items: [
-      ["developer-experience", "docs/developer-experience.md", "Config guide", "Define datasets, endpoints, and keys; load config from disk or a bucket."],
-      ["config-reference", "docs/config-reference.md", "Config reference", "Every config field, accepted value, and example shape."],
-      ["cli", "docs/cli.md", "CLI reference", "The optional `offloader` helper: every command, its flags, and an example."],
-      ["api", "docs/api.md", "API reference", "Requests, responses, authentication, and HTTP error codes."],
+      ["developer-experience", "docs/developer-experience.md", "Config guide", "Define datasets, endpoints, and keys; load config from disk or a bucket.",
+        "Write an Offloader project: datasets, endpoints and API keys. Scaffold and validate it, then load it from disk or a bucket and reload it live."],
+      ["config-reference", "docs/config-reference.md", "Config reference", "Every config field, accepted value, and example shape.",
+        "Every field of an Offloader project and its allowed values: offloader.yml, datasets, endpoints and API keys, plus a working example to copy."],
+      ["cli", "docs/cli.md", "CLI reference", "The optional `offloader` helper: every command, its flags, and an example.",
+        "The optional offloader command-line helper: scaffold a project, validate its config, mint API keys and diagnose a deployment. The server does not need it."],
+      ["api", "docs/api.md", "API reference", "Requests, responses, authentication, and HTTP error codes.",
+        "What your product code sees when it calls an Offloader endpoint: requests, responses, authentication, pagination and HTTP error codes."],
     ],
   },
   {
     name: "Serve",
     items: [
-      ["public-serving", "docs/public-serving.md", "Public data & CDN", "Serve public product data at the edge: cache headers, ETags, CORS."],
-      ["mcp", "docs/mcp.md", "AI agents (MCP)", "Serve the same endpoints to AI agents over the Model Context Protocol."],
-      ["security-model", "docs/security-model.md", "Security model", "What Offloader enforces for you, and what stays your responsibility."],
+      ["public-serving", "docs/public-serving.md", "Public data & CDN", "Serve public product data at the edge: cache headers, ETags, CORS.",
+        "Serve public product data such as leaderboards and stats pages from Offloader, and cache it at a CDN: cache headers, ETags, CORS and purges."],
+      ["mcp", "docs/mcp.md", "AI agents (MCP)", "Serve the same endpoints to AI agents over the Model Context Protocol.",
+        "Let AI agents read your Offloader endpoints over the Model Context Protocol, alongside the REST API your app already calls."],
+      ["security-model", "docs/security-model.md", "Security model", "What Offloader enforces for you, and what stays your responsibility.",
+        "What Offloader enforces for you, such as read-only access, tenant isolation and hashed API keys, and what stays your responsibility."],
     ],
   },
   {
     name: "Operate",
     items: [
-      ["deployment", "docs/deployment.md", "Deploy", "Deploy with Docker, Compose, or Kubernetes, then check the running service."],
-      ["operator", "docs/operator.md", "Operator guide", "Run it in production: size it, upgrade, roll back, diagnose."],
-      ["runbooks", "docs/operations/runbooks.md", "Runbooks", "Step-by-step responses to the alerts that can fire."],
-      ["ownership", "docs/operations/ownership.md", "Ownership & support", "What your team operates and how to get support."],
+      ["deployment", "docs/deployment.md", "Deploy", "Deploy with Docker, Compose, or Kubernetes, then check the running service.",
+        "Deploy the Offloader container with Docker, Compose or Kubernetes: the image, environment variables, config mounts, health checks and smoke tests."],
+      ["operator", "docs/operator.md", "Operator guide", "Run it in production: size it, upgrade, roll back, diagnose.",
+        "Run Offloader in production: size it, upgrade and roll back, follow snapshot refreshes, and read the diagnostics when something looks wrong."],
+      ["runbooks", "docs/operations/runbooks.md", "Runbooks", "Step-by-step responses to the alerts that can fire.",
+        "Step-by-step responses to Offloader alerts: tell an Offloader bug from an environment or upstream data problem, then act and escalate."],
+      ["ownership", "docs/operations/ownership.md", "Ownership & support", "What your team operates and how to get support.",
+        "Offloader runs in your environment, so incidents split three ways. This matrix shows what your team operates and how to get support."],
     ],
   },
   {
     name: "Evaluate",
     items: [
-      ["warehouse-to-api", "docs/warehouse-to-api.md", "Warehouse to API", "Evaluate one customer-facing endpoint using a published snapshot."],
-      ["warehouse-cache-or-snapshot", "docs/warehouse-cache-or-snapshot.md", "Choose a serving path", "Compare direct warehouse queries, response caching and snapshot serving."],
-      ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data."],
+      ["warehouse-to-api", "docs/warehouse-to-api.md", "Warehouse to API", "Evaluate one customer-facing endpoint using a published snapshot.",
+        "If your API can return data that is minutes or hours old, serve it from a warehouse snapshot instead of querying the warehouse on every request."],
+      ["warehouse-cache-or-snapshot", "docs/warehouse-cache-or-snapshot.md", "Choose a serving path", "Compare direct warehouse queries, response caching and snapshot serving.",
+        "Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset."],
+      ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data.",
+        "Measure Offloader on your own data before a pilot: load time, memory, disk, and p50, p95 and p99 latency at 1, 10 and 50 concurrent requests."],
     ],
   },
 ];
 
-const FLAT = GROUPS.flatMap((g) => g.items.map((it) => ({ group: g.name, slug: it[0], src: it[1], title: it[2], blurb: it[3] })));
+const FLAT = GROUPS.flatMap((g) => g.items.map((it) => ({ group: g.name, slug: it[0], src: it[1], title: it[2], blurb: it[3], description: it[4] })));
+const longDescriptions = FLAT.filter((p) => !p.description || p.description.length > 155);
+if (longDescriptions.length) {
+  console.error(`docs-site: every page needs a meta description of at most 155 characters in GROUPS: ${longDescriptions.map((p) => p.slug).join(", ")}`);
+  process.exit(1);
+}
 const BY_SRC = new Map(FLAT.map((p) => [p.src, `${p.slug}.html`])); // repo-rel source → output filename
 
 // ── on-brand flow diagrams ──────────────────────────────────────────────────
@@ -204,12 +227,6 @@ const firstText = (html, tag) => {
   const m = html.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
   return m ? m[1].replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e]).replace(/\s+/g, " ").trim() : "";
 };
-
-function truncate(s, n) {
-  if (s.length <= n) return s;
-  const cut = s.slice(0, n);
-  return cut.slice(0, cut.lastIndexOf(" ")).replace(/[,.;:]$/, "") + "…";
-}
 
 // ── shared chrome ─────────────────────────────────────────────────────────
 const BRAND_MARK = `<svg class="brand-mark" width="1em" height="1em" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="4.4" height="4.4" rx="0.6" fill="currentColor"/><rect x="5.6" y="5.6" width="4.4" height="4.4" rx="0.6" fill="currentColor"/></svg>`;
@@ -350,7 +367,6 @@ for (let i = 0; i < FLAT.length; i++) {
   body = addContents(body);
 
   const h1 = firstText(body, "h1") || p.title;
-  const desc = truncate(firstText(body, "p") || p.blurb, 155);
 
   const prev = FLAT[i - 1];
   const next = FLAT[i + 1];
@@ -366,7 +382,7 @@ ${body}</article>
 
   outputs.set(join(OUT, `${p.slug}.html`), page({
     title: `${h1} — Offloader docs`,
-    description: desc,
+    description: p.description,
     active: "docs",
     activeSlug: p.slug,
     main,
