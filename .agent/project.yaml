@@ -1,0 +1,60 @@
+# Coop project settings. Commit this file with your project.
+# Help: coop help init
+
+# Include task queues from subprojects that have their own .agent/ folder.
+# subprojects: [api, web]
+
+# Open a server running in the box from your host browser.
+# The server must listen on 0.0.0.0. Coop prints the host URL when the box starts.
+# serve:
+#   ports: [5173]
+
+box:
+  # filtered: allow the agent's provider and destinations you approve.
+  # offline: block network access.
+  # open: allow unrestricted network access.
+  # Review changes with coop approve before starting a new run.
+  egress: filtered
+
+  # Network rules this project asks you to approve.
+  # egress_rules:
+  #   - to: {domain: "docs.example.com"}
+  #     protocol: tls
+  #     ports: [443]
+
+  # Use a project Dockerfile or Compose file instead of the default paths.
+  # dockerfile: .agent/Dockerfile
+  # compose: .agent/compose.yml
+
+  # Non-secret environment values for the box. COOP_ names are reserved.
+  # Values in your host agents/env file take priority.
+  # env:
+  #   PGHOST: db
+  #   PGPORT: "5432"
+
+  # Start project services automatically (default: true).
+  # auto_up: false
+
+  # Join the project services' network (default: true).
+  # network: false
+
+  # Resource limits for Docker; not applied by Apple container.
+  # memory: 4g
+  # cpus: "4"
+
+  # Maximum processes (default: 4096). 0 or unlimited removes the limit.
+  # pids: 2048
+
+# Add instructions when work touches matching paths.
+# Shared AGENTS.md/CLAUDE.md instructions are included automatically.
+# context:
+#   routes:
+#     - paths: [billing/**, "**/*.sql"]
+#       include: [.agent/kb/billing.md]
+
+# Checks to run in the box before coop fork merge accepts the changes. If a wrapper or source file
+# implements that command, list each exact path so loop review treats edits as protected changes.
+# Built-in Makefiles, CI, hooks and Coop config remain protected automatically. Existing projects
+# need no migration; this list adds only the project-specific files Coop cannot infer safely.
+# gate: <this project's check command>
+# gate_sources: [run, tools/internal/devtool/gates.go]

@@ -1,0 +1,87 @@
+# Configure coop loop. Omit a setting to keep its default.
+# Start a loop with an agent or preset: coop loop claude
+# Help: coop help loop
+#
+# Stages: preflight → work → between → signoff → verify
+
+# Include shared MCP servers from ~/.config/coop/agents/mcp.json (default: true).
+# Set false when this workflow does not need those tools.
+# One run only: coop loop claude --no-mcp
+#mcp: false
+
+preflight:
+  # Return blocked tasks with answered decisions to todo before work starts.
+  # Default: false.
+  #enabled: true
+
+  # Optional extra preparation instructions. This agent must not work tasks,
+  # change source code, or commit.
+  #prompt: |
+  #  Review todo tasks for missing completion criteria.
+  #  Report the task IDs that need more detail.
+
+work:
+  # Agent or preset choices, tried in order when a usage limit is reached.
+  # Default: the agent or preset supplied on the command line.
+  #agent: [frontier, claude:opus, codex:gpt-6-luna]
+
+  # Advanced: run a custom command instead of the built-in agent workflow.
+  # This disables agent preflight, between-task review, signoff and verify.
+  #command: []
+
+between:
+  # Review after each completed task (default: false).
+  # Changes to check-defining files always receive a protected review.
+  #enabled: true
+
+  # tasks: read-only review; Coop applies validated task reopens.
+  # repo: the reviewer may also fix source code.
+  # Default: tasks.
+  #writes: repo
+
+  # Default: the signoff agent.
+  #agent: [claude:sonnet]
+
+  # Required when enabled. Coop identifies the completed task.
+  #prompt: |
+  #  Check the task's completion criteria and failure-path tests.
+  #  Report any unmet criterion with its task ID.
+
+signoff:
+  # tasks: read-only review; Coop applies validated task reopens.
+  # repo: the reviewer may also fix source code.
+  # Default: tasks.
+  #writes: repo
+
+  # Maximum review rounds before repeatedly reopened work needs a human.
+  # Smaller batches may use a lower limit. Default: 5.
+  #rounds: 5
+
+  # Default: the work agent.
+  #agent: [codex:gpt-6-astra/xhigh, claude:fable]
+
+  # Extra checks added to the built-in final review.
+  #prompt: |
+  #  Check that user-visible changes are described in the changelog.
+
+verify:
+  # Run a final verification pass after signoff (default: false).
+  #enabled: true
+
+  # tasks: read-only review; Coop applies validated task reopens.
+  # repo: the reviewer may also fix source code.
+  # Default: tasks.
+  #writes: repo
+
+  # Default: the signoff agent.
+  #agent: [codex:gpt-6-astra/xhigh]
+
+  # Required when enabled. Coop supplies the affected tasks and files.
+  #prompt: |
+  #  Test the affected features end to end.
+  #  Report failures with the task IDs they affect.
+
+# Variables available in review prompts:
+# {loop.changes}   completed tasks, commits and changed files
+# {loop.tasks}     completed task IDs
+# {loop.affected}  top-level folders changed by this run
