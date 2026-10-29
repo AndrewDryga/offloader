@@ -48,7 +48,8 @@ never lands in a shared cache.
 
 Every response, public or authed, is compressed with zstd or gzip when the request's
 `Accept-Encoding` allows it, and carries `Vary: Accept-Encoding` so caches keep the compressed and
-plain copies apart. A public response's weak `ETag` covers all of its encodings.
+plain copies apart. A public response's weak `ETag` covers all of its encodings. Set
+`OFFLOADER_COMPRESSION=off` to stop compressing, for example when a CDN in front already does.
 
 ## 3. Put a CDN in front
 
@@ -60,9 +61,11 @@ container materializes once per snapshot; the edge does the fan-out.
 
 Large responses gain the most from the edge. Compression costs the origin CPU for every response it
 sends. On an Apple M3 Pro with multi-megabyte JSON, gzip took up to about 17 ms per MB and zstd up
-to about 3 ms, less for repetitive data. A CDN keeps the compressed copy, so the origin pays that
-once per snapshot, URL and encoding at each edge cache (once in total behind an origin shield)
-rather than on every request.
+to about 3 ms, less for repetitive data. Served straight from the origin, a 7 MB response held four
+cores to about 40 a second for gzip clients and 160 for zstd. A CDN keeps the compressed copy, so
+the origin pays that once per snapshot, URL and encoding at each edge cache (once in total behind
+an origin shield) rather than on every request. Without a CDN, `OFFLOADER_COMPRESSION=off` trades
+the bytes back for CPU.
 
 > **Managed edge (optional).** For public data, Offloader can also run this edge for you as a paid
 > add-on — quoted per case, on the same share-of-savings basis. Because the data is already public,

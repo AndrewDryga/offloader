@@ -131,7 +131,8 @@ other header names (<code>Cache-Tag</code>, <code>Surrogate-Key</code>).</li>
 never lands in a shared cache.</p>
 <p>Every response, public or authed, is compressed with zstd or gzip when the request&#39;s
 <code>Accept-Encoding</code> allows it, and carries <code>Vary: Accept-Encoding</code> so caches keep the compressed and
-plain copies apart. A public response&#39;s weak <code>ETag</code> covers all of its encodings.</p>
+plain copies apart. A public response&#39;s weak <code>ETag</code> covers all of its encodings. Set
+<code>OFFLOADER_COMPRESSION=off</code> to stop compressing, for example when a CDN in front already does.</p>
 <h2 id="3-put-a-cdn-in-front">3. Put a CDN in front</h2>
 <p>Point your CDN (CloudFront, Fastly, Cloudflare, …) at the Offloader API origin. Because the origin
 sets proper <code>Cache-Control</code>/<code>ETag</code>, the CDN caches each response for its freshness window and
@@ -140,9 +141,11 @@ revalidations. That&#39;s where &quot;serving cost approaches zero, latency goes
 container materializes once per snapshot; the edge does the fan-out.</p>
 <p>Large responses gain the most from the edge. Compression costs the origin CPU for every response it
 sends. On an Apple M3 Pro with multi-megabyte JSON, gzip took up to about 17 ms per MB and zstd up
-to about 3 ms, less for repetitive data. A CDN keeps the compressed copy, so the origin pays that
-once per snapshot, URL and encoding at each edge cache (once in total behind an origin shield)
-rather than on every request.</p>
+to about 3 ms, less for repetitive data. Served straight from the origin, a 7 MB response held four
+cores to about 40 a second for gzip clients and 160 for zstd. A CDN keeps the compressed copy, so
+the origin pays that once per snapshot, URL and encoding at each edge cache (once in total behind
+an origin shield) rather than on every request. Without a CDN, <code>OFFLOADER_COMPRESSION=off</code> trades
+the bytes back for CPU.</p>
 <blockquote>
 <p><strong>Managed edge (optional).</strong> For public data, Offloader can also run this edge for you as a paid
 add-on — quoted per case, on the same share-of-savings basis. Because the data is already public,

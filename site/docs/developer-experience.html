@@ -151,6 +151,9 @@ offloader scaffold-dataset --from sample.csv --id events --out my-project/datase
 comma-separated origin list (unset ⇒ no CORS). See <a href="public-serving.html">serving public data</a>.</li>
 <li><code>OFFLOADER_MCP_ENABLED</code> — serve the same endpoints to AI agents at <code>POST /mcp</code>
 (<code>true</code> ⇒ on; unset ⇒ off). See <a href="mcp.html">AI agents (MCP)</a>.</li>
+<li><code>OFFLOADER_COMPRESSION</code> — <code>off</code> stops compressing API responses (unset ⇒ zstd or gzip, as
+the client asks). See <a href="public-serving.html#3-put-a-cdn-in-front">serving public data</a>
+for when that helps.</li>
 <li>Tuning: <code>OFFLOADER_POOL_SIZE</code> (DuckDB read connections, default 16),
 <code>OFFLOADER_REMOTE_SCAN_CONCURRENCY</code> (max concurrent <code>remote_scan</code> reads, default
 <code>min(pool_size, 16)</code> — caps slow object-store reads so they can&#39;t starve the pool of fast

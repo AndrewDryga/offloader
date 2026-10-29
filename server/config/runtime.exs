@@ -144,6 +144,17 @@ if level = System.get_env("OFFLOADER_LOG_LEVEL") do
   end
 end
 
+# Bandit compresses API responses (zstd or gzip, as the client's Accept-Encoding allows).
+# OFFLOADER_COMPRESSION=off turns that off: a CDN in front may already compress, and a large
+# response served straight from the origin can cost more CPU than its bytes are worth. Set
+# outside the prod block so every environment's ip and port merge with it.
+config :offloader, OffloaderWeb.ApiEndpoint,
+  http: [
+    http_options: [
+      compress: System.get_env("OFFLOADER_COMPRESSION") not in ["off", "false", "0", "no"]
+    ]
+  ]
+
 # `PHX_SERVER=1 bin/offloader start` boots the HTTP servers when running a release.
 if System.get_env("PHX_SERVER") do
   config :offloader, OffloaderWeb.ApiEndpoint, server: true

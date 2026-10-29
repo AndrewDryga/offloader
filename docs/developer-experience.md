@@ -73,6 +73,9 @@ Everything else has a sensible default:
   comma-separated origin list (unset ⇒ no CORS). See [serving public data](public-serving.md).
 - `OFFLOADER_MCP_ENABLED` — serve the same endpoints to AI agents at `POST /mcp`
   (`true` ⇒ on; unset ⇒ off). See [AI agents (MCP)](mcp.md).
+- `OFFLOADER_COMPRESSION` — `off` stops compressing API responses (unset ⇒ zstd or gzip, as
+  the client asks). See [serving public data](public-serving.md#3-put-a-cdn-in-front)
+  for when that helps.
 - Tuning: `OFFLOADER_POOL_SIZE` (DuckDB read connections, default 16),
   `OFFLOADER_REMOTE_SCAN_CONCURRENCY` (max concurrent `remote_scan` reads, default
   `min(pool_size, 16)` — caps slow object-store reads so they can't starve the pool of fast
