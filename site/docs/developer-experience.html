@@ -245,6 +245,17 @@ was built from, so a later fetch that drops or changes those files does not affe
 <code>OFFLOADER_CONFIG_SYNC_INTERVAL</code> set it watches the project&#39;s YAML files and
 <strong>hot-reloads configuration changes with no restart</strong>
 (see <a href="#hot-config-auto-sync">Hot config auto-sync</a> below).</p>
+<p>If the bucket can&#39;t be read when the container starts (network, credentials, or a GCS or S3
+error), Offloader boots from the config it last fetched from the same <code>OFFLOADER_CONFIG</code> path,
+logs a warning, and serves the snapshots already on disk. Admin <code>/diagnostics</code> shows
+<code>config_from_cache: true</code> and <code>/metrics</code> shows <code>offloader_config_from_cache 1</code> until it loads
+the bucket&#39;s copy: at the first sync that reaches the bucket, or at the next restart when sync
+is off. This needs <code>&lt;cache_dir&gt;</code> to survive restarts, for example on a persistent volume.</p>
+<p>The boot still stops when the bucket no longer exists, holds no usable config, or holds a config
+that doesn&#39;t validate. It also stops when there is no cached config, or it came from another
+path or from an older release, and on a local disk error. Revoking the server&#39;s access to the
+bucket doesn&#39;t stop a container that has a cached config; to retire one, stop it or clear its
+cache directory.</p>
 <p>Host your <code>offloader.yml</code> (and its <code>datasets/</code>/<code>endpoints/</code>/<code>keys/</code> tree) under a <code>gs://…</code> prefix
 and boot the published image straight against it — the only volume is the optional
 <a href="#the-cache-directory-warm-vs-cold-restarts">warm-start cache</a>:</p>
@@ -302,6 +313,8 @@ a broken bucket revision never takes the service down, and its files never repla
 running config reads.</li>
 <li><code>/metrics</code> exposes <code>offloader_config_sync_enabled</code> and <code>offloader_config_sync_ok</code> (alert on the
 latter == 0); admin <code>/diagnostics</code> shows the last sync result + timestamps.</li>
+<li>After a boot that couldn&#39;t read the bucket, the first sync that reaches it compares against the
+config actually running, so a revision published while the container was down is applied.</li>
 </ul>
 <p>For a static snapshot update, publish data and a versioned manifest with a new
 <code>snapshot_id</code> first, then change the dataset YAML&#39;s <code>manifest:</code> path. The next config-sync tick sees that

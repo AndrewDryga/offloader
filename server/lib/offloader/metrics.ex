@@ -24,6 +24,7 @@ defmodule Offloader.Metrics do
       pool_gauges(diag),
       disk_gauge(diag),
       config_sync_gauges(diag),
+      config_cache_gauge(diag),
       dataset_gauges(diag)
     ]
     |> List.flatten()
@@ -91,6 +92,14 @@ defmodule Offloader.Metrics do
 
   defp config_sync_gauges(_diag),
     do: gauge("offloader_config_sync_enabled", "1 if hot config auto-sync is enabled", "0")
+
+  defp config_cache_gauge(diag),
+    do:
+      gauge(
+        "offloader_config_from_cache",
+        "1 if boot couldn't read the config bucket and serves the last fetched config",
+        bool(diag[:config_from_cache])
+      )
 
   defp disk_gauge(diag) do
     case get_in(diag, [:disk, :cache_dir_free_bytes]) do

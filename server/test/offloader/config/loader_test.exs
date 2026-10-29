@@ -571,4 +571,169 @@ defmodule Offloader.Config.LoaderTest do
       assert File.exists?(Path.join([cache, "config", "offloader.yml"]))
     end
   end
+
+  # A container that starts while the bucket can't be read serves the config it last fetched
+  # from the same path, so a GCS or credentials outage doesn't stop a restart from serving.
+  describe "a boot while the config bucket can't be read" do
+    defp outage(error), do: Agent.update(FakeGcs, &Map.put(&1, :list_error, error))
+
+    defp fetched_cache do
+      {objects, bodies} = project_objects("proj")
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      assert {:ok, %{config_from_cache: false}} = Loader.load("gs://my-bucket/proj", cache)
+      cache
+    end
+
+    defp boot_load(path, cache), do: Loader.load(path, cache, fallback_to_cached: true)
+
+    defp object(name, body \\ "x"),
+      do:
+        {%{"name" => name, "size" => Integer.to_string(byte_size(body)), "updated" => "t"}, body}
+
+    # Add objects to the bucket's listing (and their bodies) for the next fetch.
+    defp add_objects(pairs) do
+      Agent.update(FakeGcs, fn s ->
+        %{
+          s
+          | objects: s.objects ++ Enum.map(pairs, &elem(&1, 0)),
+            bodies: Map.merge(s.bodies, Map.new(pairs, fn {o, b} -> {o["name"], b} end))
+        }
+      end)
+    end
+
+    test "serves the config last fetched from the same path" do
+      cache = fetched_cache()
+      [generation] = generations(cache)
+      outage({:gcs_api_error, 503})
+
+      assert {:ok, catalog} = boot_load("gs://my-bucket/proj", cache)
+      assert catalog.config_dir == Path.join(cache, "config")
+      assert catalog.config_from_cache
+      assert Map.has_key?(catalog.datasets, "customer_usage")
+      assert generations(cache) == [generation]
+    end
+
+    test "a trailing slash names the same path" do
+      cache = fetched_cache()
+      outage({:gcs_api_error, 403})
+      assert {:ok, _} = boot_load("gs://my-bucket/proj/", cache)
+    end
+
+    test "counts bad credentials as the bucket being unreadable" do
+      cache = fetched_cache()
+      outage(:unauthorized)
+      assert {:ok, _} = boot_load("gs://my-bucket/proj", cache)
+    end
+
+    test "fails when nothing was fetched before" do
+      with_fake(objects: [], list_error: {:gcs_api_error, 503})
+      assert {:error, {:gcs_api_error, 503}} = boot_load("gs://my-bucket/proj", tmp_cache())
+    end
+
+    test "never serves a config fetched from another path" do
+      # A mistyped new OFFLOADER_CONFIG must fail loudly, not boot the old project.
+      cache = fetched_cache()
+      outage({:gcs_api_error, 403})
+      assert {:error, {:gcs_api_error, 403}} = boot_load("gs://my-bucket/other", cache)
+    end
+
+    test "fails when the bucket no longer exists" do
+      # Deleting the bucket is an answer, not an outage, and retires the deployment.
+      cache = fetched_cache()
+      outage({:gcs_api_error, 404})
+      assert {:error, {:gcs_api_error, 404}} = boot_load("gs://my-bucket/proj", cache)
+    end
+
+    test "doesn't trust a generation that never recorded its path" do
+      cache = fetched_cache()
+      File.rm!(Path.join([cache, "config", ".source"]))
+      outage({:gcs_api_error, 403})
+      assert {:error, {:gcs_api_error, 403}} = boot_load("gs://my-bucket/proj", cache)
+    end
+
+    test "fails when the bucket answers without a usable config" do
+      cache = fetched_cache()
+      Agent.update(FakeGcs, &%{&1 | objects: []})
+      assert {:error, {:no_config_objects, _, _}} = boot_load("gs://my-bucket/proj", cache)
+    end
+
+    test "fails when the bucket's tree can't be used, or the disk can't hold it" do
+      cache = fetched_cache()
+
+      cases = [
+        too_many_config_files: for(i <- 1..500, do: object("proj/extra/#{i}.txt")),
+        config_too_large: [
+          {%{"name" => "proj/big.bin", "size" => "40000000", "updated" => "t"}, ""}
+        ],
+        unsafe_config_path: [object("proj/../evil.yml", "version: 1\n")],
+        # A file where the next object needs a directory.
+        write_failed: [object("proj/zz"), object("proj/zz/a.txt")]
+      ]
+
+      for {reason, extra} <- cases do
+        {objects, bodies} = project_objects("proj")
+        Agent.update(FakeGcs, &%{&1 | objects: objects, bodies: bodies})
+        add_objects(extra)
+
+        assert {:error, error} = boot_load("gs://my-bucket/proj", cache)
+        assert elem(error, 0) == reason
+      end
+    end
+
+    test "records the listing digest, so sync starts from the running config" do
+      cache = fetched_cache()
+      {:ok, running} = Loader.running_digest("gs://my-bucket/proj", cache)
+      assert {:ok, ^running} = Loader.digest("gs://my-bucket/proj")
+
+      # A newer revision lands while the pod is down, and its boot can't read the bucket.
+      Agent.update(FakeGcs, fn s ->
+        %{s | objects: Enum.map(s.objects, &Map.put(&1, "updated", "later"))}
+      end)
+
+      outage({:gcs_api_error, 403})
+      assert {:ok, %{config_from_cache: true}} = boot_load("gs://my-bucket/proj", cache)
+
+      Agent.update(FakeGcs, &Map.delete(&1, :list_error))
+      assert {:ok, live} = Loader.digest("gs://my-bucket/proj")
+      assert {:ok, ^running} = Loader.running_digest("gs://my-bucket/proj", cache)
+      refute live == running
+    end
+
+    test "fails when the cached config no longer validates" do
+      cache = fetched_cache()
+      File.write!(Path.join([cache, "config", "offloader.yml"]), "bogus_key: 1\n", [:append])
+      outage({:gcs_api_error, 403})
+      assert {:error, {:gcs_api_error, 403}} = boot_load("gs://my-bucket/proj", cache)
+    end
+
+    test "only a boot falls back: a sync's load reports the outage" do
+      cache = fetched_cache()
+      outage({:gcs_api_error, 403})
+      assert {:error, {:gcs_api_error, 403}} = Loader.load("gs://my-bucket/proj", cache)
+    end
+
+    test "a restart during the outage keeps serving the warm snapshot" do
+      {objects, bodies} = project_objects("proj")
+      with_fake(objects: objects, bodies: bodies)
+      cache = tmp_cache()
+      rt = boot(cache)
+      assert {:ok, _} = serve(rt, "2026-05-30")
+      Offloader.TestSupport.stop_if_alive(rt)
+
+      # Only the warm DuckDB table can serve now: the cached tree loses its data file.
+      File.rm!(Path.join(cache, "config/data/customer_usage/customer_usage.csv"))
+      outage({:gcs_api_error, 403})
+      rt = boot(cache)
+
+      assert Offloader.Runtime.ready?(rt)
+
+      assert {:ok, %{meta: %{snapshot_id: "2026-06-01T00:00:00Z_r0007"}}} =
+               serve(rt, "2026-05-31")
+
+      diag = Offloader.Runtime.diagnostics(rt)
+      assert diag.config_from_cache
+      assert Offloader.Metrics.to_prometheus(diag) =~ "offloader_config_from_cache 1"
+    end
+  end
 end

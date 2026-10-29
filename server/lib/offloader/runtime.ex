@@ -243,7 +243,8 @@ defmodule Offloader.Runtime do
 
     # Config.Loader resolves a local path as-is, or fetches a `gs://…` project tree into
     # <cache_dir>/config first — so the container can be fully stateless (config in the bucket).
-    with {:ok, catalog} <- Config.Loader.load(config_path, cache_dir),
+    # If the bucket can't be read, boot serves the config last fetched from it, when cached.
+    with {:ok, catalog} <- Config.Loader.load(config_path, cache_dir, fallback_to_cached: true),
          {:ok, engine} <-
            Engine.start_link(cache_dir: cache_dir, object_store: Config.object_store()),
          # High restart intensity: with dozens of datasets, a transient burst of worker
@@ -955,6 +956,7 @@ defmodule Offloader.Runtime do
     %{
       build_version: Offloader.version(),
       config_version: ctx.catalog.version,
+      config_from_cache: ctx.catalog.config_from_cache,
       object_store_mode: ctx.catalog.object_store_mode,
       duckdb_status: duckdb_status(ctx.engine),
       pool: Engine.pool_stats(ctx.engine),

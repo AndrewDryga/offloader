@@ -179,6 +179,19 @@ was built from, so a later fetch that drops or changes those files does not affe
 **hot-reloads configuration changes with no restart**
 (see [Hot config auto-sync](#hot-config-auto-sync) below).
 
+If the bucket can't be read when the container starts (network, credentials, or a GCS or S3
+error), Offloader boots from the config it last fetched from the same `OFFLOADER_CONFIG` path,
+logs a warning, and serves the snapshots already on disk. Admin `/diagnostics` shows
+`config_from_cache: true` and `/metrics` shows `offloader_config_from_cache 1` until it loads
+the bucket's copy: at the first sync that reaches the bucket, or at the next restart when sync
+is off. This needs `<cache_dir>` to survive restarts, for example on a persistent volume.
+
+The boot still stops when the bucket no longer exists, holds no usable config, or holds a config
+that doesn't validate. It also stops when there is no cached config, or it came from another
+path or from an older release, and on a local disk error. Revoking the server's access to the
+bucket doesn't stop a container that has a cached config; to retire one, stop it or clear its
+cache directory.
+
 Host your `offloader.yml` (and its `datasets/`/`endpoints/`/`keys/` tree) under a `gs://…` prefix
 and boot the published image straight against it — the only volume is the optional
 [warm-start cache](#the-cache-directory-warm-vs-cold-restarts):
@@ -240,6 +253,8 @@ on that interval and hot-reloads config changes **with no restart**:
   running config reads.
 - `/metrics` exposes `offloader_config_sync_enabled` and `offloader_config_sync_ok` (alert on the
   latter == 0); admin `/diagnostics` shows the last sync result + timestamps.
+- After a boot that couldn't read the bucket, the first sync that reaches it compares against the
+  config actually running, so a revision published while the container was down is applied.
 
 For a static snapshot update, publish data and a versioned manifest with a new
 `snapshot_id` first, then change the dataset YAML's `manifest:` path. The next config-sync tick sees that

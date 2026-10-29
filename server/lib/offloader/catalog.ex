@@ -11,7 +11,17 @@ defmodule Offloader.Catalog do
   alias Offloader.Catalog.{Dataset, Endpoint, Error, Key, Parse}
 
   @enforce_keys [:config_dir, :datasets, :endpoints, :keys]
-  defstruct [:config_dir, :version, :object_store_mode, :auth_mode, :datasets, :endpoints, :keys]
+  defstruct [
+    :config_dir,
+    :version,
+    :object_store_mode,
+    :auth_mode,
+    :datasets,
+    :endpoints,
+    :keys,
+    # True when boot couldn't read the config bucket and loaded the last fetched copy instead.
+    config_from_cache: false
+  ]
 
   @project_keys ~w(version datasets_dir endpoints_dir keys object_store_mode auth)
   @auth_modes ~w(required none)
@@ -22,7 +32,8 @@ defmodule Offloader.Catalog do
           auth_mode: String.t(),
           datasets: %{optional(String.t()) => Dataset.t()},
           endpoints: %{optional(String.t()) => Endpoint.t()},
-          keys: [Key.t()]
+          keys: [Key.t()],
+          config_from_cache: boolean()
         }
 
   @doc "Load and validate a project from the path to its `offloader.yml`."

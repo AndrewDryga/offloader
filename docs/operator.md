@@ -17,7 +17,10 @@ and two more are worth setting from day one: `OFFLOADER_ADMIN_TOKEN` (gates
 container is fully stateless. Set `OFFLOADER_CONFIG_SYNC_INTERVAL=<seconds>` and
 Offloader re-checks the project's YAML files on that interval and **hot-reloads config
 changes with no restart**. Even a dataset schema change cuts over with zero downtime.
-Offloader ignores a bad revision and keeps serving the running config. Full details:
+Offloader ignores a bad revision and keeps serving the running config. If the bucket can't be
+read when a container starts, it boots from the config it last fetched, provided the cache
+directory survived the restart, and says so on `/metrics` (`offloader_config_from_cache`). Full
+details:
 [config guide](developer-experience.md#config-from-object-storage-optional).
 
 The container listens on two ports: **API** (product traffic, API-key auth) and
@@ -155,6 +158,8 @@ prints a concise per-dataset summary. Metrics for alerting are on `/metrics`.
 Alerts worth setting (all on `/metrics`):
 
 - `offloader_config_sync_ok == 0` — auto-sync (if enabled) stopped applying the bucket config.
+- `offloader_config_from_cache == 1` — the container booted while the config bucket was
+  unreadable and is serving its last fetched config.
 - `offloader_snapshot_age_seconds` too high, or `offloader_refresh_ok == 0` — a dataset fell behind its source.
 - `offloader_pool_busy` sustained near `offloader_pool_connections` — you're shedding load; raise `OFFLOADER_POOL_SIZE`.
 - `offloader_cache_disk_free_bytes` low — the cache volume is filling.

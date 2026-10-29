@@ -61,9 +61,11 @@ defmodule Offloader.Config.Sync do
     ensure_table()
     publish(state.status)
 
-    # Baseline the current config's digest so the first tick doesn't re-apply an unchanged config.
+    # Baseline the RUNNING config's digest so the first tick doesn't re-apply an unchanged config.
+    # After a boot that fell back to the cache, that digest is the cached copy's, so the first
+    # tick that reaches the bucket fetches its newer config instead of calling it unchanged.
     state =
-      case state.loader.digest(state.config_path) do
+      case state.loader.running_digest(state.config_path, state.cache_dir) do
         {:ok, digest} -> %{state | last_digest: digest}
         {:error, _} -> state
       end

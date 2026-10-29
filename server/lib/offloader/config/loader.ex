@@ -20,6 +20,17 @@ defmodule Offloader.Config.Loader do
   The fetch is bounded (file count + total bytes) and retried a few times for transient GCS
   errors, so a momentary blip at boot doesn't crash the container. Credentials never touch
   logs — only file counts and the local cache path are logged.
+
+  ## Booting while the bucket can't be read
+
+  Each generation records where it was fetched from (`.source`) and the listing digest it was
+  fetched at (`.digest`). At boot, and only then, a fetch that fails because the bucket can't
+  be read (network, credentials, a GCS or S3 error) falls back to the current generation when
+  it came from the same place and still validates, so a restart during an outage serves the
+  config it last had; the catalog says so (`config_from_cache`). What the bucket says (it
+  doesn't exist, no config, too large, unsafe paths), an invalid config, and local disk errors
+  still fail. Sync's loads never fall back, and the sync loop starts from the running
+  generation's digest, so it fetches the bucket's copy once the bucket answers.
   """
 
   require Logger
@@ -28,6 +39,8 @@ defmodule Offloader.Config.Loader do
 
   @config_link "config"
   @generations "configs"
+  @source_file ".source"
+  @digest_file ".digest"
   @max_files 500
   @max_bytes 32 * 1024 * 1024
   @yaml_exts [".yml", ".yaml"]
@@ -38,14 +51,20 @@ defmodule Offloader.Config.Loader do
   Load + validate the project at `config_path` (a local path or `gs://…`), fetching a remote
   tree into a new config generation first and making it current only once it validates.
   Returns the validated catalog or a reason (the same shape `Runtime.init` already turns into
-  `{:stop, …}`).
+  `{:stop, …}`). `fallback_to_cached: true` is for boot only (see the moduledoc).
   """
-  @spec load(String.t(), String.t()) :: {:ok, Catalog.t()} | {:error, term()}
-  def load(config_path, cache_dir) when is_binary(config_path) and is_binary(cache_dir) do
+  @spec load(String.t(), String.t(), keyword()) :: {:ok, Catalog.t()} | {:error, term()}
+  def load(config_path, cache_dir, opts \\ [])
+      when is_binary(config_path) and is_binary(cache_dir) do
     case resolve(config_path) do
-      {:remote, client, bucket, prefix} -> load_generation(client, bucket, prefix, cache_dir)
-      {:local, offloader_yml} -> validate(offloader_yml)
-      {:error, _} = error -> error
+      {:remote, client, bucket, prefix} ->
+        load_generation(client, bucket, prefix, cache_dir, source_id(config_path), opts)
+
+      {:local, offloader_yml} ->
+        validate(offloader_yml)
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -56,17 +75,114 @@ defmodule Offloader.Config.Loader do
     end
   end
 
-  defp load_generation(client, bucket, prefix, cache_dir) do
+  defp load_generation(client, bucket, prefix, cache_dir, source, opts) do
     dir = Path.join([cache_dir, @generations, generation_name()])
 
-    with :ok <- fetch_remote(client, bucket, prefix, dir),
-         {:ok, catalog} <- validate(Path.join(dir, "offloader.yml")),
-         {:ok, link} <- activate(dir, cache_dir) do
-      {:ok, %{catalog | config_dir: link}}
-    else
-      error ->
+    case fetch_remote(client, bucket, prefix, dir) do
+      {:ok, digest} ->
+        with :ok <- write_file(Path.join(dir, @source_file), source, @source_file),
+             :ok <- write_file(Path.join(dir, @digest_file), Base.encode16(digest), @digest_file),
+             {:ok, catalog} <- validate(Path.join(dir, "offloader.yml")),
+             {:ok, link} <- activate(dir, cache_dir) do
+          {:ok, %{catalog | config_dir: link}}
+        else
+          error ->
+            File.rm_rf(dir)
+            error
+        end
+
+      {:error, reason} = error ->
         File.rm_rf(dir)
+
+        if Keyword.get(opts, :fallback_to_cached, false) and unreadable?(reason),
+          do: load_cached(cache_dir, source, reason, error),
+          else: error
+    end
+  end
+
+  # Within a fetch, these mean the bucket answered with something unusable or the local disk
+  # failed. Anything else means it couldn't be read: network, credentials, a GCS or S3 error.
+  # A 404 on the listing means the bucket is gone; a 404 on a download is a mid-upload race.
+  defp unreadable?({:gcs_api_error, 404}), do: false
+  defp unreadable?({:s3_api_error, 404}), do: false
+  defp unreadable?({:no_config_objects, _, _}), do: false
+  defp unreadable?({:too_many_config_files, _}), do: false
+  defp unreadable?({:config_too_large, _}), do: false
+  defp unreadable?({:unsafe_config_path, _}), do: false
+  defp unreadable?({:write_failed, _, _}), do: false
+  defp unreadable?(_reason), do: true
+
+  # The current generation, if it was fetched from this same path and still validates. A
+  # generation from before sources were recorded is not trusted.
+  defp load_cached(cache_dir, source, reason, error) do
+    link = Path.join(cache_dir, @config_link)
+
+    with {:ok, ^source} <- File.read(Path.join(link, @source_file)),
+         {:ok, catalog} <- validate(Path.join(link, "offloader.yml")) do
+      Logger.warning(
+        "config bucket unreadable at boot (#{inspect(reason)}); serving the config last " <>
+          "fetched from #{source} (#{generation_of(link)}) until the bucket answers again"
+      )
+
+      {:ok, %{catalog | config_dir: link, config_from_cache: true}}
+    else
+      refusal ->
+        Logger.warning(
+          "config bucket unreadable at boot (#{inspect(reason)}), and the cached config " <>
+            "can't stand in: #{refusal_reason(refusal)}"
+        )
+
         error
+    end
+  end
+
+  defp refusal_reason({:ok, other_source}), do: "it was fetched from #{other_source}"
+  defp refusal_reason({:error, :enoent}), do: "none was fetched, or it predates this release"
+  defp refusal_reason({:error, {:config_invalid, _}}), do: "it no longer validates"
+  defp refusal_reason(other), do: inspect(other)
+
+  # Where a generation comes from: the config path, plus the endpoint for an S3-compatible
+  # store, where the same s3:// URL can name a bucket on another service.
+  defp source_id("s3://" <> _ = path) do
+    endpoint =
+      Application.get_env(:offloader, :s3_base_url) ||
+        (Offloader.Config.object_store() || %{})[:endpoint]
+
+    base = String.trim_trailing(path, "/")
+    if endpoint, do: "#{base} at #{endpoint}", else: base
+  end
+
+  defp source_id(path), do: String.trim_trailing(path, "/")
+
+  @doc """
+  The change-token of the config the server is running, as the sync loop's starting point. For
+  a remote config it's the listing digest the current generation was fetched at, so a boot that
+  fell back to the cache doesn't look current and the first sync tick fetches the bucket's copy.
+  A local config is read live.
+  """
+  @spec running_digest(String.t(), String.t()) :: {:ok, binary()} | {:error, term()}
+  def running_digest(config_path, cache_dir) do
+    case resolve(config_path) do
+      {:remote, _client, _bucket, _prefix} ->
+        with {:ok, hex} <- File.read(Path.join([cache_dir, @config_link, @digest_file])),
+             {:ok, digest} <- Base.decode16(hex) do
+          {:ok, digest}
+        else
+          _ -> {:error, :no_recorded_digest}
+        end
+
+      {:local, _offloader_yml} ->
+        digest(config_path)
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp generation_of(link) do
+    case File.read_link(link) do
+      {:ok, target} -> Path.basename(target)
+      {:error, _} -> "unknown generation"
     end
   end
 
@@ -213,16 +329,18 @@ defmodule Offloader.Config.Loader do
 
     with_retry(fn ->
       with {:ok, items} <- client.list_objects(bucket, list_prefix) do
-        token =
-          items
-          |> Enum.filter(&yaml_name?(&1["name"]))
-          |> Enum.map(&{&1["name"], &1["updated"], &1["size"]})
-          |> Enum.sort()
-          |> hash()
-
-        {:ok, token}
+        {:ok, listing_digest(items)}
       end
     end)
+  end
+
+  # The same token for a listing, whether the sync loop takes it or a fetch records it.
+  defp listing_digest(items) do
+    items
+    |> Enum.filter(&yaml_name?(&1["name"]))
+    |> Enum.map(&{&1["name"], &1["updated"], &1["size"]})
+    |> Enum.sort()
+    |> hash()
   end
 
   defp hash(term), do: :crypto.hash(:sha256, :erlang.term_to_binary(term))
@@ -286,7 +404,8 @@ defmodule Offloader.Config.Loader do
           {:error, {:config_too_large, total_bytes(items)}}
 
         true ->
-          download_all(client, bucket, list_prefix, items, dir)
+          with :ok <- download_all(client, bucket, list_prefix, items, dir),
+               do: {:ok, listing_digest(items)}
       end
     end
   end

@@ -19,6 +19,10 @@ defmodule Offloader.Config.SyncTest do
     def start(opts), do: Agent.start_link(fn -> Map.new(opts) end, name: __MODULE__)
     def set(key, value), do: Agent.update(__MODULE__, &Map.put(&1, key, value))
     def digest(_path), do: Agent.get(__MODULE__, &Map.get(&1, :digest))
+
+    def running_digest(_path, _cache),
+      do: Agent.get(__MODULE__, &Map.get(&1, :running_digest, Map.get(&1, :digest)))
+
     def load(_path, _cache), do: Agent.get(__MODULE__, &Map.get(&1, :load))
   end
 
@@ -63,6 +67,18 @@ defmodule Offloader.Config.SyncTest do
   defp tick(sync) do
     send(sync, :tick)
     Sync.status(sync)
+  end
+
+  # After a boot that fell back to the cached config, the bucket may already hold a newer one:
+  # the baseline is what's running, not what the bucket says at startup.
+  test "starts from the running config's digest, so a newer bucket copy is applied" do
+    rec = start_rec()
+    cat = catalog()
+    start_stub(running_digest: {:ok, "cached"}, digest: {:ok, "live"}, load: {:ok, cat})
+    sync = start_sync(rec)
+
+    assert %{result: :applied} = tick(sync)
+    assert GenServer.call(rec, :reloads) == [cat]
   end
 
   test "an unchanged digest does not reload" do
