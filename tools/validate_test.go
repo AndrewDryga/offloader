@@ -39,31 +39,27 @@ schema:
 `
 
 const goodEndpoint = `name: usage_summary
+version: 1
+owner: team@example.com
 dataset: customer_usage
 tenant:
   column: tenant_id
 params:
   - { name: from, type: date }
+query:
+  select: [{ as: account_id, column: account_id }]
 columns: [account_id]
 `
 
-func TestValidateRejectsUnknownDataset(t *testing.T) {
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\n",
-		"datasets/customer_usage.yml": goodDataset,
-		"endpoints/e.yml":             "name: e\ndataset: nope\ntenant:\n  column: tenant_id\ncolumns: [account_id]\n",
-	})
-	assertCode(t, validateProject(project), "unknown_dataset")
-}
-
-func TestValidateRejectsTenantMismatch(t *testing.T) {
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\n",
-		"datasets/customer_usage.yml": goodDataset,
-		"endpoints/e.yml":             "name: e\ndataset: customer_usage\ntenant:\n  column: account_id\ncolumns: [account_id]\n",
-	})
-	assertCode(t, validateProject(project), "tenant_mismatch")
-}
+// sourceEndpoint is a complete endpoint over a one-column dataset `d`.
+const sourceEndpoint = `name: e
+version: 1
+owner: team@example.com
+dataset: d
+query:
+  select: [{ as: c, column: c }]
+columns: [c]
+`
 
 func TestValidateRejectsUnsafeIdentifierAndDupColumn(t *testing.T) {
 	project := writeProject(t, map[string]string{
@@ -121,9 +117,17 @@ schema:
 `
 
 const publicEndpoint = `name: champion
+version: 1
+owner: team@example.com
 dataset: champion_stats
 params:
   - { name: champion_id, type: string }
+query:
+  select:
+    - { as: champion_id, column: champion_id }
+    - { as: data, column: data }
+  filters:
+    - { column: champion_id, op: eq, param: champion_id }
 columns: [champion_id, data]
 `
 
@@ -139,34 +143,6 @@ func TestValidateAcceptsNonTenantPublicProject(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsPublicAuthWithTenantEndpoint(t *testing.T) {
-	// auth: none is unsafe when an endpoint is tenant-scoped.
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\nauth: none\n",
-		"datasets/customer_usage.yml": goodDataset,
-		"endpoints/e.yml":             goodEndpoint,
-	})
-	assertCode(t, validateProject(project), "public_tenant_endpoint")
-}
-
-func TestValidateRejectsTenantBindingOnNonTenantDataset(t *testing.T) {
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\n",
-		"datasets/champion_stats.yml": publicDataset,
-		"endpoints/e.yml":             "name: e\ndataset: champion_stats\ntenant:\n  column: champion_id\ncolumns: [champion_id]\n",
-	})
-	assertCode(t, validateProject(project), "tenant_forbidden")
-}
-
-func TestValidateRejectsMissingTenantOnTenantDataset(t *testing.T) {
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\n",
-		"datasets/customer_usage.yml": goodDataset,
-		"endpoints/e.yml":             "name: e\ndataset: customer_usage\ncolumns: [account_id]\n",
-	})
-	assertCode(t, validateProject(project), "missing")
-}
-
 func TestValidateRejectsInvalidAuthMode(t *testing.T) {
 	project := writeProject(t, map[string]string{
 		"offloader.yml":               "version: 1\nauth: sso\n",
@@ -176,80 +152,13 @@ func TestValidateRejectsInvalidAuthMode(t *testing.T) {
 	assertCode(t, validateProject(project), "invalid_value")
 }
 
-func TestValidateCombinationsAndAliases(t *testing.T) {
-	base := `name: e
-dataset: customer_usage
-tenant:
-  column: tenant_id
-columns: [account_id]
-`
-	cases := []struct {
-		name, endpoint, wantCode string
-	}{
-		{
-			"combination referencing an undeclared param",
-			base + "params:\n  - { name: rank, type: string }\ncombinations: [[rank, nope]]\n",
-			"unknown_param",
-		},
-		{
-			"duplicate name inside a combination",
-			base + "params:\n  - { name: rank, type: string }\ncombinations: [[rank, rank]]\n",
-			"duplicate_param",
-		},
-		{
-			"aliases on an integer param",
-			base + "params:\n  - { name: n, type: integer, aliases: { a: b } }\n",
-			"invalid_value",
-		},
-		{
-			"enum alias target outside the enum",
-			base + "params:\n  - { name: rank, type: enum, enum: [gold], aliases: { G: silver } }\n",
-			"invalid_value",
-		},
-	}
-
-	for _, tc := range cases {
-		project := writeProject(t, map[string]string{
-			"offloader.yml":               "version: 1\n",
-			"datasets/customer_usage.yml": goodDataset,
-			"endpoints/e.yml":             tc.endpoint,
-		})
-		fs := validateProject(project)
-		if !slicesContains(fs.codes(), tc.wantCode) {
-			t.Errorf("%s: expected %q in findings, got %v", tc.name, tc.wantCode, fs.codes())
-		}
-	}
-
-	// and a fully valid endpoint with both features passes
-	valid := base + `params:
-  - { name: rank, type: enum, enum: [gold, silver], aliases: { GOLD: gold } }
-  - { name: map_code, type: string }
-combinations: [[rank], [rank, map_code]]
-`
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\n",
-		"datasets/customer_usage.yml": goodDataset,
-		"endpoints/e.yml":             valid,
-	})
-	if fs := validateProject(project); len(fs) != 0 {
-		t.Fatalf("valid combinations/aliases endpoint had findings: %v", fs)
-	}
-}
-
 func TestValidateMirrorsServerRules(t *testing.T) {
-	base := `name: e
-dataset: customer_usage
-tenant:
-  column: tenant_id
-columns: [account_id]
-`
+	// Endpoint rules are pinned by the shared corpus (validate_corpus_test.go); these cover
+	// datasets and keys.
 	cases := []struct {
 		name, endpoint, dataset, keys, wantCode string
 	}{
-		{"source interval 0 rejected", base + "params: []\n", "id: customer_usage\nsource: { type: databricks, bucket: b, prefix: p/, interval_seconds: 0 }\nschema:\n  - { name: tenant_id, type: VARCHAR }\n  - { name: account_id, type: VARCHAR }\n", "", "invalid_value"},
-		{"param type gibberish rejected", base + "params:\n  - { name: x, type: gibberish }\n", goodDataset, "", "invalid_value"},
-		{"enum param without values rejected", base + "params:\n  - { name: x, type: enum }\n", goodDataset, "", "missing"},
-		{"aliases on integer param rejected", base + "params:\n  - { name: x, type: integer, aliases: {} }\n", goodDataset, "", "invalid_value"},
+		{"source interval 0 rejected", goodEndpoint, "id: customer_usage\nsource: { type: databricks, bucket: b, prefix: p/, interval_seconds: 0 }\nschema:\n  - { name: tenant_id, type: VARCHAR }\n  - { name: account_id, type: VARCHAR }\n", "", "invalid_value"},
 		{"key with empty endpoints rejected", goodEndpoint, goodDataset, "keys:\n  - id: k1\n    hash: \"" + strings.Repeat("a", 64) + "\"\n    tenant: t\n    endpoints: []\n    status: active\n", "missing"},
 	}
 
@@ -275,7 +184,7 @@ func TestValidateAcceptsOmittedInterval(t *testing.T) {
 	project := writeProject(t, map[string]string{
 		"offloader.yml":   "version: 1\n",
 		"datasets/d.yml":  "id: d\nsource: { type: databricks, bucket: b, prefix: p/ }\nschema:\n  - { name: c, type: VARCHAR }\n",
-		"endpoints/e.yml": "name: e\ndataset: d\ncolumns: [c]\n",
+		"endpoints/e.yml": sourceEndpoint,
 	})
 	if fs := validateProject(project); len(fs) != 0 {
 		t.Fatalf("omitted interval should pass: %v", fs)
@@ -321,7 +230,7 @@ func TestValidateDatasetSource(t *testing.T) {
 		project := writeProject(t, map[string]string{
 			"offloader.yml":   "version: 1\n",
 			"datasets/d.yml":  tc.dataset,
-			"endpoints/e.yml": "name: e\ndataset: d\ncolumns: [c]\n",
+			"endpoints/e.yml": sourceEndpoint,
 		})
 		if fs := validateProject(project); !slicesContains(fs.codes(), tc.wantCode) {
 			t.Errorf("%s: expected %q, got %v", tc.name, tc.wantCode, fs.codes())
@@ -340,21 +249,9 @@ source:
 schema:
   - { name: c, type: VARCHAR }
 `,
-		"endpoints/e.yml": "name: e\ndataset: d\ncolumns: [c]\n",
+		"endpoints/e.yml": sourceEndpoint,
 	})
 	if fs := validateProject(project); len(fs) != 0 {
 		t.Fatalf("valid source dataset had findings: %v", fs)
-	}
-}
-
-func TestValidateAcceptsBooleanParam(t *testing.T) {
-	endpoint := strings.Replace(goodEndpoint, "params:\n", "params:\n  - { name: active, type: boolean }\n", 1)
-	project := writeProject(t, map[string]string{
-		"offloader.yml":               "version: 1\n",
-		"datasets/customer_usage.yml": goodDataset,
-		"endpoints/e.yml":             endpoint,
-	})
-	if fs := validateProject(project); len(fs) != 0 {
-		t.Fatalf("boolean param should validate, got %v", fs.codes())
 	}
 }

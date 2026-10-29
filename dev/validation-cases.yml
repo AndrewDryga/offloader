@@ -1,0 +1,824 @@
+# Broken Offloader projects, one rule each. The server (Offloader.Catalog.load/1, checked by
+# server/test/offloader/validation_corpus_test.exs) and `offloader validate` (checked by
+# tools/validate_corpus_test.go) must both report exactly `expect` for every case: the same
+# [file, path, code] findings, compared as sorted lists. Add a case when you add a rule.
+#
+# Each case starts from `base`. Its `project`, `dataset` and `endpoint` replace top-level keys
+# of offloader.yml, datasets/usage.yml and endpoints/e.yml (a null drops the key); `files` adds
+# more files as written.
+base:
+  project:
+    version: 1
+  dataset:
+    id: usage
+    manifest: m.json
+    tenant_column: tenant_id
+    schema:
+      - { name: tenant_id, type: VARCHAR }
+      - { name: account_id, type: VARCHAR }
+      - { name: day, type: DATE }
+      - { name: calls, type: BIGINT }
+      - { name: users, type: INTEGER }
+      - { name: active, type: BOOLEAN }
+      - { name: stats, type: JSON }
+  endpoint:
+    name: e
+    version: 1
+    owner: team@example.com
+    dataset: usage
+    tenant: { column: tenant_id }
+    params:
+      - { name: account, type: string }
+      - { name: from, type: date, required: true }
+    query:
+      select:
+        - { as: account_id, column: account_id }
+        - { as: calls, column: calls, agg: sum }
+      group_by: [account_id]
+      filters:
+        - { column: account_id, op: eq, param: account }
+        - { column: day, op: gte, param: from }
+      order_by:
+        - { column: calls, dir: desc }
+    columns: [account_id, calls]
+    pagination: { default_limit: 10, max_limit: 100 }
+    cache: { policy: snapshot }
+
+cases:
+  - name: the base project is valid
+    expect: []
+
+  # ── endpoint fields ──────────────────────────────────────────────────────────
+  - name: an unknown endpoint field
+    endpoint: { surprise: 1 }
+    expect: [[endpoints/e.yml, surprise, unknown_field]]
+  - name: an unsafe endpoint name
+    endpoint: { name: Bad Name }
+    expect: [[endpoints/e.yml, name, unsafe_identifier]]
+  - name: a missing endpoint name
+    endpoint: { name: null }
+    expect: [[endpoints/e.yml, name, missing]]
+  - name: a version that is not an integer
+    endpoint: { version: "1" }
+    expect: [[endpoints/e.yml, version, invalid_type]]
+  - name: an empty owner
+    endpoint: { owner: "" }
+    expect: [[endpoints/e.yml, owner, missing]]
+  - name: an unknown dataset
+    endpoint: { dataset: nope }
+    expect: [[endpoints/e.yml, dataset, unknown_dataset]]
+  - name: a missing dataset
+    endpoint: { dataset: null }
+    expect: [[endpoints/e.yml, dataset, missing]]
+  - name: an unknown serving mode
+    endpoint: { serving_mode: fast }
+    expect: [[endpoints/e.yml, serving_mode, invalid_value]]
+  - name: freshness that is not a mapping
+    endpoint: { freshness: 5 }
+    expect: [[endpoints/e.yml, freshness, invalid_type]]
+  - name: a staleness that is not positive
+    endpoint: { freshness: { max_staleness_minutes: 0 } }
+    expect: [[endpoints/e.yml, freshness.max_staleness_minutes, invalid_value]]
+  - name: an unknown freshness field
+    endpoint: { freshness: { max_staleness_minutes: 5, minutes: 1 } }
+    expect: [[endpoints/e.yml, freshness.minutes, unknown_field]]
+
+  # ── tenant ───────────────────────────────────────────────────────────────────
+  - name: a tenant dataset without a tenant binding
+    endpoint: { tenant: null }
+    expect: [[endpoints/e.yml, tenant, missing]]
+  - name: a tenant binding on another column
+    endpoint: { tenant: { column: account_id } }
+    expect: [[endpoints/e.yml, tenant.column, tenant_mismatch]]
+  - name: an unsafe tenant column
+    endpoint: { tenant: { column: bad col } }
+    expect: [[endpoints/e.yml, tenant.column, unsafe_identifier]]
+  - name: an unknown tenant field
+    endpoint: { tenant: { column: tenant_id, x: 1 } }
+    expect: [[endpoints/e.yml, tenant.x, unknown_field]]
+  - name: a tenant that is not a mapping
+    endpoint: { tenant: tenant_id }
+    expect: [[endpoints/e.yml, tenant, invalid_type]]
+  - name: a tenant binding on a dataset without a tenant column
+    dataset: { tenant_column: null }
+    expect: [[endpoints/e.yml, tenant, tenant_forbidden]]
+
+  # ── params ───────────────────────────────────────────────────────────────────
+  - name: params that are not a list
+    endpoint: { params: x }
+    expect:
+      - [endpoints/e.yml, params, invalid_type]
+      - [endpoints/e.yml, "query.filters[0].param", unknown_param]
+      - [endpoints/e.yml, "query.filters[1].param", unknown_param]
+  - name: a duplicate param
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+    expect: [[endpoints/e.yml, params, duplicate_param]]
+  - name: a param that is not a mapping
+    endpoint:
+      params:
+        - x
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+    expect: [[endpoints/e.yml, "params[0]", invalid_type]]
+  - name: an unknown param field
+    endpoint:
+      params:
+        - { name: account, type: string, wat: 1 }
+        - { name: from, type: date, required: true }
+    expect: [[endpoints/e.yml, "params[0].wat", unknown_field]]
+  - name: an unsafe param name
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: Bad, type: string }
+    expect: [[endpoints/e.yml, "params[2].name", unsafe_identifier]]
+  - name: an unknown param type
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: x, type: gibberish }
+    expect: [[endpoints/e.yml, "params[2].type", invalid_value]]
+  - name: an enum param without values
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: x, type: enum }
+    expect: [[endpoints/e.yml, "params[2].enum", missing]]
+  - name: a date default that is not a date
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, default: May 5 }
+    expect: [[endpoints/e.yml, "params[1].default", invalid_default]]
+  - name: an integer default above its max
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: n, type: integer, max: 5, default: 10 }
+    expect: [[endpoints/e.yml, "params[2].default", invalid_default]]
+  - name: an integer default outside the range of the column it filters
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: n, type: integer, default: 3000000000 }
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+        group_by: [account_id]
+        filters:
+          - { column: account_id, op: eq, param: account }
+          - { column: day, op: gte, param: from }
+          - { column: users, op: lte, param: n }
+    expect: [[endpoints/e.yml, "params[2].default", invalid_default]]
+  - name: a boolean default that is a string
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: on, type: boolean, default: "true" }
+    expect: [[endpoints/e.yml, "params[2].default", invalid_default]]
+  - name: an enum default outside its values
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: k, type: enum, enum: [a], default: b }
+    expect: [[endpoints/e.yml, "params[2].default", invalid_default]]
+  - name: aliases on an integer param
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: n, type: integer, aliases: { "1": "2" } }
+    expect: [[endpoints/e.yml, "params[2].aliases", invalid_value]]
+  - name: aliases that are not a mapping
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: s, type: string, aliases: [a] }
+    expect: [[endpoints/e.yml, "params[2].aliases", invalid_type]]
+  - name: an alias to a value outside the enum
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: k, type: enum, enum: [a, b], aliases: { x: c } }
+    expect: [[endpoints/e.yml, "params[2].aliases", invalid_value]]
+  - name: an alias that maps to a number
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: s, type: string, aliases: { a: 1 } }
+    expect: [[endpoints/e.yml, "params[2].aliases", invalid_type]]
+
+  # ── combinations ─────────────────────────────────────────────────────────────
+  - name: combinations that are not a list
+    endpoint: { combinations: x }
+    expect: [[endpoints/e.yml, combinations, invalid_type]]
+  - name: a combination that is not a list
+    endpoint: { combinations: [account] }
+    expect: [[endpoints/e.yml, "combinations[0]", invalid_type]]
+  - name: a combination with an undeclared param
+    endpoint: { combinations: [[from, nope]] }
+    expect: [[endpoints/e.yml, "combinations[0]", unknown_param]]
+  - name: a combination that repeats a param
+    endpoint: { combinations: [[from, from]] }
+    expect: [[endpoints/e.yml, "combinations[0]", duplicate_param]]
+
+  # ── query ────────────────────────────────────────────────────────────────────
+  - name: a missing query
+    endpoint: { query: null }
+    expect:
+      - [endpoints/e.yml, query, missing]
+      - [endpoints/e.yml, columns, column_not_selected]
+  - name: a query that is not a mapping
+    endpoint: { query: x }
+    expect:
+      - [endpoints/e.yml, query, missing]
+      - [endpoints/e.yml, columns, column_not_selected]
+  - name: an unknown query field
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+        group_by: [account_id]
+        limit: 5
+    expect: [[endpoints/e.yml, query.limit, unknown_field]]
+  - name: an empty select
+    endpoint:
+      query: { select: [], order_by: [{ column: calls }] }
+    expect:
+      - [endpoints/e.yml, query.select, missing]
+      - [endpoints/e.yml, columns, column_not_selected]
+      - [endpoints/e.yml, "query.order_by[0].column", unknown_column]
+  - name: a select that is not a list
+    endpoint:
+      query: { select: x, order_by: [{ column: calls }] }
+    expect:
+      - [endpoints/e.yml, query.select, missing]
+      - [endpoints/e.yml, columns, column_not_selected]
+      - [endpoints/e.yml, "query.order_by[0].column", unknown_column]
+  - name: a select item that is not a mapping
+    endpoint:
+      query:
+        select:
+          - x
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+        group_by: [account_id]
+    expect: [[endpoints/e.yml, "query.select[0]", invalid_type]]
+  - name: an unknown select field
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id, wat: 1 }
+          - { as: calls, column: calls, agg: sum }
+        group_by: [account_id]
+    expect: [[endpoints/e.yml, "query.select[0].wat", unknown_field]]
+  - name: an unsafe output name
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+          - { as: bad-as, column: day }
+        group_by: [account_id, bad-as]
+      columns: [account_id, calls, bad-as]
+    expect: [[endpoints/e.yml, "query.select[2].as", unsafe_identifier]]
+  - name: a select of a column the dataset lacks
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+          - { as: x, column: nope }
+        group_by: [account_id, x]
+      columns: [account_id, calls, x]
+    expect: [[endpoints/e.yml, "query.select[2].column", unknown_column]]
+  - name: a select of an unsafe column
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+          - { as: x, column: bad col }
+        group_by: [account_id, x]
+      columns: [account_id, calls, x]
+    expect: [[endpoints/e.yml, "query.select[2].column", unsafe_identifier]]
+  - name: an unknown aggregate
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: median }
+        group_by: [account_id]
+    expect: [[endpoints/e.yml, "query.select[1].agg", invalid_value]]
+  - name: an aggregate over a JSON column
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+          - { as: s, column: stats, agg: count }
+        group_by: [account_id]
+      columns: [account_id, calls, s]
+    expect: [[endpoints/e.yml, "query.select[2].agg", invalid_agg_on_json]]
+  - name: a repeated output name
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+          - { as: account_id, column: account_id }
+        group_by: [account_id]
+      columns: [account_id, calls, account_id]
+    expect:
+      - [endpoints/e.yml, query.select, duplicate_column]
+      - [endpoints/e.yml, query.group_by, ungrouped_column]
+  - name: an aggregate without group_by
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+    expect: [[endpoints/e.yml, query.group_by, missing_group_by]]
+  - name: a group_by name that is not an output column
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+        group_by: [account_id, nope]
+    expect: [[endpoints/e.yml, query.group_by, unknown_column]]
+  - name: a plain output column left out of group_by
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+          - { as: day, column: day }
+        group_by: [account_id]
+      columns: [account_id, calls, day]
+    expect: [[endpoints/e.yml, query.group_by, ungrouped_column]]
+  - name: a group_by that is not a list
+    endpoint:
+      query:
+        select:
+          - { as: account_id, column: account_id }
+          - { as: calls, column: calls, agg: sum }
+        group_by: account_id
+    expect: [[endpoints/e.yml, query.group_by, invalid_type]]
+
+  # ── filters ──────────────────────────────────────────────────────────────────
+  - name: filters that are not a list
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: x
+      columns: [account_id]
+    expect: [[endpoints/e.yml, query.filters, invalid_type]]
+  - name: a filter that is not a mapping
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [x]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0]", invalid_type]]
+  - name: an unknown filter field
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: account_id, op: eq, param: account, wat: 1 }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].wat", unknown_field]]
+  - name: a filter on a column the dataset lacks
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: nope, op: eq, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].column", unknown_column]]
+  - name: a filter on an unsafe column
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: bad col, op: eq, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].column", unsafe_identifier]]
+  - name: a filter without a column on a dataset without a tenant column
+    dataset: { tenant_column: null }
+    endpoint:
+      tenant: null
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ op: eq, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].column", unsafe_identifier]]
+  - name: a filter on the tenant column
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: tenant_id, op: eq, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].column", tenant_filter_forbidden]]
+  - name: an unknown filter op
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: account_id, op: gt, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].op", invalid_value]]
+  - name: a filter on an undeclared param
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: account_id, op: eq, param: nope }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].param", unknown_param]]
+  - name: a string param on a BIGINT column
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: calls, op: eq, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].param", incompatible_filter]]
+  - name: a string param on a JSON column
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: stats, op: eq, param: account }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].param", incompatible_filter]]
+  - name: a boolean param compared with gte
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: on, type: boolean }
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: active, op: gte, param: on }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.filters[0].op", incompatible_filter]]
+  - name: a boolean param on a BOOLEAN column with eq
+    endpoint:
+      params:
+        - { name: account, type: string }
+        - { name: from, type: date, required: true }
+        - { name: on, type: boolean, default: false }
+      query:
+        select: [{ as: account_id, column: account_id }]
+        filters: [{ column: active, op: eq, param: on }]
+      columns: [account_id]
+    expect: []
+
+  # ── order_by ─────────────────────────────────────────────────────────────────
+  - name: an order_by that is not a list
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        order_by: x
+      columns: [account_id]
+    expect: [[endpoints/e.yml, query.order_by, invalid_type]]
+  - name: an order_by item that is not a mapping
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        order_by: [x]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.order_by[0]", invalid_type]]
+  - name: an unknown order_by field
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        order_by: [{ column: account_id, wat: 1 }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.order_by[0].wat", unknown_field]]
+  - name: an order_by on a column the select doesn't produce
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        order_by: [{ column: day }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.order_by[0].column", unknown_column]]
+  - name: an unknown order_by direction
+    endpoint:
+      query:
+        select: [{ as: account_id, column: account_id }]
+        order_by: [{ column: account_id, dir: up }]
+      columns: [account_id]
+    expect: [[endpoints/e.yml, "query.order_by[0].dir", invalid_value]]
+
+  # ── columns, pagination, cache ───────────────────────────────────────────────
+  - name: a missing columns allowlist
+    endpoint: { columns: null }
+    expect: [[endpoints/e.yml, columns, missing]]
+  - name: an empty columns allowlist
+    endpoint: { columns: [] }
+    expect: [[endpoints/e.yml, columns, missing]]
+  - name: an allowlisted column the select doesn't produce
+    endpoint: { columns: [account_id, calls, nope] }
+    expect: [[endpoints/e.yml, columns, column_not_selected]]
+  - name: a selected column missing from the allowlist
+    endpoint: { columns: [account_id] }
+    expect: [[endpoints/e.yml, columns, column_not_allowlisted]]
+  - name: pagination that is not a mapping
+    endpoint: { pagination: 10 }
+    expect: [[endpoints/e.yml, pagination, invalid_type]]
+  - name: a default_limit that is not positive
+    endpoint: { pagination: { default_limit: 0, max_limit: 10 } }
+    expect: [[endpoints/e.yml, pagination.default_limit, invalid_value]]
+  - name: a max_limit that is not an integer
+    endpoint: { pagination: { default_limit: 5, max_limit: x } }
+    expect: [[endpoints/e.yml, pagination.max_limit, invalid_value]]
+  - name: a default_limit above max_limit
+    endpoint: { pagination: { default_limit: 50, max_limit: 10 } }
+    expect: [[endpoints/e.yml, pagination.default_limit, invalid_value]]
+  - name: an unknown pagination field
+    endpoint: { pagination: { default_limit: 5, max_limit: 10, size: 1 } }
+    expect: [[endpoints/e.yml, pagination.size, unknown_field]]
+  - name: a cache that is not a mapping
+    endpoint: { cache: snapshot }
+    expect: [[endpoints/e.yml, cache, invalid_type]]
+  - name: a cache without a policy
+    endpoint: { cache: {} }
+    expect: [[endpoints/e.yml, cache, invalid_type]]
+  - name: an unknown cache policy
+    endpoint: { cache: { policy: forever } }
+    expect: [[endpoints/e.yml, cache.policy, invalid_value]]
+  - name: an unknown cache field
+    endpoint: { cache: { policy: none, ttl: 5 } }
+    expect: [[endpoints/e.yml, cache.ttl, unknown_field]]
+
+  # ── project ──────────────────────────────────────────────────────────────────
+  - name: two endpoints with one name
+    files:
+      endpoints/f.yml: |
+        name: e
+        version: 1
+        owner: team@example.com
+        dataset: usage
+        tenant: { column: tenant_id }
+        query:
+          select: [{ as: account_id, column: account_id }]
+        columns: [account_id]
+    expect: [[endpoints, endpoints, duplicate_endpoint]]
+  - name: a public API with a tenant-scoped endpoint
+    project: { auth: none }
+    expect: [[offloader.yml, auth, public_tenant_endpoint]]
+
+  # ── datasets ─────────────────────────────────────────────────────────────────
+  - name: an unknown dataset field
+    dataset: { surprise: 1 }
+    expect:
+      - [datasets/usage.yml, surprise, unknown_field]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: an unsafe dataset id
+    dataset: { id: Bad }
+    expect:
+      - [datasets/usage.yml, id, unsafe_identifier]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a missing dataset id
+    dataset: { id: null }
+    expect:
+      - [datasets/usage.yml, id, missing]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: both a manifest and a source
+    dataset: { source: { type: databricks, bucket: b, prefix: p/ } }
+    expect:
+      - [datasets/usage.yml, source, conflicting_origin]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: neither a manifest nor a source
+    dataset: { manifest: null }
+    expect:
+      - [datasets/usage.yml, manifest, missing]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a manifest that is not a string
+    dataset: { manifest: 5 }
+    expect:
+      - [datasets/usage.yml, manifest, invalid_type]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a valid source
+    dataset: { manifest: null, source: { type: databricks, bucket: b, prefix: p/, interval_seconds: 300 } }
+    expect: []
+  - name: an unknown source field
+    dataset: { manifest: null, source: { type: databricks, bucket: b, prefix: p/, x: 1 } }
+    expect:
+      - [datasets/usage.yml, source.x, unknown_field]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: an unknown source type
+    dataset: { manifest: null, source: { type: s3, bucket: b, prefix: p/ } }
+    expect:
+      - [datasets/usage.yml, source.type, invalid_value]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a source without a bucket
+    dataset: { manifest: null, source: { type: databricks, prefix: p/ } }
+    expect:
+      - [datasets/usage.yml, source.bucket, missing]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a source interval that is not positive
+    dataset: { manifest: null, source: { type: databricks, bucket: b, prefix: p/, interval_seconds: 0 } }
+    expect:
+      - [datasets/usage.yml, source.interval_seconds, invalid_value]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: an unsafe dataset tenant column
+    dataset: { tenant_column: bad col }
+    expect:
+      - [datasets/usage.yml, tenant_column, unsafe_identifier]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a tenant column the schema lacks
+    dataset: { tenant_column: region }
+    expect:
+      - [datasets/usage.yml, tenant_column, unknown_column]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a tenant column that is not a string
+    dataset: { tenant_column: 5 }
+    expect:
+      - [datasets/usage.yml, tenant_column, invalid_type]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a missing schema
+    dataset: { schema: null }
+    expect:
+      - [datasets/usage.yml, schema, missing]
+      - [datasets/usage.yml, tenant_column, unknown_column]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a schema column with an unsafe name
+    dataset:
+      schema:
+        - { name: tenant_id, type: VARCHAR }
+        - { name: account_id, type: VARCHAR }
+        - { name: bad col, type: VARCHAR }
+    expect:
+      - [datasets/usage.yml, "schema[2].name", unsafe_identifier]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a schema column with an unsupported type
+    dataset:
+      schema:
+        - { name: tenant_id, type: VARCHAR }
+        - { name: account_id, type: VARCHAR }
+        - { name: x, type: FLOAT }
+    expect:
+      - [datasets/usage.yml, "schema[2].type", unsupported_type]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: a schema column that is not a mapping
+    dataset:
+      schema:
+        - { name: tenant_id, type: VARCHAR }
+        - x
+    expect:
+      - [datasets/usage.yml, "schema[1].name", unsafe_identifier]
+      - [datasets/usage.yml, "schema[1].type", unsupported_type]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: repeated schema columns
+    dataset:
+      schema:
+        - { name: tenant_id, type: VARCHAR }
+        - { name: tenant_id, type: VARCHAR }
+        - { name: account_id, type: VARCHAR }
+        - { name: account_id, type: VARCHAR }
+    expect:
+      - [datasets/usage.yml, schema, duplicate_column]
+      - [endpoints/e.yml, dataset, unknown_dataset]
+  - name: two datasets with one id
+    files:
+      datasets/other.yml: |
+        id: usage
+        manifest: m.json
+        tenant_column: tenant_id
+        schema:
+          - { name: tenant_id, type: VARCHAR }
+          - { name: account_id, type: VARCHAR }
+          - { name: day, type: DATE }
+          - { name: calls, type: BIGINT }
+    expect: [[datasets, datasets, duplicate_dataset]]
+
+  # ── keys ─────────────────────────────────────────────────────────────────────
+  - name: a valid keys file
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e], status: active }
+    expect: []
+  - name: a keys file without a keys list
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: "other: 1\n"
+    expect: [[keys/keys.yml, keys, missing]]
+  - name: a missing keys file
+    project: { keys: keys/nope.yml }
+    expect: [[keys/nope.yml, "", yaml_error]]
+  - name: a key that is not a mapping
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: "keys: [x]\n"
+    expect: [[keys/keys.yml, "keys[0]", invalid_type]]
+  - name: an unknown key field
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e], status: active, wat: 1 }
+    expect: [[keys/keys.yml, "keys[0].wat", unknown_field]]
+  - name: an unsafe key id
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: Bad Key, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e], status: active }
+    expect: [[keys/keys.yml, "keys[0].id", unsafe_identifier]]
+  - name: a hash that is not a SHA-256 hex digest
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: token123, tenant: acme, endpoints: [e], status: active }
+    expect: [[keys/keys.yml, "keys[0].hash", invalid_value]]
+  - name: a key without a tenant
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", endpoints: [e], status: active }
+    expect: [[keys/keys.yml, "keys[0].tenant", missing]]
+  - name: an unknown key status
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e], status: paused }
+    expect: [[keys/keys.yml, "keys[0].status", invalid_value]]
+  - name: a key that grants no endpoint
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [], status: active }
+    expect: [[keys/keys.yml, "keys[0].endpoints", missing]]
+  - name: a key that grants an unknown endpoint
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e, nope], status: active }
+    expect: [[keys/keys.yml, "keys[0].endpoints", unknown_endpoint]]
+  - name: a key that grants an endpoint which failed validation
+    project: { keys: keys/keys.yml }
+    endpoint: { owner: "" }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e], status: active }
+    expect:
+      - [endpoints/e.yml, owner, missing]
+      - [keys/keys.yml, "keys[0].endpoints", unknown_endpoint]
+  - name: two keys with one id
+    project: { keys: keys/keys.yml }
+    files:
+      keys/keys.yml: |
+        keys:
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: acme, endpoints: [e], status: active }
+          - { id: k1, hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tenant: globex, endpoints: [e], status: revoked }
+    expect: [[keys, keys, duplicate_key]]
+
+  # ── project and files ────────────────────────────────────────────────────────
+  - name: an unknown project field stops validation there
+    project: { surprise: 1, auth: sso }
+    expect: [[offloader.yml, surprise, unknown_field]]
+  - name: a datasets_dir that is not a path
+    project: { datasets_dir: 5 }
+    expect: [[offloader.yml, datasets_dir, invalid_type]]
+  - name: an endpoints_dir that is a list
+    project: { endpoints_dir: [a] }
+    expect: [[offloader.yml, endpoints_dir, invalid_type]]
+  - name: a keys path that is empty
+    project: { keys: "" }
+    expect: [[offloader.yml, keys, invalid_type]]
+  - name: an unknown auth mode
+    project: { auth: sso }
+    expect: [[offloader.yml, auth, invalid_value]]
+  - name: an endpoint file that is not a mapping
+    files:
+      endpoints/f.yml: "- a\n"
+    expect: [[endpoints/f.yml, "", invalid_type]]
+  - name: an endpoint file that is not YAML
+    files:
+      endpoints/f.yml: "a: [\n"
+    expect: [[endpoints/f.yml, "", yaml_error]]
+  - name: an empty endpoint file
+    files:
+      endpoints/f.yml: ""
+    expect: [[endpoints/f.yml, dataset, missing]]

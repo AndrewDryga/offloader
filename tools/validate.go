@@ -4,10 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
-
-	"go.yaml.in/yaml/v3"
+	"regexp"
+	"strings"
 )
 
 func init() {
@@ -28,341 +27,345 @@ func runValidate(args []string, stdout, stderr io.Writer) int {
 	return report(stdout, stderr, validateProject(*config), "config OK")
 }
 
-type projectYML struct {
-	Version      int    `yaml:"version"`
-	DatasetsDir  string `yaml:"datasets_dir"`
-	EndpointsDir string `yaml:"endpoints_dir"`
-	Keys         string `yaml:"keys"`
-	Auth         string `yaml:"auth"`
-}
-
+// columnYML is one schema column (also read by `manifest validate` and `scaffold-dataset`).
 type columnYML struct {
 	Name string `yaml:"name"`
 	Type string `yaml:"type"`
 }
 
-type sourceYML struct {
-	Type   string `yaml:"type"`
-	Bucket string `yaml:"bucket"`
-	Prefix string `yaml:"prefix"`
-	// Pointer so an explicit `0` (which the server rejects) is distinguishable from
-	// an omitted interval (which it allows).
-	IntervalSeconds *int `yaml:"interval_seconds"`
-}
-
+// datasetYML is a dataset that validated: what the endpoint rules check against.
 type datasetYML struct {
-	ID           string      `yaml:"id"`
-	Manifest     string      `yaml:"manifest"`
-	Source       *sourceYML  `yaml:"source"`
-	TenantColumn string      `yaml:"tenant_column"`
-	Schema       []columnYML `yaml:"schema"`
+	ID           string
+	TenantColumn string
+	Schema       []columnYML
 }
 
-type paramYML struct {
-	Name    string            `yaml:"name"`
-	Type    string            `yaml:"type"`
-	Enum    []string          `yaml:"enum"`
-	Aliases map[string]string `yaml:"aliases"`
+// endpointRef is what the project-wide checks need from an endpoint that validated.
+type endpointRef struct {
+	Name, Dataset string
 }
 
-type endpointYML struct {
-	Name    string `yaml:"name"`
-	Dataset string `yaml:"dataset"`
-	Tenant  struct {
-		Column string `yaml:"column"`
-	} `yaml:"tenant"`
-	Params       []paramYML `yaml:"params"`
-	Combinations [][]string `yaml:"combinations"`
-	Columns      []string   `yaml:"columns"`
-}
+var (
+	projectKeys = []string{"version", "datasets_dir", "endpoints_dir", "keys", "object_store_mode", "auth"}
+	authModes   = []string{"required", "none"}
+	datasetKeys = []string{"id", "description", "manifest", "source", "tenant_column", "schema"}
+	sourceKeys  = []string{"type", "bucket", "prefix", "interval_seconds"}
+	sourceTypes = []string{"databricks"}
+	columnTypes = []string{"DATE", "TIMESTAMP", "VARCHAR", "INTEGER", "BIGINT", "DOUBLE", "BOOLEAN", "JSON"}
+	keyFields   = []string{"id", "hash", "tenant", "endpoints", "status"}
+	keyStatuses = []string{"active", "revoked"}
+	hashRe      = regexp.MustCompile(`^[a-f0-9]{64}$`)
+)
 
-type keyYML struct {
-	ID        string   `yaml:"id"`
-	Hash      string   `yaml:"hash"`
-	Tenant    string   `yaml:"tenant"`
-	Endpoints []string `yaml:"endpoints"`
-	Status    string   `yaml:"status"`
-}
-
-// validateProject loads and structurally validates a project. It mirrors the server's
-// key checks (identifiers, references, required fields) as a fast local/CI pre-check;
-// the container remains the authority for the full contract.
+// validateProject reports every problem in a project, with the server's rules: a port of
+// Offloader.Catalog and its Dataset, Endpoint and Key parsers. dev/validation-cases.yml holds
+// both to the same findings. As on the server, only datasets and endpoints that validate count
+// for the checks that span files (an endpoint's dataset, a key's endpoints, the auth mode).
 func validateProject(path string) findings {
 	var out findings
-
-	var project projectYML
-	if !readYAML(path, "offloader.yml", &project, &out) {
+	project, ok := readMapping(path, "offloader.yml", &out)
+	if !ok {
+		return out
+	}
+	// Stop at a project-level problem: without valid paths there is nothing to load.
+	c := checker{rel: "offloader.yml", out: &out}
+	c.unknownKeys(project, projectKeys, "")
+	for _, key := range []string{"datasets_dir", "endpoints_dir", "keys"} {
+		if v := project[key]; v != nil {
+			if s, ok := v.(string); !ok || s == "" {
+				c.add(key, "invalid_type", key+" must be a non-empty path", "")
+			}
+		}
+	}
+	if len(out) > 0 {
 		return out
 	}
 
 	dir := filepath.Dir(path)
-	datasets := loadDatasets(dir, orDefault(project.DatasetsDir, "datasets"), &out)
-	endpoints := loadEndpoints(dir, orDefault(project.EndpointsDir, "endpoints"), datasets, &out)
-	if project.Keys != "" {
-		loadKeys(filepath.Join(dir, project.Keys), project.Keys, endpointNames(dir, orDefault(project.EndpointsDir, "endpoints")), &out)
+	datasets := loadDatasets(dir, stringOr(project["datasets_dir"], "datasets"), &out)
+	endpoints := loadEndpoints(dir, stringOr(project["endpoints_dir"], "endpoints"), datasets, &out)
+	if keys, ok := project["keys"].(string); ok {
+		known := map[any]bool{}
+		for _, ep := range endpoints {
+			known[ep.Name] = true
+		}
+		loadKeys(filepath.Join(dir, keys), keys, known, &out)
 	}
-	validateAuth(project, endpoints, datasets, &out)
+	validateAuth(project["auth"], endpoints, datasets, &out)
 	return out
 }
 
-// A dataset's snapshots come from exactly ONE origin: a static manifest path or a
-// dynamic source. Mirrors Offloader.Catalog.Dataset snapshot_origin_errors.
-func validateSnapshotOrigin(rel string, ds datasetYML, out *findings) {
-	switch {
-	case ds.Manifest != "" && ds.Source != nil:
-		out.add(rel, "source", "conflicting_origin", "manifest and source are mutually exclusive", "keep the static manifest OR the dynamic source, not both")
-	case ds.Manifest == "" && ds.Source == nil:
-		out.add(rel, "manifest", "missing", "either a manifest path or a source is required", "")
-	case ds.Source != nil:
-		if ds.Source.Type != "databricks" {
-			out.add(rel, "source.type", "invalid_value", fmt.Sprintf("source.type %q is invalid", ds.Source.Type), "one of: databricks")
-		}
-		if ds.Source.Bucket == "" {
-			out.add(rel, "source.bucket", "missing", "source.bucket is required and must be a non-empty string", "")
-		}
-		if ds.Source.Prefix == "" {
-			out.add(rel, "source.prefix", "missing", "source.prefix is required and must be a non-empty string", "")
-		}
-		if ds.Source.IntervalSeconds != nil && *ds.Source.IntervalSeconds <= 0 {
-			out.add(rel, "source.interval_seconds", "invalid_value", "source.interval_seconds must be a positive integer", "")
+// checker files findings for one config file.
+type checker struct {
+	rel string
+	out *findings
+}
+
+func (c checker) add(path, code, msg, hint string) { c.out.add(c.rel, path, code, msg, hint) }
+
+func (c checker) unknownKeys(m map[any]any, allowed []string, path string) {
+	for k := range m {
+		if !isOneOf(k, allowed) {
+			c.add(join(path, fmt.Sprint(k)), "unknown_field", fmt.Sprintf("unknown field %q", fmt.Sprint(k)), "allowed: "+strings.Join(allowed, ", "))
 		}
 	}
 }
 
-// auth: required (default) needs a key per request; auth: none serves publicly and is
-// only safe when no endpoint is tenant-scoped — mirrors the server's cross-check.
-func validateAuth(project projectYML, endpoints []endpointYML, datasets map[string]datasetYML, out *findings) {
-	switch project.Auth {
-	case "", "required", "none":
+func (c checker) identifier(v any, path string) {
+	switch s := v.(type) {
+	case string:
+		if !safeIdent(s) {
+			c.add(path, "unsafe_identifier", fmt.Sprintf("%s %q is not a safe identifier", path, s), "lowercase letters, digits, underscores")
+		}
 	default:
-		out.add("offloader.yml", "auth", "invalid_value", fmt.Sprintf("auth %q is invalid", project.Auth), "one of: required, none")
-		return
+		c.add(path, "missing", path+" is required", "")
 	}
-	if project.Auth != "none" {
-		return
+}
+
+// readMapping reads a config file that must hold a YAML mapping; an empty file is an empty one.
+func readMapping(path, rel string, out *findings) (map[any]any, bool) {
+	v, ok := readYAMLValue(path, rel, out)
+	switch m := v.(type) {
+	case nil:
+		return map[any]any{}, ok
+	case map[any]any:
+		return m, true
 	}
-	for _, ep := range endpoints {
-		if ds, ok := datasets[ep.Dataset]; ok && ds.TenantColumn != "" {
-			out.add("offloader.yml", "auth", "public_tenant_endpoint", fmt.Sprintf("auth: none but endpoint %q is tenant-scoped", ep.Name), "serve non-tenant datasets or set auth: required")
+	if ok {
+		out.add(rel, "", "invalid_type", "file must contain a YAML mapping", "")
+	}
+	return nil, false
+}
+
+// auth: required (default) needs a key per request; auth: none serves publicly and is only safe
+// when no endpoint is tenant-scoped.
+func validateAuth(auth any, endpoints []endpointRef, datasets map[string]datasetYML, out *findings) {
+	switch {
+	case auth == nil:
+	case !isOneOf(auth, authModes):
+		out.add("offloader.yml", "auth", "invalid_value", fmt.Sprintf("auth %v is invalid", auth), "one of: "+strings.Join(authModes, ", "))
+	case auth == "none":
+		for _, ep := range endpoints {
+			if datasets[ep.Dataset].TenantColumn != "" {
+				out.add("offloader.yml", "auth", "public_tenant_endpoint", fmt.Sprintf("auth: none but endpoint %q is tenant-scoped", ep.Name), "a public API cannot enforce tenancy; serve non-tenant datasets or set auth: required")
+			}
 		}
 	}
 }
+
+// ── datasets ─────────────────────────────────────────────────────────────────
 
 func loadDatasets(dir, sub string, out *findings) map[string]datasetYML {
 	datasets := map[string]datasetYML{}
+	var ids []string
 	for _, path := range yamlFiles(dir, sub) {
 		rel, _ := filepath.Rel(dir, path)
-		var ds datasetYML
-		if !readYAML(path, rel, &ds, out) {
+		raw, ok := readMapping(path, rel, out)
+		if !ok {
 			continue
 		}
-		if !safeIdent(ds.ID) {
-			out.add(rel, "id", "unsafe_identifier", fmt.Sprintf("dataset id %q is missing or not a safe identifier", ds.ID), "lowercase letters, digits, underscores")
-		}
-		validateSnapshotOrigin(rel, ds, out)
-		schemaNames := datasetSchema(ds, rel, out)
-		// tenant_column is optional: absent => a non-tenant (public) dataset.
-		if ds.TenantColumn != "" && !schemaNames[ds.TenantColumn] {
-			out.add(rel, "tenant_column", "unknown_column", fmt.Sprintf("tenant_column %q is not in the schema", ds.TenantColumn), "")
-		}
-		if ds.ID != "" {
+		before := len(*out)
+		validateDataset(rel, raw, out)
+		if len(*out) == before {
+			ds := buildDataset(raw)
+			ids = append(ids, ds.ID)
 			datasets[ds.ID] = ds
 		}
+	}
+	if d := duplicates(ids); len(d) > 0 {
+		out.add("datasets", "datasets", "duplicate_dataset", "duplicate name(s): "+strings.Join(d, ", "), "")
 	}
 	return datasets
 }
 
-func datasetSchema(ds datasetYML, rel string, out *findings) map[string]bool {
-	names := map[string]bool{}
-	if len(ds.Schema) == 0 {
-		out.add(rel, "schema", "missing", "schema is required and must be a non-empty list", "")
-	}
-	var all []string
-	for i, c := range ds.Schema {
-		p := fmt.Sprintf("schema[%d]", i)
-		if !safeColumn(c.Name) {
-			out.add(rel, p+".name", "unsafe_identifier", fmt.Sprintf("column name %q is missing or not a safe identifier", c.Name), "")
+// validateDataset is a port of Offloader.Catalog.Dataset.parse/2.
+func validateDataset(rel string, raw map[any]any, out *findings) {
+	c := checker{rel: rel, out: out}
+	c.unknownKeys(raw, datasetKeys, "")
+	c.identifier(raw["id"], "id")
+	c.snapshotOrigin(raw["manifest"], raw["source"])
+
+	// tenant_column is optional (a non-tenant dataset); when set it must name a schema column.
+	switch col := raw["tenant_column"].(type) {
+	case nil:
+	case string:
+		switch {
+		case !safeColumn(col):
+			c.add("tenant_column", "unsafe_identifier", fmt.Sprintf("tenant_column %q is not a safe identifier", col), "")
+		case !contains(schemaNames(raw["schema"]), col):
+			c.add("tenant_column", "unknown_column", fmt.Sprintf("tenant_column %q is not in the schema", col), "it must name a column declared in schema")
 		}
-		if !supportedTypes[c.Type] {
-			out.add(rel, p+".type", "unsupported_type", fmt.Sprintf("type %q is not supported", c.Type), supportedTypesHint)
-		}
-		names[c.Name] = true
-		all = append(all, c.Name)
+	default:
+		c.add("tenant_column", "invalid_type", "tenant_column must be a string", "")
 	}
-	for _, d := range duplicates(all) {
-		out.add(rel, "schema", "duplicate_column", "duplicate column: "+d, "")
+
+	cols, ok := raw["schema"].([]any)
+	if !ok || len(cols) == 0 {
+		c.add("schema", "missing", "schema is required and must be a non-empty list", "")
+		return
+	}
+	for i, col := range cols {
+		path := fmt.Sprintf("schema[%d]", i)
+		m, _ := col.(map[any]any)
+		if name, ok := m["name"].(string); !ok || !safeColumn(name) {
+			c.add(path+".name", "unsafe_identifier", fmt.Sprintf("column name %v is missing or not a safe identifier", m["name"]), "")
+		}
+		if !isOneOf(m["type"], columnTypes) {
+			c.add(path+".type", "unsupported_type", fmt.Sprintf("type %v is not supported", m["type"]), supportedTypesHint)
+		}
+	}
+	if d := duplicates(schemaNames(cols)); len(d) > 0 {
+		c.add("schema", "duplicate_column", "duplicate column(s): "+strings.Join(d, ", "), "")
+	}
+}
+
+// A dataset's snapshots come from exactly one origin: a static manifest path or a dynamic
+// source. The case order mirrors the server's snapshot_origin_errors.
+func (c checker) snapshotOrigin(manifest, source any) {
+	m, isString := manifest.(string)
+	s, isMap := source.(map[any]any)
+	switch {
+	case isString && m != "" && source == nil:
+	case manifest == nil && isMap:
+		c.unknownKeys(s, sourceKeys, "source")
+		if !isOneOf(s["type"], sourceTypes) {
+			c.add("source.type", "invalid_value", fmt.Sprintf("source.type %v is invalid", s["type"]), "one of: "+strings.Join(sourceTypes, ", "))
+		}
+		for _, key := range []string{"bucket", "prefix"} {
+			if v, ok := s[key].(string); !ok || v == "" {
+				c.add("source."+key, "missing", "source."+key+" is required and must be a non-empty string", "")
+			}
+		}
+		if v := s["interval_seconds"]; v != nil {
+			if n, ok := asInt(v); !ok || n <= 0 {
+				c.add("source.interval_seconds", "invalid_value", "source.interval_seconds must be a positive integer", "")
+			}
+		}
+	case isString && isMap:
+		c.add("source", "conflicting_origin", "manifest and source are mutually exclusive", "keep the static manifest OR the dynamic source, not both")
+	case manifest == nil && source == nil:
+		c.add("manifest", "missing", "either a manifest path or a source is required", "")
+	default:
+		c.add("manifest", "invalid_type", "manifest must be a non-empty string", "")
+	}
+}
+
+func schemaNames(v any) []string {
+	cols, _ := v.([]any)
+	var names []string
+	for _, col := range cols {
+		if m, ok := col.(map[any]any); ok {
+			if name, ok := m["name"].(string); ok {
+				names = append(names, name)
+			}
+		}
 	}
 	return names
 }
 
-func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *findings) []endpointYML {
+func buildDataset(raw map[any]any) datasetYML {
+	ds := datasetYML{ID: raw["id"].(string)}
+	ds.TenantColumn, _ = raw["tenant_column"].(string)
+	for _, col := range raw["schema"].([]any) {
+		m := col.(map[any]any)
+		ds.Schema = append(ds.Schema, columnYML{Name: m["name"].(string), Type: m["type"].(string)})
+	}
+	return ds
+}
+
+// ── endpoints ────────────────────────────────────────────────────────────────
+
+// loadEndpoints validates every endpoint file against its dataset and returns the ones that
+// pass. Mirrors Offloader.Catalog load_endpoints: an endpoint whose dataset is missing or
+// invalid reports only that, and duplicate names count only endpoints that validated.
+func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *findings) []endpointRef {
 	var names []string
-	var endpoints []endpointYML
+	var endpoints []endpointRef
 	for _, path := range yamlFiles(dir, sub) {
 		rel, _ := filepath.Rel(dir, path)
-		var ep endpointYML
-		if !readYAML(path, rel, &ep, out) {
+		raw, ok := readMapping(path, rel, out)
+		if !ok {
 			continue
 		}
-		names = append(names, ep.Name)
-		endpoints = append(endpoints, ep)
-		if !safeIdent(ep.Name) {
-			out.add(rel, "name", "unsafe_identifier", fmt.Sprintf("endpoint name %q is missing or not a safe identifier", ep.Name), "")
-		}
-		ds, ok := datasets[ep.Dataset]
+		id, ok := raw["dataset"].(string)
 		if !ok {
-			out.add(rel, "dataset", "unknown_dataset", fmt.Sprintf("endpoint references unknown dataset %q", ep.Dataset), "")
-		} else {
-			validateEndpointTenant(rel, ep, ds, out)
+			out.add(rel, "dataset", "missing", "dataset is required", "")
+			continue
 		}
-		if len(ep.Columns) == 0 {
-			out.add(rel, "columns", "missing", "columns allowlist is required and must be non-empty", "")
+		ds, ok := datasets[id]
+		if !ok {
+			out.add(rel, "dataset", "unknown_dataset", fmt.Sprintf("endpoint references unknown dataset %q", id), "")
+			continue
 		}
-		declared := map[string]bool{}
-		for i, p := range ep.Params {
-			if !safeIdent(p.Name) {
-				out.add(rel, fmt.Sprintf("params[%d].name", i), "unsafe_identifier", fmt.Sprintf("param name %q is not a safe identifier", p.Name), "")
-			}
-			declared[p.Name] = true
-			validateParamType(rel, i, p, out)
-			validateParamAliases(rel, i, p, out)
+		before := len(*out)
+		validateEndpoint(rel, raw, ds, out)
+		if len(*out) == before {
+			name := raw["name"].(string)
+			names = append(names, name)
+			endpoints = append(endpoints, endpointRef{Name: name, Dataset: id})
 		}
-		validateCombinations(rel, ep.Combinations, declared, out)
 	}
-	for _, d := range duplicates(names) {
-		out.add(sub, sub, "duplicate_endpoint", "duplicate endpoint name: "+d, "")
+	if d := duplicates(names); len(d) > 0 {
+		out.add("endpoints", "endpoints", "duplicate_endpoint", "duplicate name(s): "+strings.Join(d, ", "), "")
 	}
 	return endpoints
 }
 
-var paramTypes = map[string]bool{"string": true, "integer": true, "date": true, "enum": true, "boolean": true}
+// ── keys ─────────────────────────────────────────────────────────────────────
 
-// A param type must be one of the supported set, and an enum must list its values.
-// Mirrors Offloader.Catalog.Endpoint type_err.
-func validateParamType(rel string, i int, p paramYML, out *findings) {
-	if p.Type == "enum" {
-		if len(p.Enum) == 0 {
-			out.add(rel, fmt.Sprintf("params[%d].enum", i), "missing", "enum params must list their allowed values", "")
-		}
+// loadKeys is a port of Offloader.Catalog load_keys and Offloader.Catalog.Key.parse/4.
+func loadKeys(path, rel string, known map[any]bool, out *findings) {
+	raw, ok := readMapping(path, rel, out)
+	if !ok {
 		return
 	}
-	if !paramTypes[p.Type] {
-		out.add(rel, fmt.Sprintf("params[%d].type", i), "invalid_value", fmt.Sprintf("type %q is invalid", p.Type), "one of: string, integer, date, enum, boolean")
-	}
-}
-
-// Aliases are a value→value rewrite on string/enum params; for an enum every alias
-// target must itself be an allowed enum value. Mirrors Offloader.Catalog.Endpoint.
-func validateParamAliases(rel string, i int, p paramYML, out *findings) {
-	// nil == absent; an explicit empty map ({}) is present and still type-checked.
-	if p.Aliases == nil {
+	list, ok := raw["keys"].([]any)
+	if !ok {
+		out.add(rel, "keys", "missing", "keys file must contain a top-level `keys:` list", "")
 		return
 	}
-	path := fmt.Sprintf("params[%d].aliases", i)
-	if p.Type != "string" && p.Type != "enum" {
-		out.add(rel, path, "invalid_value", fmt.Sprintf("aliases are not supported on %q params", p.Type), "only string and enum params can declare aliases")
-	}
-	// Only cross-check targets when the enum actually lists values — a missing enum is
-	// reported by validateParamType, not here (avoids a misleading double-report).
-	if p.Type == "enum" && len(p.Enum) > 0 {
-		allowed := map[string]bool{}
-		for _, v := range p.Enum {
-			allowed[v] = true
+	c := checker{rel: rel, out: out}
+	var ids []string
+	for i, k := range list {
+		path := fmt.Sprintf("keys[%d]", i)
+		m, ok := k.(map[any]any)
+		if !ok {
+			c.add(path, "invalid_type", "key must be a mapping", "")
+			continue
 		}
-		for k, v := range p.Aliases {
-			if !allowed[v] {
-				out.add(rel, path, "invalid_value", fmt.Sprintf("alias %q maps to %q which is not an allowed enum value", k, v), "")
+		before := len(*out)
+		c.unknownKeys(m, keyFields, path)
+		if id, ok := m["id"].(string); !ok || !safeIdent(id) {
+			c.add(path+".id", "unsafe_identifier", fmt.Sprintf("key id %v is missing or not a safe identifier", m["id"]), "")
+		}
+		if hash, ok := m["hash"].(string); !ok || !hashRe.MatchString(hash) {
+			c.add(path+".hash", "invalid_value", "hash must be a 64-char lowercase SHA-256 hex string", "store sha256(token), never the token")
+		}
+		if tenant, ok := m["tenant"].(string); !ok || tenant == "" {
+			c.add(path+".tenant", "missing", "key must be bound to a tenant", "")
+		}
+		if !isOneOf(m["status"], keyStatuses) {
+			c.add(path+".status", "invalid_value", fmt.Sprintf("status %v is invalid", m["status"]), "one of: "+strings.Join(keyStatuses, ", "))
+		}
+		if eps, ok := m["endpoints"].([]any); !ok || len(eps) == 0 {
+			c.add(path+".endpoints", "missing", "key must grant at least one endpoint", "")
+		} else {
+			for _, ep := range eps {
+				if _, isName := ep.(string); !isName || !known[ep] {
+					c.add(path+".endpoints", "unknown_endpoint", fmt.Sprintf("key grants unknown endpoint %v", ep), "")
+				}
 			}
 		}
+		if len(*out) == before {
+			ids = append(ids, m["id"].(string))
+		}
+	}
+	if d := duplicates(ids); len(d) > 0 {
+		out.add("keys", "keys", "duplicate_key", "duplicate name(s): "+strings.Join(d, ", "), "")
 	}
 }
 
-// Each combination must list declared params, without duplicates. Mirrors
-// Offloader.Catalog.Endpoint combinations_errors.
-func validateCombinations(rel string, combos [][]string, declared map[string]bool, out *findings) {
-	for i, combo := range combos {
-		path := fmt.Sprintf("combinations[%d]", i)
-		for _, name := range combo {
-			if !declared[name] {
-				out.add(rel, path, "unknown_param", fmt.Sprintf("combination references param %q which is not declared", name), "")
-			}
-		}
-		for _, d := range duplicates(combo) {
-			out.add(rel, path, "duplicate_param", "duplicate name: "+d, "")
-		}
-	}
-}
-
-// A tenant dataset requires the endpoint to bind its column; a non-tenant dataset
-// forbids a tenant binding. Mirrors Offloader.Catalog.Endpoint tenant_errors.
-func validateEndpointTenant(rel string, ep endpointYML, ds datasetYML, out *findings) {
-	switch {
-	case ds.TenantColumn != "" && ep.Tenant.Column == "":
-		out.add(rel, "tenant", "missing", "tenant binding is required for a tenant dataset", fmt.Sprintf("bind %q, or drop tenant_column from the dataset", ds.TenantColumn))
-	case ds.TenantColumn != "" && ep.Tenant.Column != ds.TenantColumn:
-		out.add(rel, "tenant.column", "tenant_mismatch", fmt.Sprintf("tenant.column %q must equal the dataset tenant_column %q", ep.Tenant.Column, ds.TenantColumn), "")
-	case ds.TenantColumn == "" && ep.Tenant.Column != "":
-		out.add(rel, "tenant", "tenant_forbidden", fmt.Sprintf("dataset %q has no tenant_column, so this endpoint cannot bind a tenant", ep.Dataset), "remove the tenant binding, or add tenant_column to the dataset")
-	}
-}
-
-func loadKeys(path, rel string, knownEndpoints map[string]bool, out *findings) {
-	var kf struct {
-		Keys []keyYML `yaml:"keys"`
-	}
-	if !readYAML(path, rel, &kf, out) {
-		return
-	}
-	for i, k := range kf.Keys {
-		p := fmt.Sprintf("keys[%d]", i)
-		if !safeIdent(k.ID) {
-			out.add(rel, p+".id", "unsafe_identifier", fmt.Sprintf("key id %q is not a safe identifier", k.ID), "")
-		}
-		if !isSHA256Hex(k.Hash) {
-			out.add(rel, p+".hash", "invalid_value", "hash must be a 64-char lowercase sha256 hex", "store sha256(token), never the token")
-		}
-		if k.Tenant == "" {
-			out.add(rel, p+".tenant", "missing", "key must be bound to a tenant", "")
-		}
-		if k.Status != "active" && k.Status != "revoked" {
-			out.add(rel, p+".status", "invalid_value", fmt.Sprintf("status %q is invalid", k.Status), "one of: active, revoked")
-		}
-		if len(k.Endpoints) == 0 {
-			out.add(rel, p+".endpoints", "missing", "key must grant at least one endpoint", "")
-		}
-		for _, e := range k.Endpoints {
-			if !knownEndpoints[e] {
-				out.add(rel, p+".endpoints", "unknown_endpoint", fmt.Sprintf("key grants unknown endpoint %q", e), "")
-			}
-		}
-	}
-}
-
-func endpointNames(dir, sub string) map[string]bool {
-	names := map[string]bool{}
-	for _, path := range yamlFiles(dir, sub) {
-		var ep endpointYML
-		if b, err := os.ReadFile(path); err == nil {
-			_ = yaml.Unmarshal(b, &ep)
-			if ep.Name != "" {
-				names[ep.Name] = true
-			}
-		}
-	}
-	return names
-}
-
-func isSHA256Hex(s string) bool {
-	if len(s) != 64 {
-		return false
-	}
-	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
-			return false
-		}
-	}
-	return true
-}
+// ── files ────────────────────────────────────────────────────────────────────
 
 func yamlFiles(dir, sub string) []string {
 	full := filepath.Join(dir, sub)
@@ -374,22 +377,9 @@ func yamlFiles(dir, sub string) []string {
 	return out
 }
 
-func readYAML(path, rel string, into any, out *findings) bool {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		out.add(rel, "", "missing_file", "cannot read file: "+err.Error(), "")
-		return false
+func stringOr(v any, def string) string {
+	if s, ok := v.(string); ok && s != "" {
+		return s
 	}
-	if err := yaml.Unmarshal(b, into); err != nil {
-		out.add(rel, "", "yaml_error", "could not parse YAML: "+err.Error(), "")
-		return false
-	}
-	return true
-}
-
-func orDefault(s, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
+	return def
 }

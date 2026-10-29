@@ -53,8 +53,8 @@ offloader scaffold-dataset --from data/events/manifest.json --tenant-column tena
 
 ### `offloader validate`
 
-Check a whole project the way the container does — every dataset, endpoint, and key. Run it in
-CI before you ship a config change.
+Check a whole project the way the container does — every dataset, endpoint, and key, with the
+same rules and the same error codes. Run it in CI before you ship a config change.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |

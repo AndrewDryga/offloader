@@ -32,13 +32,23 @@ defmodule Offloader.Catalog do
 
     case read_yaml(project_path, "offloader.yml") do
       {:ok, project} ->
-        case Parse.unknown_keys(project, @project_keys, "offloader.yml", "") do
+        # Stop at a project-level problem: without valid paths there is nothing to load.
+        case Parse.unknown_keys(project, @project_keys, "offloader.yml", "") ++
+               path_errors(project) do
           [] -> load_components(dir, project)
           errors -> {:error, errors}
         end
 
       {:error, errors} ->
         {:error, errors}
+    end
+  end
+
+  defp path_errors(project) do
+    for key <- ~w(datasets_dir endpoints_dir keys),
+        value = project[key],
+        not is_nil(value) and not (is_binary(value) and value != "") do
+      Error.new("offloader.yml", key, :invalid_type, "#{key} must be a non-empty path")
     end
   end
 

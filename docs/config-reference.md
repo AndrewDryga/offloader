@@ -244,7 +244,7 @@ with `offloader keys create` (it prints the token once and its hash). Omit this 
 | --- | --- | --- |
 | `id` | string | Label for the key (appears in diagnostics, never the token). |
 | `hash` | string | 64-char lowercase SHA-256 hex of the bearer token. |
-| `tenant` | string | The single tenant this key is bound to (`null` for a non-tenant key). |
+| `tenant` | string | The single tenant this key is bound to. Required: a key that only calls non-tenant endpoints still names one, and those endpoints ignore it. |
 | `endpoints` | list of strings | The endpoint names this key may call. |
 | `status` | `active` \| `revoked` | `revoked` is always denied. |
 

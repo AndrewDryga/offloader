@@ -66,7 +66,9 @@ defmodule Offloader.Catalog.Endpoint do
     param_types =
       for p <- params, is_map(p), is_binary(p["name"]), into: %{}, do: {p["name"], p["type"]}
 
-    selects = get_in(raw, ["query", "select"]) || []
+    # Read nested shapes defensively: a malformed field is reported below, never crashed on.
+    query = if is_map(raw["query"]), do: raw["query"], else: %{}
+    selects = if is_list(query["select"]), do: query["select"], else: []
     select_as = for s <- selects, is_map(s), is_binary(s["as"]), do: s["as"]
 
     errors =
@@ -78,8 +80,9 @@ defmodule Offloader.Catalog.Endpoint do
         serving_mode_errors(raw, file) ++
         freshness_errors(raw, file) ++
         tenant_errors(raw, file, dataset) ++
+        params_shape_err(raw, file) ++
         param_errors(params, file) ++
-        default_range_errors(params, raw, dataset, file) ++
+        default_range_errors(params, query, dataset, file) ++
         combinations_errors(raw, file, param_names) ++
         query_errors(raw, file, dataset, param_types, select_as) ++
         columns_errors(raw, file, select_as) ++
@@ -260,6 +263,12 @@ defmodule Offloader.Catalog.Endpoint do
 
   defp param_list(raw), do: (is_list(raw["params"]) && raw["params"]) || []
 
+  defp params_shape_err(%{"params" => params}, file)
+       when not is_nil(params) and not is_list(params),
+       do: [Error.new(file, "params", :invalid_type, "params must be a list")]
+
+  defp params_shape_err(_raw, _file), do: []
+
   defp param_errors(params, file) when is_list(params) do
     names = for p <- params, is_map(p), is_binary(p["name"]), do: p["name"]
 
@@ -432,9 +441,9 @@ defmodule Offloader.Catalog.Endpoint do
   defp default_err(_p, _path, _file), do: []
 
   # An integer default binds like a request value, so it must fit every column it filters.
-  defp default_range_errors(params, raw, dataset, file) do
+  defp default_range_errors(params, query, dataset, file) do
     filters =
-      case get_in(raw, ["query", "filters"]) do
+      case query["filters"] do
         filters when is_list(filters) -> Enum.filter(filters, &is_map/1)
         _ -> []
       end
@@ -631,6 +640,9 @@ defmodule Offloader.Catalog.Endpoint do
   # In this model, grouping is explicit: if group_by is present every non-aggregated
   # select must be grouped, and every group_by name must be a non-aggregated select.
   # Without group_by, no aggregation is allowed (a plain row projection).
+  defp group_by_errors(group_by, _selects, _select_as, file) when not is_list(group_by),
+    do: [Error.new(file, "query.group_by", :invalid_type, "group_by must be a list")]
+
   defp group_by_errors(group_by, selects, select_as, file) do
     non_agg_as = for s <- selects, is_map(s), is_nil(s["agg"]), is_binary(s["as"]), do: s["as"]
     has_agg? = Enum.any?(selects, fn s -> is_map(s) and not is_nil(s["agg"]) end)
@@ -716,7 +728,7 @@ defmodule Offloader.Catalog.Endpoint do
   # request filter — an endpoint that filters on the tenant column is rejected, so a
   # caller-controlled param can never touch tenant scoping.
   defp tenant_filter_err(col, path, file, dataset) do
-    if col == dataset.tenant_column,
+    if is_binary(col) and col == dataset.tenant_column,
       do: [
         Error.new(
           file,

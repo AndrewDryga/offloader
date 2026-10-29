@@ -532,7 +532,7 @@ with <code>offloader keys create</code> (it prints the token once and its hash).
 <tr>
 <td><code>tenant</code></td>
 <td>string</td>
-<td>The single tenant this key is bound to (<code>null</code> for a non-tenant key).</td>
+<td>The single tenant this key is bound to. Required: a key that only calls non-tenant endpoints still names one, and those endpoints ignore it.</td>
 </tr>
 <tr>
 <td><code>endpoints</code></td>
