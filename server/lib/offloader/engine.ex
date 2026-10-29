@@ -127,6 +127,15 @@ defmodule Offloader.Engine do
   def known_columns(server, table),
     do: writer_call(server, {:known_columns, table}, @writer_timeout)
 
+  @doc """
+  Each manifest file's top-level column names, as `{manifest path, [name]}`: one
+  `parquet_schema` read of every Parquet footer, and a DESCRIBE per CSV file.
+  """
+  @spec file_columns(GenServer.server(), [map()], String.t()) ::
+          {:ok, [{String.t(), [String.t()]}]} | {:error, Error.t()}
+  def file_columns(server, files, dir),
+    do: writer_call(server, {:file_columns, files, dir}, @writer_timeout)
+
   @doc "Every snapshot table in the database (base tables named `snap_…`)."
   @spec snapshot_tables(GenServer.server()) :: {:ok, [String.t()]} | {:error, Error.t()}
   def snapshot_tables(server), do: writer_call(server, :snapshot_tables, @writer_timeout)
@@ -319,6 +328,18 @@ defmodule Offloader.Engine do
       {:reply, {:ok, Enum.map(rows, fn [name, type] -> {name, type} end)}, state}
     else
       [] -> {:reply, {:error, Error.new(:unknown_table, "no such table #{table}")}, state}
+      {:error, %Error{}} = err -> {:reply, err, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:file_columns, files, dir}, _from, state) do
+    {parquet, csv} = Enum.split_with(files, &(&1["format"] == "parquet"))
+
+    with {:ok, from_parquet} <- parquet_columns(state.writer, parquet, dir),
+         {:ok, from_csv} <- csv_columns(state.writer, csv, dir) do
+      {:reply, {:ok, from_parquet ++ from_csv}, state}
+    else
       {:error, %Error{}} = err -> {:reply, err, state}
     end
   end
@@ -624,6 +645,57 @@ defmodule Offloader.Engine do
   end
 
   defp read_expr(%Manifest{files: files, dir: dir}), do: Offloader.Sql.read_files_expr(files, dir)
+
+  defp parquet_columns(_conn, [], _dir), do: {:ok, []}
+
+  defp parquet_columns(conn, files, dir) do
+    by_path = Map.new(files, &{Offloader.Sql.resolve_path(&1["path"], dir), &1["path"]})
+    list = Enum.map_join(Map.keys(by_path), ", ", &"'#{Offloader.Sql.escape(&1)}'")
+    sql = "SELECT file_name, name, num_children FROM parquet_schema([#{list}])"
+
+    with {:ok, result} <- run(conn, sql, [], :schema_failed) do
+      columns =
+        result
+        |> Duckdbex.fetch_all()
+        |> Enum.group_by(&hd/1, &tl/1)
+        |> Enum.map(fn {path, [[_root, count] | nodes]} ->
+          {Map.get(by_path, path, path), top_level(nodes, count || 0, [])}
+        end)
+
+      {:ok, columns}
+    end
+  end
+
+  # parquet_schema lists each file's schema tree depth-first: the root's num_children is the
+  # number of top-level columns, and every node is followed by its own subtree. Total on any
+  # input: this runs in the writer, which must not crash on an odd footer.
+  defp top_level(_nodes, 0, names), do: Enum.reverse(names)
+  defp top_level([], _count, names), do: Enum.reverse(names)
+
+  defp top_level([[name, children] | rest], count, names),
+    do: rest |> skip_subtree(children || 0) |> top_level(count - 1, [name | names])
+
+  defp skip_subtree(nodes, 0), do: nodes
+  defp skip_subtree([], _count), do: []
+
+  defp skip_subtree([[_name, children] | rest], count),
+    do: rest |> skip_subtree(children || 0) |> skip_subtree(count - 1)
+
+  defp csv_columns(conn, files, dir) do
+    Enum.reduce_while(files, {:ok, []}, fn file, {:ok, acc} ->
+      path = Offloader.Sql.resolve_path(file["path"], dir)
+      sql = "DESCRIBE SELECT * FROM read_csv_auto('#{Offloader.Sql.escape(path)}')"
+
+      case run(conn, sql, [], :schema_failed) do
+        {:ok, result} ->
+          names = result |> Duckdbex.fetch_all() |> Enum.map(&hd/1)
+          {:cont, {:ok, acc ++ [{file["path"], names}]}}
+
+        {:error, %Error{}} = err ->
+          {:halt, err}
+      end
+    end)
+  end
 
   # Sort the materialized table on the dataset's filter columns so DuckDB's per-row-group min/max
   # zone maps prune scans for those filters. Empty list -> no ORDER BY (original behavior).

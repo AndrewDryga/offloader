@@ -57,6 +57,34 @@ defmodule Offloader.EngineTest do
     end
   end
 
+  test "file_columns lists each file's top-level columns, nested ones included", %{eng: eng} do
+    dir = Path.join(System.tmp_dir!(), "offl_files_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    write = fn file, select ->
+      {:ok, %{rows: _}} = Engine.execute(eng, "COPY (#{select}) TO '#{Path.join(dir, file)}'")
+    end
+
+    write.("nested.parquet", "SELECT 1 AS a, {'x': 1, 'y': [1, 2]} AS s, [1, 2] AS l, 'z' AS b")
+    write.("map.parquet", "SELECT 1 AS a, map(['k'], [1]) AS m")
+    File.write!(Path.join(dir, "plain.csv"), "a,b\n1,x\n")
+
+    files = [
+      %{"path" => "nested.parquet", "format" => "parquet"},
+      %{"path" => "map.parquet", "format" => "parquet"},
+      %{"path" => "plain.csv", "format" => "csv"}
+    ]
+
+    assert {:ok, columns} = Engine.file_columns(eng, files, dir)
+
+    assert Enum.sort(columns) == [
+             {"map.parquet", ["a", "m"]},
+             {"nested.parquet", ["a", "s", "l", "b"]},
+             {"plain.csv", ["a", "b"]}
+           ]
+  end
+
   test "a TIMESTAMPTZ read as a TIMESTAMP is in UTC, whatever the host's zone", %{eng: eng} do
     sql = "SELECT '2024-03-15 01:02:03+05'::TIMESTAMPTZ::TIMESTAMP AS at"
 

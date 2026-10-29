@@ -168,14 +168,8 @@ defmodule Offloader.Refresh do
         {:rejected, attempt(manifest.snapshot_id, :rejected, summary)}
 
       :ok ->
-        with {:materialize, {:ok, _}} <-
-               {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
-             {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)} do
-          {:staged, snap(manifest, table, fingerprint)}
-        else
-          {:check, error} -> discard(engine, dataset, manifest, table, error)
-          {step, {:error, error}} -> failed(dataset, manifest, step, error)
-        end
+        with :ok <- materialize_checked(engine, dataset, manifest, table),
+             do: {:staged, snap(manifest, table, fingerprint)}
     end
   end
 
@@ -225,18 +219,48 @@ defmodule Offloader.Refresh do
   defp build(engine, dataset, manifest, fingerprint) do
     table = new_table(dataset.id)
 
-    with {:materialize, {:ok, _}} <-
+    with :ok <- materialize_checked(engine, dataset, manifest, table),
+         do:
+           {:swapped, snap(manifest, table, fingerprint), attempt(manifest.snapshot_id, :ok, nil)}
+  end
+
+  # Build `table` from the manifest's files, judging the columns and types they really hold,
+  # not what the manifest declares. A candidate that fails a check never serves: it is dropped
+  # (its name is unique to this build, so the drop cannot touch a live table).
+  defp materialize_checked(engine, dataset, manifest, table) do
+    with {:files, :ok} <- {:files, check_files(engine, dataset, manifest)},
+         {:materialize, {:ok, _}} <-
            {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
          {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)} do
-      {:swapped, snap(manifest, table, fingerprint), attempt(manifest.snapshot_id, :ok, nil)}
+      :ok
     else
-      {:check, error} -> discard(engine, dataset, manifest, table, error)
-      {step, {:error, error}} -> failed(dataset, manifest, step, error)
+      {step, {:error, error}} ->
+        Engine.drop(engine, table)
+        rejected_or_failed(dataset, manifest, step, error)
     end
   end
 
-  # Judge the columns and types the files really produced, not what the manifest declares: a
-  # file can lack a column or carry another type, and that must never replace working data.
+  # The union fills a column one file lacks with NULLs, so every file must have every contract
+  # column. Presence only: CSV types are sniffed per file, and the union's types are checked on
+  # the built table.
+  defp check_files(engine, dataset, manifest) do
+    with {:ok, by_file} <- Engine.file_columns(engine, manifest.files, manifest.dir) do
+      errors =
+        for {file, columns} <- by_file,
+            %{name: name} <- dataset.schema,
+            name not in columns,
+            do:
+              Offloader.Catalog.Error.new(
+                "manifest(#{manifest.snapshot_id})",
+                "files",
+                :missing_column,
+                "file #{file} has no column #{inspect(name)}"
+              )
+
+      if errors == [], do: :ok, else: {:error, errors}
+    end
+  end
+
   defp check_materialized(engine, dataset, manifest, table) do
     case Engine.describe(engine, table) do
       {:ok, columns} ->
@@ -247,19 +271,21 @@ defmodule Offloader.Refresh do
     end
   end
 
-  # A candidate that failed its check is never served, so drop it. Its name is unique to this
-  # build (`new_table/1`), so the drop cannot touch a live table.
-  defp discard(engine, dataset, manifest, table, {:error, errors}) when is_list(errors) do
-    Engine.drop(engine, table)
+  # A list of validation errors rejects the snapshot; an engine error fails the attempt.
+  defp rejected_or_failed(dataset, manifest, _step, errors) when is_list(errors) do
     summary = summarize(errors)
-    log(dataset, :rejected, summary)
+
+    log(
+      dataset,
+      :rejected,
+      "#{summary}: #{Enum.map_join(Enum.take(errors, 3), "; ", & &1.message)}"
+    )
+
     {:rejected, attempt(manifest.snapshot_id, :rejected, summary)}
   end
 
-  defp discard(engine, dataset, manifest, table, {:error, error}) do
-    Engine.drop(engine, table)
-    failed(dataset, manifest, :check, error)
-  end
+  defp rejected_or_failed(dataset, manifest, step, error),
+    do: failed(dataset, manifest, step, error)
 
   defp failed(dataset, manifest, step, error) do
     summary = "#{step} failed: #{error.message}"

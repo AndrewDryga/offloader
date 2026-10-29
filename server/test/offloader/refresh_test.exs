@@ -72,23 +72,28 @@ defmodule Offloader.RefreshTest do
     path
   end
 
-  # A Parquet snapshot built from the example CSV by `select` (over a table named `src`),
-  # behind a manifest that still declares the example's full contract.
-  defp parquet_manifest(name, select) do
+  # A Parquet snapshot built from the example CSV, one file per select (each over a table
+  # named `src`), behind a manifest that still declares the example's full contract.
+  defp parquet_manifest(name, selects) do
     root = tmp_root()
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
-    file = Path.join(root, "#{name}.parquet")
 
     {:ok, db} = Duckdbex.open()
     {:ok, conn} = Duckdbex.connection(db)
     {:ok, _} = Duckdbex.query(conn, "CREATE TABLE src AS SELECT * FROM read_csv_auto('#{@csv}')")
-    {:ok, _} = Duckdbex.query(conn, "COPY (#{select}) TO '#{file}' (FORMAT parquet)")
+
+    files =
+      for {select, i} <- Enum.with_index(List.wrap(selects)) do
+        file = Path.join(root, "#{name}_#{i}.parquet")
+        {:ok, _} = Duckdbex.query(conn, "COPY (#{select}) TO '#{file}' (FORMAT parquet)")
+        %{"path" => file, "format" => "parquet"}
+      end
 
     manifest =
       Jason.decode!(File.read!(@good_manifest))
       |> Map.put("snapshot_id", "2026-06-07T00:00:00Z_#{name}")
-      |> Map.put("files", [%{"path" => file, "format" => "parquet"}])
+      |> Map.put("files", files)
 
     path = Path.join(root, "manifest.json")
     File.write!(path, Jason.encode!(manifest))
@@ -156,6 +161,30 @@ defmodule Offloader.RefreshTest do
 
     assert served_snapshot(rt) == @good_snapshot
     assert snapshot_tables(rt) == [Runtime.snapshot_active(rt, "customer_usage").table]
+  end
+
+  # UNION ALL BY NAME fills a column one file lacks with NULLs, so the built table has every
+  # column; only a per-file check catches it.
+  test "a snapshot where one file lacks a contract column is rejected", %{rt: rt} do
+    manifest =
+      parquet_manifest("split", [
+        "SELECT * FROM src WHERE tenant_id = 'tenant_acme'",
+        "SELECT * EXCLUDE (api_calls) FROM src WHERE tenant_id <> 'tenant_acme'"
+      ])
+
+    assert {:error, :rejected} = Runtime.refresh(rt, "customer_usage", manifest)
+    assert served_snapshot(rt) == @good_snapshot
+    assert snapshot_tables(rt) == [Runtime.snapshot_active(rt, "customer_usage").table]
+  end
+
+  test "a snapshot split across complete files loads", %{rt: rt} do
+    manifest =
+      parquet_manifest("whole", [
+        "SELECT * FROM src WHERE tenant_id = 'tenant_acme'",
+        "SELECT * FROM src WHERE tenant_id <> 'tenant_acme'"
+      ])
+
+    assert {:ok, "2026-06-07T00:00:00Z_whole"} = Runtime.refresh(rt, "customer_usage", manifest)
   end
 
   test "a failed MATERIALIZATION leaves the active snapshot serving", %{rt: rt} do
