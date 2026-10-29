@@ -154,17 +154,17 @@ function expandFlowFigures(md, srcRepoRel) {
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-// GitHub-compatible heading slug, so existing in-doc #anchors keep resolving.
-function slugify(text) {
-  return text
-    .toLowerCase()
+// GitHub's heading slug (github-slugger), so a #anchor works on the site and on GitHub alike:
+// the heading's plain text, lowercased, keeping only letters, marks, numbers, underscores,
+// hyphens and spaces, then each space made a hyphen ("A — B" → "a--b"). Decoded first, or an
+// escaped apostrophe (&#39;) would leave "39" behind.
+function slugify(html) {
+  return html
     .replace(/<[^>]+>/g, "")
-    .replace(/&[a-z]+;/g, "")
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e])
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, "")
+    .replace(/ /g, "-");
 }
 
 // Add id="" to every heading (dedup like GitHub: -1, -2, …).
@@ -360,6 +360,8 @@ ${NAV_COLLAPSE}
 // ── render each doc ────────────────────────────────────────────────────────
 marked.setOptions({ gfm: true });
 
+const bodies = new Map(); // `<slug>.html` → { src, body }, for the anchor check below
+
 for (let i = 0; i < FLAT.length; i++) {
   const p = FLAT[i];
   const md = expandFlowFigures(readFileSync(join(ROOT, p.src), "utf8"), p.src);
@@ -368,6 +370,7 @@ for (let i = 0; i < FLAT.length; i++) {
   body = rewriteLinks(body, p.src);
   body = makeScrollRegionsFocusable(body);
   body = addContents(body);
+  bodies.set(`${p.slug}.html`, { src: p.src, body });
 
   const h1 = firstText(body, "h1") || p.title;
 
@@ -390,6 +393,19 @@ ${body}</article>
     activeSlug: p.slug,
     main,
   }));
+}
+
+// Every #anchor a docs page links to, on itself or on another docs page, must exist there; a
+// renamed heading would otherwise break its links without a sound.
+const idsOf = new Map([...bodies].map(([file, { body }]) => [file, new Set([...body.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))]));
+const brokenAnchors = [...bodies].flatMap(([file, { src, body }]) =>
+  [...body.matchAll(/<a\b[^>]*\bhref="([^"]+)"/g)]
+    .map(([, href]) => [href, href.match(/^([\w-]+\.html)?#(.+)$/)])
+    .filter(([, m]) => m && idsOf.has(m[1] || file) && !idsOf.get(m[1] || file).has(m[2]))
+    .map(([href]) => `${src} → ${href}`));
+if (brokenAnchors.length) {
+  console.error(`docs-site: links to anchors that don't exist:\n  ${brokenAnchors.join("\n  ")}`);
+  process.exit(1);
 }
 
 // ── index ──────────────────────────────────────────────────────────────────

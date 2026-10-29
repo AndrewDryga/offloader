@@ -86,13 +86,13 @@
   <main id="main" class="docs-main">
     <p class="doc-kicker">Serve</p>
     <article class="prose">
-<h1 id="serving-public-data-front-end-cdn">Serving public data (front-end + CDN)</h1>
+<h1 id="serving-public-data-front-end--cdn">Serving public data (front-end + CDN)</h1>
 <p>The common case Offloader is built for: <strong>public, product-facing data</strong> your team builds in the
 warehouse and ships to a front-end — leaderboards, public stats pages, embedded charts. High
 request volume, no per-user data, a few minutes&#39; staleness is fine. This page shows how to serve
 it cheaply and cache it at the edge.</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#1-run-it-public">1. Run it public</a></li>
-<li><a href="#2-it39s-cacheable-by-construction">2. It&#39;s cacheable by construction</a></li>
+<li><a href="#2-its-cacheable-by-construction">2. It&#39;s cacheable by construction</a></li>
 <li><a href="#3-put-a-cdn-in-front">3. Put a CDN in front</a></li>
 <li><a href="#4-calling-from-a-browser-cors">4. Calling from a browser (CORS)</a></li>
 <li><a href="#5-protect-it">5. Protect it</a></li>
@@ -101,7 +101,8 @@ it cheaply and cache it at the edge.</p>
 <p>Set <code>auth: none</code> in <code>offloader.yml</code>. The API then needs no bearer token — accepted only when <strong>no
 endpoint is tenant-scoped</strong> (enforced at config load), so it can never expose per-tenant data
 unauthenticated. Anyone who can reach the port can read every endpoint, even on a private network,
-so use it only for data you&#39;d publish (see the <a href="security-model.html">security model</a>).</p>
+so use it only for data you&#39;d publish (see the
+<a href="security-model.html#what-youre-responsible-for">security model</a>).</p>
 <pre tabindex="0"><code class="language-yaml">version: 1
 auth: none
 datasets_dir: datasets
@@ -110,7 +111,7 @@ endpoints_dir: endpoints
 <p>A call is just:</p>
 <pre tabindex="0"><code class="language-sh">curl &quot;https://api.example.com/v1/endpoints/champion?champion_id=1&quot;
 </code></pre>
-<h2 id="2-it39s-cacheable-by-construction">2. It&#39;s cacheable by construction</h2>
+<h2 id="2-its-cacheable-by-construction">2. It&#39;s cacheable by construction</h2>
 <p>An Offloader response is <strong>immutable for its <code>snapshot_id</code></strong>: the same params against the same
 snapshot always return the same data, and a new snapshot changes it. Only per-request metadata,
 such as <code>request_id</code> and <code>generated_at</code>, differs between responses. So public responses carry:</p>

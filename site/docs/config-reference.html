@@ -225,7 +225,7 @@ number, and a value the contract type can&#39;t hold (a <code>BIGINT</code> past
 files, or a narrower type, rejects the snapshot when it loads.</p>
 <p>A dataset gets its snapshots from <strong>exactly one</strong> origin — a static <code>manifest:</code> <strong>or</strong> a
 self-updating <code>source:</code>, never both.</p>
-<h3 id="manifest-a-static-snapshot"><code>manifest:</code> — a static snapshot</h3>
+<h3 id="manifest--a-static-snapshot"><code>manifest:</code> — a static snapshot</h3>
 <p>Point at a manifest file: a small JSON that lists one snapshot&#39;s files and its schema (see
 the <a href="https://github.com/AndrewDryga/offloader/blob/main/docs/architecture.md#snapshot-manifest-contract">manifest contract</a>).</p>
 <pre tabindex="0"><code class="language-yaml">id: customer_usage
@@ -261,7 +261,7 @@ it. An unrelated YAML edit does not refresh an unchanged dataset. Changing an en
 filter columns can refresh its dataset, because Offloader sorts the dataset&#39;s table by
 those columns. If config sync is disabled, the updated project is
 loaded on the next server start.</p>
-<h3 id="source-a-self-updating-remote-source"><code>source:</code> — a self-updating remote source</h3>
+<h3 id="source--a-self-updating-remote-source"><code>source:</code> — a self-updating remote source</h3>
 <p>Instead of a manifest you maintain, a <code>source:</code> <strong>discovers</strong> the latest snapshot itself on each
 refresh — nothing to hand-write.</p>
 <div class="table-scroll" tabindex="0">

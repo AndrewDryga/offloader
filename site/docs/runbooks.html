@@ -92,16 +92,16 @@ this an Offloader bug, the customer environment, or upstream data? The admin
 <code>/diagnostics</code> and <code>/metrics</code> answer that in under five minutes. Each runbook:
 symptom → signals → likely owner → action → escalation.</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#server-does-not-start">Server does not start</a></li>
-<li><a href="#source-credentials-fail-bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</a></li>
-<li><a href="#bad-manifest-dataset-refresh-fails">Bad manifest / dataset refresh fails</a></li>
+<li><a href="#source-credentials-fail--bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</a></li>
+<li><a href="#bad-manifest--dataset-refresh-fails">Bad manifest / dataset refresh fails</a></li>
 <li><a href="#dataset-stale">Dataset stale</a></li>
-<li><a href="#duckdb-cache-corrupted-duckdb-failure">DuckDB cache corrupted / DuckDB failure</a></li>
+<li><a href="#duckdb-cache-corrupted--duckdb-failure">DuckDB cache corrupted / DuckDB failure</a></li>
 <li><a href="#disk-full">Disk full</a></li>
-<li><a href="#pool-busy-endpoint-latency-regression-sizing-the-read-pool">Pool busy / endpoint latency regression — sizing the read pool</a></li>
-<li><a href="#tenantauth-misconfiguration-key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</a></li>
+<li><a href="#pool-busy--endpoint-latency-regression--sizing-the-read-pool">Pool busy / endpoint latency regression — sizing the read pool</a></li>
+<li><a href="#tenantauth-misconfiguration--key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</a></li>
 <li><a href="#rollback-to-previous-image">Rollback to previous image</a></li>
 <li><a href="#rollback-to-previous-snapshot">Rollback to previous snapshot</a></li>
-<li><a href="#cache-quarantine-and-rebuild-clear-cache">Cache quarantine and rebuild / clear cache</a></li></ul></nav></details>
+<li><a href="#cache-quarantine-and-rebuild--clear-cache">Cache quarantine and rebuild / clear cache</a></li></ul></nav></details>
 <blockquote>
 <p>Commands assume the admin port is reachable privately and <code>OFFLOADER_ADMIN_TOKEN</code>
 is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer $TOKEN&quot; $ADMIN/diagnostics</code>.</p>
@@ -114,14 +114,14 @@ is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer 
 is the usual cause — check both. Validate config: <code>offloader validate --config …</code>.</li>
 <li><strong>Escalate:</strong> if config validates and the secret is set but it still crashes.</li>
 </ul>
-<h2 id="source-credentials-fail-bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</h2>
+<h2 id="source-credentials-fail--bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</h2>
 <ul>
 <li><strong>Signals:</strong> <code>offloader_source_reachable == 0</code>; <code>DIAG</code> <code>source_reachable:false</code>.</li>
 <li><strong>Owner:</strong> customer environment (IAM/network/object store).</li>
 <li><strong>Action:</strong> check the container&#39;s network + read-only credentials to the source.
 Offloader keeps serving the last good snapshot meanwhile.</li>
 </ul>
-<h2 id="bad-manifest-dataset-refresh-fails">Bad manifest / dataset refresh fails</h2>
+<h2 id="bad-manifest--dataset-refresh-fails">Bad manifest / dataset refresh fails</h2>
 <ul>
 <li><strong>Signals:</strong> <code>offloader_refresh_ok == 0</code>; <code>DIAG</code> <code>last_attempted.status</code> = rejected
 or failed with a <code>refresh_error</code>.</li>
@@ -137,7 +137,7 @@ swapped in, so serving is safe). <code>failed</code> → check disk/DuckDB below
 <li><strong>Action:</strong> check the upstream pipeline. Offloader honestly reports staleness and
 keeps serving the last good snapshot.</li>
 </ul>
-<h2 id="duckdb-cache-corrupted-duckdb-failure">DuckDB cache corrupted / DuckDB failure</h2>
+<h2 id="duckdb-cache-corrupted--duckdb-failure">DuckDB cache corrupted / DuckDB failure</h2>
 <ul>
 <li><strong>Signals:</strong> <code>offloader_duckdb_up == 0</code>; queries error.</li>
 <li><strong>Owner:</strong> Offloader / environment (disk).</li>
@@ -150,7 +150,7 @@ rematerializes from the manifest). Check disk first.</li>
 <li><strong>Owner:</strong> customer environment.</li>
 <li><strong>Action:</strong> grow the cache volume or clear old snapshots, then restart.</li>
 </ul>
-<h2 id="pool-busy-endpoint-latency-regression-sizing-the-read-pool">Pool busy / endpoint latency regression — sizing the read pool</h2>
+<h2 id="pool-busy--endpoint-latency-regression--sizing-the-read-pool">Pool busy / endpoint latency regression — sizing the read pool</h2>
 <ul>
 <li><strong>Signals:</strong> rising p95/p99 (benchmark harness / your APM); <code>offloader_pool_busy</code>
 sustained near <code>offloader_pool_connections</code>; <code>DIAG</code> <code>pool</code>.</li>
@@ -178,7 +178,7 @@ lower the endpoint&#39;s <code>limit</code>; more connections won&#39;t help.</l
 <li><strong>Rule of thumb:</strong> start at the default 16; scale the pool up for <code>local_table</code> throughput,
 scale replicas out for <code>remote_scan</code> and availability.</li>
 </ul>
-<h2 id="tenantauth-misconfiguration-key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</h2>
+<h2 id="tenantauth-misconfiguration--key-or-auth-failures">Tenant/auth misconfiguration / key or auth failures</h2>
 <ul>
 <li><strong>Signals:</strong> consumers get 401 (bad/revoked key) or 404 (endpoint not granted).</li>
 <li><strong>Owner:</strong> customer (key config).</li>
@@ -198,7 +198,7 @@ there is no migration to undo.</li>
 <li><strong>Action:</strong> a bad snapshot never swaps in (validation + compatibility gate it). To
 revert a good-but-wrong snapshot, roll the dataset back to its previous good one.</li>
 </ul>
-<h2 id="cache-quarantine-and-rebuild-clear-cache">Cache quarantine and rebuild / clear cache</h2>
+<h2 id="cache-quarantine-and-rebuild--clear-cache">Cache quarantine and rebuild / clear cache</h2>
 <ul>
 <li><strong>Owner:</strong> customer.</li>
 <li><strong>Action:</strong> stop the container, remove the cache volume (one dataset: remove its

@@ -86,7 +86,7 @@
   <main id="main" class="docs-main">
     <p class="doc-kicker">Configure</p>
     <article class="prose">
-<h1 id="config-guide-publish-your-datasets-and-endpoints">Config guide — publish your datasets and endpoints</h1>
+<h1 id="config-guide--publish-your-datasets-and-endpoints">Config guide — publish your datasets and endpoints</h1>
 <p>The reference for the config files Offloader loads. New to the ideas here (dataset,
 endpoint, snapshot, manifest, project)? Read
 <a href="concepts.html">How Offloader works</a> first.</p>
@@ -94,7 +94,7 @@ endpoint, snapshot, manifest, project)? Read
 <li><a href="#the-offloader-cli-optional">The <code>offloader</code> CLI (optional)</a></li>
 <li><a href="#start-a-new-project-scaffold">Start a new project (scaffold)</a></li>
 <li><a href="#container-env-vars">Container env vars</a></li>
-<li><a href="#sources-refresh">Sources &amp; refresh</a></li>
+<li><a href="#sources--refresh">Sources &amp; refresh</a></li>
 <li><a href="#the-cache-directory-warm-vs-cold-restarts">The cache directory (warm vs. cold restarts)</a></li>
 <li><a href="#config-from-object-storage-optional">Config from object storage (optional)</a></li>
 <li><a href="#where-to-go-next">Where to go next</a></li></ul></nav></details>
@@ -190,7 +190,7 @@ a public <code>gs://</code> bucket unauthenticated; a <code>401/403</code> is th
 served over <code>https://</code> needs no credential vars at all.</p>
 <p>Explicit HMAC keys win when both are set. Credentials never appear in logs, error bodies, or
 support bundles — values are scrubbed and bundles are redacted.</p>
-<h2 id="sources-refresh">Sources &amp; refresh</h2>
+<h2 id="sources--refresh">Sources &amp; refresh</h2>
 <p>A dataset gets its data one of two ways, chosen per dataset:</p>
 <ul>
 <li><strong>A static <code>manifest:</code></strong> — you publish each snapshot: write the Parquet plus a manifest

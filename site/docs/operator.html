@@ -97,7 +97,7 @@ diagnostics fields. It links to the deep docs rather than repeating them.</p>
 <li><a href="#port-exposure">Port exposure</a></li>
 <li><a href="#support-bundle-handling">Support bundle handling</a></li>
 <li><a href="#diagnostics">Diagnostics</a></li>
-<li><a href="#scaling-availability">Scaling &amp; availability</a></li>
+<li><a href="#scaling--availability">Scaling &amp; availability</a></li>
 <li><a href="#support">Support</a></li>
 <li><a href="#troubleshooting">Troubleshooting</a></li></ul></nav></details>
 <h2 id="deploy">Deploy</h2>
@@ -253,7 +253,7 @@ unreadable and is serving its last fetched config.</li>
 <li><code>offloader_pool_busy</code> sustained near <code>offloader_pool_connections</code> — you&#39;re shedding load; raise <code>OFFLOADER_POOL_SIZE</code>.</li>
 <li><code>offloader_cache_disk_free_bytes</code> low — the cache volume is filling.</li>
 </ul>
-<h2 id="scaling-availability">Scaling &amp; availability</h2>
+<h2 id="scaling--availability">Scaling &amp; availability</h2>
 <p>These are two independent axes. For <strong>throughput</strong>, scale a single instance:
 reads run on a DuckDB connection pool sized with <code>OFFLOADER_POOL_SIZE</code>, and you
 bound DuckDB to the box with <code>OFFLOADER_DUCKDB_THREADS</code> / <code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code>

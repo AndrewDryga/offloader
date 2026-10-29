@@ -93,9 +93,9 @@ concepts? See <a href="concepts.html">How Offloader works</a>.)</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#the-short-version">The short version</a></li>
 <li><a href="#who-can-reach-what">Who can reach what</a></li>
 <li><a href="#what-offloader-enforces-you-get-these-for-free">What Offloader enforces (you get these for free)</a></li>
-<li><a href="#what-you39re-responsible-for">What you&#39;re responsible for</a></li>
+<li><a href="#what-youre-responsible-for">What you&#39;re responsible for</a></li>
 <li><a href="#co-hosting-config-in-the-bucket">Co-hosting config in the bucket</a></li>
-<li><a href="#how-it39s-proven">How it&#39;s proven</a></li></ul></nav></details>
+<li><a href="#how-its-proven">How it&#39;s proven</a></li></ul></nav></details>
 <h2 id="the-short-version">The short version</h2>
 <p>Everything stays in your environment — the data, the config, the logs, the
 metrics. Offloader makes no outbound telemetry calls. The only exception is the optional
@@ -162,7 +162,7 @@ never include API keys, tokens, credentialed URLs, or raw request params by
 default — bundles are redacted and list exactly what&#39;s inside. And the intended
 posture for object-store credentials is <strong>read-only</strong>: Offloader only ever reads
 snapshots, so that&#39;s all its credentials should allow.</p>
-<h2 id="what-you39re-responsible-for">What you&#39;re responsible for</h2>
+<h2 id="what-youre-responsible-for">What you&#39;re responsible for</h2>
 <p>Three things stay on your side. You decide how the <strong>admin port</strong> is reached —
 Offloader ships the two-port separation and the redaction, but whether that
 means loopback, an internal network, a proxy, or your IAM is your call. You put
@@ -190,7 +190,7 @@ file — but keys are stored as <strong>hashes, never tokens</strong>, so bucket
 the endpoint/tenant access map, not usable credentials. A <strong>public</strong> deployment (<code>auth: none</code>)
 has no keys file at all. For an authed deployment, put the config under a <strong>tighter-ACL
 bucket/prefix</strong> than the bulk data if you want to limit who can read the hashes.</p>
-<h2 id="how-it39s-proven">How it&#39;s proven</h2>
+<h2 id="how-its-proven">How it&#39;s proven</h2>
 <p>An adversarial security test suite exercises the invariants above on every build: API-key
 bypass attempts, tenant-override attempts, column
 selection outside the allowlist, param/filter injection, admin surfaces not reachable on the API
