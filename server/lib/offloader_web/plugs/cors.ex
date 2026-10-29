@@ -40,9 +40,11 @@ defmodule OffloaderWeb.Plugs.Cors do
 
   # An explicit list echoes per-origin, so EVERY response must carry `Vary: Origin` —
   # including no-Origin and off-list requests — or a shared cache stores a no-CORS
-  # variant under the bare URL and serves it to allow-listed browsers.
+  # variant under the bare URL and serves it to allow-listed browsers. The same line names
+  # accept-encoding: Bandit compresses by default and adds a second Vary line unless one
+  # already names it, and some caches read only the first line.
   defp apply_cors(conn, origins, origin) do
-    conn = merge_resp_header(conn, "vary", "origin")
+    conn = merge_resp_header(conn, "vary", "origin, accept-encoding")
 
     if is_binary(origin) and origin in origins do
       conn

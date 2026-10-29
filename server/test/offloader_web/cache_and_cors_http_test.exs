@@ -26,6 +26,54 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
 
   defp champion(id), do: get(build_conn(), "/v1/endpoints/champion?champion_id=#{id}")
 
+  # ConnTest skips the HTTP adapter, so anything Bandit adds on the way out (compression, its
+  # Vary line) needs a real listener. It starts with the endpoint's own `http:` options.
+  defp listen do
+    {:ok, server} =
+      Application.fetch_env!(:offloader, OffloaderWeb.ApiEndpoint)
+      |> Keyword.get(:http, [])
+      |> Keyword.merge(
+        plug: OffloaderWeb.ApiEndpoint,
+        ip: :loopback,
+        port: 0,
+        startup_log: false
+      )
+      |> Bandit.start_link()
+
+    on_exit(fn -> Offloader.TestSupport.stop_if_alive(server) end)
+    {:ok, {_ip, port}} = ThousandIsland.listener_info(server)
+    port
+  end
+
+  # The response head exactly as sent. :httpc keeps one value per known header, so it can't
+  # show a header repeated on two lines.
+  defp raw_head(port, method, path, headers) do
+    {:ok, socket} = :gen_tcp.connect(~c"127.0.0.1", port, [:binary, active: false])
+    lines = Enum.map(headers, fn {name, value} -> "#{name}: #{value}\r\n" end)
+
+    :ok =
+      :gen_tcp.send(socket, [
+        "#{method} #{path} HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n",
+        lines,
+        "\r\n"
+      ])
+
+    head = recv_head(socket, "")
+    :gen_tcp.close(socket)
+    head
+  end
+
+  defp recv_head(socket, acc) do
+    case :binary.split(acc, "\r\n\r\n") do
+      [head, _body] ->
+        head
+
+      [_partial] ->
+        {:ok, data} = :gen_tcp.recv(socket, 0, 5_000)
+        recv_head(socket, acc <> data)
+    end
+  end
+
   describe "public (auth: none) responses are edge-cacheable" do
     setup do: boot(@public)
 
@@ -190,14 +238,41 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
         |> get("/v1/endpoints/champion?champion_id=1")
 
       assert get_resp_header(conn, "access-control-allow-origin") == []
-      assert "origin" in get_resp_header(conn, "vary")
+      assert [vary] = get_resp_header(conn, "vary")
+      assert vary =~ "origin"
     end
 
     test "an allow-list emits Vary: origin even without an Origin header (shared caches must key on it)" do
       Application.put_env(:offloader, :cors_origins, ["https://app.example.com"])
       conn = champion(1)
       assert get_resp_header(conn, "access-control-allow-origin") == []
-      assert "origin" in get_resp_header(conn, "vary")
+      assert [vary] = get_resp_header(conn, "vary")
+      assert vary =~ "origin"
+    end
+
+    # Bandit adds its own `vary: accept-encoding` line unless a Vary already names that token. Two
+    # lines are valid HTTP, but a cache that reads only the first (Varnish, unless VCL collects
+    # them) would key on the encoding alone and serve one origin's allow-origin to another.
+    test "an allow-list sends one Vary line naming origin and accept-encoding, on every status" do
+      Application.put_env(:offloader, :cors_origins, ["https://app.example.com"])
+      port = listen()
+      path = "/v1/endpoints/champion?champion_id=1"
+      origin = {"origin", "https://app.example.com"}
+
+      gzip = raw_head(port, "GET", path, [origin, {"accept-encoding", "gzip"}])
+      plain = raw_head(port, "GET", path, [origin])
+      [_, etag] = Regex.run(~r/^etag: ([^\r\n]+)/mi, plain)
+      not_modified = raw_head(port, "GET", path, [origin, {"if-none-match", etag}])
+
+      preflight =
+        raw_head(port, "OPTIONS", path, [origin, {"access-control-request-method", "GET"}])
+
+      for {head, status} <- [{gzip, 200}, {plain, 200}, {not_modified, 304}, {preflight, 204}] do
+        assert head =~ ~r{^HTTP/1\.1 #{status} }
+        assert [vary] = for(line <- String.split(head, "\r\n"), line =~ ~r/^vary:/i, do: line)
+        assert vary =~ "origin"
+        assert vary =~ "accept-encoding"
+      end
     end
 
     test "wildcard emits allow-origin on every response, even without an Origin header" do
@@ -234,27 +309,12 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
 
   # Bandit compresses a response when the client's Accept-Encoding allows it, but skips one with a
   # strong ETag or `Cache-Control: no-transform`. Public responses stay compressible only while
-  # their ETag is weak. ConnTest skips the HTTP adapter, so these requests go through a real
-  # Bandit listener started with the endpoint's own `http:` options.
+  # their ETag is weak.
   describe "responses are compressed for clients that accept it" do
     setup do
       boot(@public)
       {:ok, _} = Application.ensure_all_started(:inets)
-
-      {:ok, server} =
-        Application.fetch_env!(:offloader, OffloaderWeb.ApiEndpoint)
-        |> Keyword.get(:http, [])
-        |> Keyword.merge(
-          plug: OffloaderWeb.ApiEndpoint,
-          ip: :loopback,
-          port: 0,
-          startup_log: false
-        )
-        |> Bandit.start_link()
-
-      on_exit(fn -> Offloader.TestSupport.stop_if_alive(server) end)
-      {:ok, {_ip, port}} = ThousandIsland.listener_info(server)
-      %{url: ~c"http://127.0.0.1:#{port}/v1/endpoints/champion?champion_id=1"}
+      %{url: ~c"http://127.0.0.1:#{listen()}/v1/endpoints/champion?champion_id=1"}
     end
 
     defp fetch(url, headers) do
