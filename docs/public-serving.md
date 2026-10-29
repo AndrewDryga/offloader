@@ -9,7 +9,8 @@ it cheaply and cache it at the edge.
 
 Set `auth: none` in `offloader.yml`. The API then needs no bearer token — accepted only when **no
 endpoint is tenant-scoped** (enforced at config load), so it can never expose per-tenant data
-unauthenticated.
+unauthenticated. Anyone who can reach the port can read every endpoint, even on a private network,
+so use it only for data you'd publish (see the [security model](security-model.md)).
 
 ```yaml
 version: 1

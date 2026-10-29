@@ -100,7 +100,8 @@ it cheaply and cache it at the edge.</p>
 <h2 id="1-run-it-public">1. Run it public</h2>
 <p>Set <code>auth: none</code> in <code>offloader.yml</code>. The API then needs no bearer token — accepted only when <strong>no
 endpoint is tenant-scoped</strong> (enforced at config load), so it can never expose per-tenant data
-unauthenticated.</p>
+unauthenticated. Anyone who can reach the port can read every endpoint, even on a private network,
+so use it only for data you&#39;d publish (see the <a href="security-model.html">security model</a>).</p>
 <pre tabindex="0"><code class="language-yaml">version: 1
 auth: none
 datasets_dir: datasets

@@ -169,6 +169,11 @@ means loopback, an internal network, a proxy, or your IAM is your call. You put
 <strong>TLS and ingress</strong> in front of the API port. And you own the <strong>snapshot
 pipeline</strong> that publishes data to object storage, along with the object-store
 permissions themselves.</p>
+<p>Treat <code>auth: none</code> as publishing. Anyone who can reach the API port can read every
+endpoint, and a private network doesn&#39;t change that: Offloader doesn&#39;t check a request&#39;s
+<code>Host</code> or <code>Origin</code>, so a web page can use DNS rebinding to make a visitor&#39;s browser read an
+internal address. If the data isn&#39;t meant to be public, give it API keys. A browser never
+sends those on its own.</p>
 <p>A fourth applies only if you enable the <a href="mcp.html">agent surface</a>: <strong>what your columns
 contain.</strong> Rows served to an agent land in a model&#39;s context, and a model reads its
 context as instructions. If a column holds text an outsider can write — a support ticket,

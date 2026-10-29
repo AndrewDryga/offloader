@@ -73,6 +73,12 @@ means loopback, an internal network, a proxy, or your IAM is your call. You put
 pipeline** that publishes data to object storage, along with the object-store
 permissions themselves.
 
+Treat `auth: none` as publishing. Anyone who can reach the API port can read every
+endpoint, and a private network doesn't change that: Offloader doesn't check a request's
+`Host` or `Origin`, so a web page can use DNS rebinding to make a visitor's browser read an
+internal address. If the data isn't meant to be public, give it API keys. A browser never
+sends those on its own.
+
 A fourth applies only if you enable the [agent surface](mcp.md): **what your columns
 contain.** Rows served to an agent land in a model's context, and a model reads its
 context as instructions. If a column holds text an outsider can write — a support ticket,
