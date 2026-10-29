@@ -135,7 +135,8 @@ defmodule Offloader.Catalog.EndpointTest do
       "string" => ~w(VARCHAR),
       "enum" => ~w(VARCHAR),
       "integer" => ~w(INTEGER BIGINT DOUBLE),
-      "date" => ~w(DATE TIMESTAMP)
+      "date" => ~w(DATE TIMESTAMP),
+      "boolean" => ~w(BOOLEAN)
     }
 
     for {ptype, fit} <- fits, ctype <- types do

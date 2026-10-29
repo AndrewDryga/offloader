@@ -240,6 +240,7 @@ defmodule Offloader.Docs do
 
   defp example_param(%{type: "date"}), do: "2026-05-30"
   defp example_param(%{type: "integer"}), do: "10"
+  defp example_param(%{type: "boolean"}), do: "true"
   defp example_param(%{type: "enum", enum: [first | _]}), do: first
   defp example_param(_), do: "example"
 
@@ -292,6 +293,7 @@ defmodule Offloader.Docs do
   defp openapi_schema(%{type: "enum", enum: values}), do: %{type: "string", enum: values}
   defp openapi_schema(%{type: "date"}), do: %{type: "string", format: "date"}
   defp openapi_schema(%{type: "integer"}), do: %{type: "integer"}
+  defp openapi_schema(%{type: "boolean"}), do: %{type: "boolean"}
   defp openapi_schema(_), do: %{type: "string"}
 
   defp response_schema(ep) do

@@ -429,8 +429,8 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 </tr>
 <tr>
 <td><code>type</code></td>
-<td><code>string</code> | <code>integer</code> | <code>date</code> | <code>enum</code></td>
-<td>Param types.</td>
+<td><code>string</code> | <code>integer</code> | <code>date</code> | <code>enum</code> | <code>boolean</code></td>
+<td>Param types. A <code>boolean</code> accepts exactly <code>true</code> or <code>false</code>.</td>
 </tr>
 <tr>
 <td><code>required</code></td>
@@ -463,7 +463,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 <ul>
 <li><code>select</code>: list of <code>{as, column}</code> or <code>{as, column, agg}</code>. <strong><code>agg</code></strong> ∈ <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>.</li>
 <li><code>filters</code>: list of <code>{column, op, param}</code>. <strong><code>op</code></strong> ∈ <code>eq</code>, <code>gte</code>, <code>lte</code>. The filter is applied only when the caller sends (or defaults) that param.
-The param&#39;s type must fit the column&#39;s type, or the endpoint fails to load: <code>string</code> and <code>enum</code> filter a <code>VARCHAR</code> column, <code>integer</code> filters <code>INTEGER</code>, <code>BIGINT</code> and <code>DOUBLE</code>, and <code>date</code> filters <code>DATE</code> and <code>TIMESTAMP</code>. <code>BOOLEAN</code> and <code>JSON</code> columns can&#39;t be filtered. Against a <code>TIMESTAMP</code> a date means 00:00 on that day, so <code>lte</code> leaves out later times that day.</li>
+The param&#39;s type must fit the column&#39;s type, or the endpoint fails to load: <code>string</code> and <code>enum</code> filter a <code>VARCHAR</code> column, <code>integer</code> filters <code>INTEGER</code>, <code>BIGINT</code> and <code>DOUBLE</code>, <code>date</code> filters <code>DATE</code> and <code>TIMESTAMP</code>, and <code>boolean</code> filters <code>BOOLEAN</code> with <code>op: eq</code>. <code>JSON</code> columns can&#39;t be filtered. Against a <code>TIMESTAMP</code> a date means 00:00 on that day, so <code>lte</code> leaves out later times that day.</li>
 <li><code>group_by</code>: list of column names (required when any <code>select</code> uses an <code>agg</code>).</li>
 <li><code>order_by</code>: list of <code>{column, dir}</code>. <strong><code>dir</code></strong> ∈ <code>asc</code>, <code>desc</code>.</li>
 </ul>

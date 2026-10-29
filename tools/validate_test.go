@@ -346,3 +346,15 @@ schema:
 		t.Fatalf("valid source dataset had findings: %v", fs)
 	}
 }
+
+func TestValidateAcceptsBooleanParam(t *testing.T) {
+	endpoint := strings.Replace(goodEndpoint, "params:\n", "params:\n  - { name: active, type: boolean }\n", 1)
+	project := writeProject(t, map[string]string{
+		"offloader.yml":               "version: 1\n",
+		"datasets/customer_usage.yml": goodDataset,
+		"endpoints/e.yml":             endpoint,
+	})
+	if fs := validateProject(project); len(fs) != 0 {
+		t.Fatalf("boolean param should validate, got %v", fs.codes())
+	}
+}

@@ -173,6 +173,12 @@ defmodule Offloader.Compiler do
     end
   end
 
+  defp coerce(%{type: "boolean"}, "true"), do: {:ok, true}
+  defp coerce(%{type: "boolean"}, "false"), do: {:ok, false}
+
+  defp coerce(%{type: "boolean", name: name}, _raw),
+    do: {:error, "param #{inspect(name)} must be true or false"}
+
   defp coerce(%{type: "integer", name: name} = param, raw) do
     with true <- is_binary(raw),
          {n, ""} <- Integer.parse(raw) do

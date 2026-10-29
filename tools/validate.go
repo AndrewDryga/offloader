@@ -235,7 +235,7 @@ func loadEndpoints(dir, sub string, datasets map[string]datasetYML, out *finding
 	return endpoints
 }
 
-var paramTypes = map[string]bool{"string": true, "integer": true, "date": true, "enum": true}
+var paramTypes = map[string]bool{"string": true, "integer": true, "date": true, "enum": true, "boolean": true}
 
 // A param type must be one of the supported set, and an enum must list its values.
 // Mirrors Offloader.Catalog.Endpoint type_err.
@@ -247,7 +247,7 @@ func validateParamType(rel string, i int, p paramYML, out *findings) {
 		return
 	}
 	if !paramTypes[p.Type] {
-		out.add(rel, fmt.Sprintf("params[%d].type", i), "invalid_value", fmt.Sprintf("type %q is invalid", p.Type), "one of: string, integer, date, enum")
+		out.add(rel, fmt.Sprintf("params[%d].type", i), "invalid_value", fmt.Sprintf("type %q is invalid", p.Type), "one of: string, integer, date, enum, boolean")
 	}
 }
 

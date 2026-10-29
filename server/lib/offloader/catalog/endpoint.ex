@@ -47,7 +47,7 @@ defmodule Offloader.Catalog.Endpoint do
 
   @top_keys ~w(name version owner description dataset serving_mode freshness tenant params combinations query columns pagination cache)
   @serving_modes ~w(local_table remote_scan)
-  @param_types ~w(string integer date enum)
+  @param_types ~w(string integer date enum boolean)
   @aggs ~w(sum avg min max count)
   @ops ~w(eq gte lte)
   @dirs ~w(asc desc)
@@ -411,6 +411,7 @@ defmodule Offloader.Catalog.Endpoint do
         "date" -> is_binary(default) and match?({:ok, _}, Date.from_iso8601(default))
         "integer" -> valid_integer_default?(default, p["max"])
         "enum" -> is_list(p["enum"]) and Enum.member?(p["enum"], default)
+        "boolean" -> is_boolean(default)
         _ -> true
       end
 
@@ -666,7 +667,8 @@ defmodule Offloader.Catalog.Endpoint do
       tenant_filter_err(f["column"], Parse.join(path, "column"), file, dataset) ++
       op_err(f["op"], Parse.join(path, "op"), file) ++
       param_ref_err(f["param"], Parse.join(path, "param"), file, param_types) ++
-      filter_type_err(f, Parse.join(path, "param"), file, dataset, param_types)
+      filter_type_err(f, Parse.join(path, "param"), file, dataset, param_types) ++
+      boolean_op_err(f, Parse.join(path, "op"), file, param_types)
   end
 
   defp one_filter_errors(_f, path, file, _d, _p),
@@ -690,13 +692,14 @@ defmodule Offloader.Catalog.Endpoint do
   end
 
   # duckdbex binds a param by its column's type, so a filter whose param cannot bind fails every
-  # request that sends it: a string never binds to BIGINT, and nothing binds a BOOLEAN or JSON
-  # column. The wider data a contract type admits (Manifest.physical_schema/1) binds the same.
+  # request that sends it: a string never binds to BIGINT, and nothing binds a JSON column. The
+  # wider data a contract type admits (Manifest.physical_schema/1) binds the same.
   @filterable %{
     "string" => ~w(VARCHAR),
     "enum" => ~w(VARCHAR),
     "integer" => ~w(INTEGER BIGINT DOUBLE),
-    "date" => ~w(DATE TIMESTAMP)
+    "date" => ~w(DATE TIMESTAMP),
+    "boolean" => ~w(BOOLEAN)
   }
 
   defp filter_type_err(%{"column" => col, "param" => param}, path, file, dataset, param_types) do
@@ -718,6 +721,25 @@ defmodule Offloader.Catalog.Endpoint do
   end
 
   defp filter_type_err(_f, _path, _file, _dataset, _param_types), do: []
+
+  # Ordering booleans means nothing to a caller, so a boolean param only tests equality. An
+  # unknown op is reported by op_err/3 instead.
+  defp boolean_op_err(%{"op" => op, "param" => param}, path, file, param_types)
+       when op in @ops and op != "eq" do
+    if param_types[param] == "boolean",
+      do: [
+        Error.new(
+          file,
+          path,
+          :incompatible_filter,
+          "op #{inspect(op)} cannot compare boolean param #{inspect(param)}",
+          "boolean params filter with op: eq"
+        )
+      ],
+      else: []
+  end
+
+  defp boolean_op_err(_f, _path, _file, _param_types), do: []
 
   defp filter_hint(ctype) do
     case for {ptype, fits} <- @filterable, ctype in fits, do: ptype do

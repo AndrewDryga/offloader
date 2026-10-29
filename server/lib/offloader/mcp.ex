@@ -126,6 +126,7 @@ defmodule Offloader.MCP do
     do: annotate(%{type: "integer", maximum: max}, p)
 
   defp param_schema(%{type: "integer"} = p), do: annotate(%{type: "integer"}, p)
+  defp param_schema(%{type: "boolean"} = p), do: annotate(%{type: "boolean"}, p)
   defp param_schema(p), do: annotate(%{type: "string"}, p)
 
   defp annotate(schema, p) do
