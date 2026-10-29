@@ -27,6 +27,7 @@ defmodule Offloader.MCP do
   """
 
   alias Offloader.Catalog.Endpoint
+  alias Offloader.Catalog.Endpoint.Param
 
   @protocol_version "2026-07-28"
   @uri_prefix "offloader://"
@@ -122,10 +123,15 @@ defmodule Offloader.MCP do
   defp param_schema(%{type: "date"} = p),
     do: annotate(%{type: "string", format: "date"}, p)
 
-  defp param_schema(%{type: "integer", max: max} = p) when is_integer(max),
-    do: annotate(%{type: "integer", maximum: max}, p)
+  defp param_schema(%{type: "integer"} = p) do
+    {minimum, maximum} = Param.bounds(p)
 
-  defp param_schema(%{type: "integer"} = p), do: annotate(%{type: "integer"}, p)
+    %{type: "integer"}
+    |> put_unless_nil(:minimum, minimum)
+    |> put_unless_nil(:maximum, maximum)
+    |> annotate(p)
+  end
+
   defp param_schema(%{type: "boolean"} = p), do: annotate(%{type: "boolean"}, p)
   defp param_schema(p), do: annotate(%{type: "string"}, p)
 

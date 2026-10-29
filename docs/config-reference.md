@@ -62,9 +62,11 @@ A dataset is a named table Offloader serves, plus the schema it expects. One fil
 snapshot); the endpoint serves it as a nested JSON object.
 
 The snapshot's files may use a wider type than the contract: `BIGINT` data for an `INTEGER`
-column, or `DECIMAL`, `FLOAT` or `HUGEINT` data for a `DOUBLE` column. Responses always use the
-contract type, so a `DECIMAL(18,2)` column declared `DOUBLE` serves as a JSON number. A missing
-column or a narrower type rejects the snapshot when it loads.
+column, or `DECIMAL`, `FLOAT` or `HUGEINT` data for a `DOUBLE` column. Offloader stores and serves
+each column as its contract type, so a `DECIMAL(18,2)` column declared `DOUBLE` serves as a JSON
+number, and a value the contract type can't hold (a `BIGINT` past the 32-bit range in an
+`INTEGER` column) stops the snapshot from loading. A column missing from any of the snapshot's
+files, or a narrower type, rejects the snapshot when it loads.
 
 A dataset gets its snapshots from **exactly one** origin — a static `manifest:` **or** a
 self-updating `source:`, never both.
@@ -185,7 +187,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 
 - `select`: list of `{as, column}` or `{as, column, agg}`. **`agg`** ∈ `sum`, `avg`, `min`, `max`, `count`.
 - `filters`: list of `{column, op, param}`. **`op`** ∈ `eq`, `gte`, `lte`. The filter is applied only when the caller sends (or defaults) that param.
-  The param's type must fit the column's type, or the endpoint fails to load: `string` and `enum` filter a `VARCHAR` column, `integer` filters `INTEGER`, `BIGINT` and `DOUBLE`, `date` filters `DATE` and `TIMESTAMP`, and `boolean` filters `BOOLEAN` with `op: eq`. `JSON` columns can't be filtered. Against a `TIMESTAMP` a date means 00:00 on that day, so `lte` leaves out later times that day.
+  The param's type must fit the column's type, or the endpoint fails to load: `string` and `enum` filter a `VARCHAR` column, `integer` filters `INTEGER`, `BIGINT` and `DOUBLE`, `date` filters `DATE` and `TIMESTAMP`, and `boolean` filters `BOOLEAN` with `op: eq`. `JSON` columns can't be filtered. Against a `TIMESTAMP` a date means 00:00 on that day, so `lte` leaves out later times that day. An `integer` value must fit every column it filters (32-bit for `INTEGER`, 64-bit for `BIGINT` and `DOUBLE`): a request outside that range gets a `422`, and a `default:` outside it fails config load.
 - `group_by`: list of column names (required when any `select` uses an `agg`).
 - `order_by`: list of `{column, dir}`. **`dir`** ∈ `asc`, `desc`.
 

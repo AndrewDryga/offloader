@@ -218,9 +218,11 @@ keys: keys/keys.yml
 <code>DOUBLE</code>, <code>BOOLEAN</code>, <code>JSON</code>. Use <strong><code>JSON</code></strong> for a nested column (<code>STRUCT</code>/<code>MAP</code>/<code>LIST</code> in the
 snapshot); the endpoint serves it as a nested JSON object.</p>
 <p>The snapshot&#39;s files may use a wider type than the contract: <code>BIGINT</code> data for an <code>INTEGER</code>
-column, or <code>DECIMAL</code>, <code>FLOAT</code> or <code>HUGEINT</code> data for a <code>DOUBLE</code> column. Responses always use the
-contract type, so a <code>DECIMAL(18,2)</code> column declared <code>DOUBLE</code> serves as a JSON number. A missing
-column or a narrower type rejects the snapshot when it loads.</p>
+column, or <code>DECIMAL</code>, <code>FLOAT</code> or <code>HUGEINT</code> data for a <code>DOUBLE</code> column. Offloader stores and serves
+each column as its contract type, so a <code>DECIMAL(18,2)</code> column declared <code>DOUBLE</code> serves as a JSON
+number, and a value the contract type can&#39;t hold (a <code>BIGINT</code> past the 32-bit range in an
+<code>INTEGER</code> column) stops the snapshot from loading. A column missing from any of the snapshot&#39;s
+files, or a narrower type, rejects the snapshot when it loads.</p>
 <p>A dataset gets its snapshots from <strong>exactly one</strong> origin — a static <code>manifest:</code> <strong>or</strong> a
 self-updating <code>source:</code>, never both.</p>
 <h3 id="manifest-a-static-snapshot"><code>manifest:</code> — a static snapshot</h3>
@@ -463,7 +465,7 @@ no SQL here; the compiler turns this into a safe, parameterized query. One file 
 <ul>
 <li><code>select</code>: list of <code>{as, column}</code> or <code>{as, column, agg}</code>. <strong><code>agg</code></strong> ∈ <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>.</li>
 <li><code>filters</code>: list of <code>{column, op, param}</code>. <strong><code>op</code></strong> ∈ <code>eq</code>, <code>gte</code>, <code>lte</code>. The filter is applied only when the caller sends (or defaults) that param.
-The param&#39;s type must fit the column&#39;s type, or the endpoint fails to load: <code>string</code> and <code>enum</code> filter a <code>VARCHAR</code> column, <code>integer</code> filters <code>INTEGER</code>, <code>BIGINT</code> and <code>DOUBLE</code>, <code>date</code> filters <code>DATE</code> and <code>TIMESTAMP</code>, and <code>boolean</code> filters <code>BOOLEAN</code> with <code>op: eq</code>. <code>JSON</code> columns can&#39;t be filtered. Against a <code>TIMESTAMP</code> a date means 00:00 on that day, so <code>lte</code> leaves out later times that day.</li>
+The param&#39;s type must fit the column&#39;s type, or the endpoint fails to load: <code>string</code> and <code>enum</code> filter a <code>VARCHAR</code> column, <code>integer</code> filters <code>INTEGER</code>, <code>BIGINT</code> and <code>DOUBLE</code>, <code>date</code> filters <code>DATE</code> and <code>TIMESTAMP</code>, and <code>boolean</code> filters <code>BOOLEAN</code> with <code>op: eq</code>. <code>JSON</code> columns can&#39;t be filtered. Against a <code>TIMESTAMP</code> a date means 00:00 on that day, so <code>lte</code> leaves out later times that day. An <code>integer</code> value must fit every column it filters (32-bit for <code>INTEGER</code>, 64-bit for <code>BIGINT</code> and <code>DOUBLE</code>): a request outside that range gets a <code>422</code>, and a <code>default:</code> outside it fails config load.</li>
 <li><code>group_by</code>: list of column names (required when any <code>select</code> uses an <code>agg</code>).</li>
 <li><code>order_by</code>: list of <code>{column, dir}</code>. <strong><code>dir</code></strong> ∈ <code>asc</code>, <code>desc</code>.</li>
 </ul>

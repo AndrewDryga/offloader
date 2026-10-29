@@ -92,10 +92,15 @@ defmodule Offloader.Engine do
   `sort_columns` (the dataset's filter columns) sorts the table on write so DuckDB's per-row-group
   min/max zone maps prune scans for those filters — a cheap, one-time cost at materialize.
   """
-  @spec materialize(GenServer.server(), String.t(), Manifest.t(), [String.t()]) ::
+  @spec materialize(GenServer.server(), String.t(), Manifest.t(), [String.t()], [map()]) ::
           {:ok, map()} | {:error, Error.t()}
-  def materialize(server, table, %Manifest{} = manifest, sort_columns \\ []),
-    do: writer_call(server, {:materialize, table, manifest, sort_columns}, @materialize_timeout)
+  def materialize(server, table, %Manifest{} = manifest, sort_columns \\ [], contract \\ []),
+    do:
+      writer_call(
+        server,
+        {:materialize, table, manifest, sort_columns, contract},
+        @materialize_timeout
+      )
 
   @doc """
   Run a compiled SQL string with bound value params, on a pooled read connection in
@@ -140,10 +145,11 @@ defmodule Offloader.Engine do
   @spec snapshot_tables(GenServer.server()) :: {:ok, [String.t()]} | {:error, Error.t()}
   def snapshot_tables(server), do: writer_call(server, :snapshot_tables, @writer_timeout)
 
-  @doc "A materialized table's columns as `{name, duckdb_type}` pairs, in order."
-  @spec describe(GenServer.server(), String.t()) ::
+  @doc "The columns a manifest's files load as (their union), `{name, duckdb_type}` in order."
+  @spec describe_files(GenServer.server(), [map()], String.t()) ::
           {:ok, [{String.t(), String.t()}]} | {:error, Error.t()}
-  def describe(server, table), do: writer_call(server, {:describe, table}, @writer_timeout)
+  def describe_files(server, files, dir),
+    do: writer_call(server, {:describe_files, files, dir}, @writer_timeout)
 
   @doc "Drop a snapshot table (cleanup after a swap or in tests)."
   @spec drop(GenServer.server(), String.t()) :: :ok | {:error, Error.t()}
@@ -285,9 +291,10 @@ defmodule Offloader.Engine do
   end
 
   @impl true
-  def handle_call({:materialize, table, manifest, sort_columns}, _from, state) do
+  def handle_call({:materialize, table, manifest, sort_columns, contract}, _from, state) do
     ident = quote_ident(table)
-    sql = "CREATE OR REPLACE TABLE #{ident} AS #{read_expr(manifest)}#{order_by(sort_columns)}"
+    select = Offloader.Sql.cast_to_contract(read_expr(manifest), contract)
+    sql = "CREATE OR REPLACE TABLE #{ident} AS #{select}#{order_by(sort_columns)}"
 
     with {:ok, _} <- run(state.writer, sql, [], :materialize_failed),
          {:ok, count} <- table_count(state.writer, ident) do
@@ -318,17 +325,16 @@ defmodule Offloader.Engine do
   end
 
   @impl true
-  def handle_call({:describe, table}, _from, state) do
-    sql =
-      "SELECT column_name, data_type FROM information_schema.columns " <>
-        "WHERE table_name = $1 ORDER BY ordinal_position"
+  def handle_call({:describe_files, files, dir}, _from, state) do
+    sql = "DESCRIBE SELECT * FROM (#{Offloader.Sql.read_files_expr(files, dir)})"
 
-    with {:ok, result} <- run(state.writer, sql, [table], :unknown_table),
-         [_ | _] = rows <- Duckdbex.fetch_all(result) do
-      {:reply, {:ok, Enum.map(rows, fn [name, type] -> {name, type} end)}, state}
-    else
-      [] -> {:reply, {:error, Error.new(:unknown_table, "no such table #{table}")}, state}
-      {:error, %Error{}} = err -> {:reply, err, state}
+    case run(state.writer, sql, [], :schema_failed) do
+      {:ok, result} ->
+        {:reply, {:ok, for([name, type | _] <- Duckdbex.fetch_all(result), do: {name, type})},
+         state}
+
+      {:error, %Error{}} = err ->
+        {:reply, err, state}
     end
   end
 

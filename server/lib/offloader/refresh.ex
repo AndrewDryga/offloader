@@ -225,13 +225,16 @@ defmodule Offloader.Refresh do
   end
 
   # Build `table` from the manifest's files, judging the columns and types they really hold,
-  # not what the manifest declares. A candidate that fails a check never serves: it is dropped
+  # not what the manifest declares. The table stores each column as its contract type, so a
+  # value that doesn't fit fails the build. A candidate that fails never serves: it is dropped
   # (its name is unique to this build, so the drop cannot touch a live table).
   defp materialize_checked(engine, dataset, manifest, table) do
+    sort = dataset.sort_columns
+
     with {:files, :ok} <- {:files, check_files(engine, dataset, manifest)},
+         {:types, :ok} <- {:types, check_types(engine, dataset, manifest)},
          {:materialize, {:ok, _}} <-
-           {:materialize, Engine.materialize(engine, table, manifest, dataset.sort_columns)},
-         {:check, :ok} <- {:check, check_materialized(engine, dataset, manifest, table)} do
+           {:materialize, Engine.materialize(engine, table, manifest, sort, dataset.schema)} do
       :ok
     else
       {step, {:error, error}} ->
@@ -241,8 +244,7 @@ defmodule Offloader.Refresh do
   end
 
   # The union fills a column one file lacks with NULLs, so every file must have every contract
-  # column. Presence only: CSV types are sniffed per file, and the union's types are checked on
-  # the built table.
+  # column. Presence only: CSV types are sniffed per file, and check_types/3 judges the union.
   defp check_files(engine, dataset, manifest) do
     with {:ok, by_file} <- Engine.file_columns(engine, manifest.files, manifest.dir) do
       errors =
@@ -261,8 +263,10 @@ defmodule Offloader.Refresh do
     end
   end
 
-  defp check_materialized(engine, dataset, manifest, table) do
-    case Engine.describe(engine, table) do
+  # The union's own types, before the build casts them to the contract: a narrower or foreign
+  # type must reject the snapshot rather than be cast into place.
+  defp check_types(engine, dataset, manifest) do
+    case Engine.describe_files(engine, manifest.files, manifest.dir) do
       {:ok, columns} ->
         Manifest.compatibility(%{manifest | schema: Manifest.physical_schema(columns)}, dataset)
 

@@ -30,6 +30,22 @@ defmodule Offloader.Sql do
     end)
   end
 
+  @doc """
+  `expr` with each listed column cast to its contract type (`[%{name, type}]`):
+  `SELECT * REPLACE (CAST("n" AS INTEGER) AS "n") FROM (expr)`. JSON columns keep their nested
+  type. A snapshot is stored and scanned this way, so a filter param always binds against the
+  contract type, never a narrower type the files happen to use.
+  """
+  @spec cast_to_contract(String.t(), [%{name: String.t(), type: String.t()}]) :: String.t()
+  def cast_to_contract(expr, columns) do
+    casts =
+      for %{name: name, type: type} <- Enum.uniq(columns), type != "JSON" do
+        "CAST(#{quote_ident(name)} AS #{type}) AS #{quote_ident(name)}"
+      end
+
+    if casts == [], do: expr, else: "SELECT * REPLACE (#{Enum.join(casts, ", ")}) FROM (#{expr})"
+  end
+
   @doc "Resolve a manifest file path: remote URLs pass through, local paths expand from `dir`."
   @spec resolve_path(String.t(), String.t()) :: String.t()
   def resolve_path(path, dir) do

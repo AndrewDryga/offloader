@@ -79,6 +79,7 @@ defmodule Offloader.Catalog.Endpoint do
         freshness_errors(raw, file) ++
         tenant_errors(raw, file, dataset) ++
         param_errors(params, file) ++
+        default_range_errors(params, raw, dataset, file) ++
         combinations_errors(raw, file, param_names) ++
         query_errors(raw, file, dataset, param_types, select_as) ++
         columns_errors(raw, file, select_as) ++
@@ -429,6 +430,43 @@ defmodule Offloader.Catalog.Endpoint do
   end
 
   defp default_err(_p, _path, _file), do: []
+
+  # An integer default binds like a request value, so it must fit every column it filters.
+  defp default_range_errors(params, raw, dataset, file) do
+    filters =
+      case get_in(raw, ["query", "filters"]) do
+        filters when is_list(filters) -> Enum.filter(filters, &is_map/1)
+        _ -> []
+      end
+
+    types = Map.new(dataset.schema, &{&1.name, &1.type})
+
+    for {p, i} <- Enum.with_index(params),
+        is_map(p) and p["type"] == "integer",
+        n = integer_default(p["default"]),
+        is_integer(n),
+        {lo, hi} = Param.range(for f <- filters, f["param"] == p["name"], do: types[f["column"]]),
+        n < lo or n > hi do
+      Error.new(
+        file,
+        Parse.join(Parse.index("params", i), "default"),
+        :invalid_default,
+        "default #{n} is outside #{lo}..#{hi}, the range of the columns it filters",
+        "the default is used verbatim when the param is omitted"
+      )
+    end
+  end
+
+  defp integer_default(n) when is_integer(n), do: n
+
+  defp integer_default(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp integer_default(_), do: nil
 
   defp valid_integer_default?(default, max) do
     n =
@@ -980,6 +1018,7 @@ defmodule Offloader.Catalog.Endpoint do
   defp build(raw, params, dataset) do
     q = raw["query"]
     types = Map.new(dataset.schema, &{&1.name, &1.type})
+    filters = Enum.map(q["filters"] || [], &Filter.build(&1, types[&1["column"]]))
 
     %__MODULE__{
       name: raw["name"],
@@ -990,11 +1029,11 @@ defmodule Offloader.Catalog.Endpoint do
       serving_mode: raw["serving_mode"] || "local_table",
       freshness_minutes: get_in(raw, ["freshness", "max_staleness_minutes"]),
       tenant_column: get_in(raw, ["tenant", "column"]),
-      params: Enum.map(params, &Param.build/1),
+      params: Enum.map(params, &Param.build(&1, filters)),
       combinations: raw["combinations"] || [],
       group_by: q["group_by"] || [],
       select: Enum.map(q["select"], fn s -> Select.build(s, types[s["column"]]) end),
-      filters: Enum.map(q["filters"] || [], &Filter.build/1),
+      filters: filters,
       order_by: for(o <- q["order_by"] || [], do: %{column: o["column"], dir: o["dir"] || "asc"}),
       columns: raw["columns"],
       default_limit: get_in(raw, ["pagination", "default_limit"]),
@@ -1007,11 +1046,38 @@ defmodule Offloader.Catalog.Endpoint do
 end
 
 defmodule Offloader.Catalog.Endpoint.Param do
-  @moduledoc "A declared request parameter."
+  @moduledoc """
+  A declared request parameter. `range` is the `{min, max}` an integer param can bind: the
+  range of every column it filters.
+  """
   @enforce_keys [:name, :type, :required]
-  defstruct [:name, :type, :required, :default, :enum, :max, :aliases]
+  defstruct [:name, :type, :required, :default, :enum, :max, :aliases, :range]
 
-  def build(p) do
+  @int32 {-2_147_483_648, 2_147_483_647}
+  @int64 {-9_223_372_036_854_775_808, 9_223_372_036_854_775_807}
+
+  @doc """
+  The values an integer param can bind, given the contract types of the columns it filters:
+  32-bit for INTEGER, 64-bit for BIGINT and DOUBLE (what duckdbex binds).
+  """
+  def range(column_types) do
+    Enum.reduce(column_types, @int64, fn
+      "INTEGER", {lo, hi} -> {max(lo, elem(@int32, 0)), min(hi, elem(@int32, 1))}
+      _type, range -> range
+    end)
+  end
+
+  @doc """
+  An integer param's JSON-schema bounds, `{minimum, maximum}` (nil = none): its configured
+  `max`, and its column range when narrower than 64 bits. A 64-bit bound is left out, since a
+  JSON client can't represent it exactly.
+  """
+  def bounds(%__MODULE__{range: range, max: max}) do
+    {lo, hi} = if range in [nil, @int64], do: {nil, nil}, else: range
+    {lo, Enum.min(Enum.reject([max, hi], &is_nil/1), fn -> nil end)}
+  end
+
+  def build(p, filters \\ []) do
     %__MODULE__{
       name: p["name"],
       type: p["type"],
@@ -1019,7 +1085,11 @@ defmodule Offloader.Catalog.Endpoint.Param do
       default: normalize_default(p["type"], p["default"]),
       enum: p["enum"],
       max: p["max"],
-      aliases: p["aliases"]
+      aliases: p["aliases"],
+      range:
+        if(p["type"] == "integer",
+          do: range(for f <- filters, f.param == p["name"], do: f.type)
+        )
     }
   end
 
@@ -1054,9 +1124,13 @@ defmodule Offloader.Catalog.Endpoint.Select do
 end
 
 defmodule Offloader.Catalog.Endpoint.Filter do
-  @moduledoc "A param-bound filter: `column op :param`. The compiler parameterizes the value."
+  @moduledoc """
+  A param-bound filter: `column op :param`. The compiler parameterizes the value. `type` is the
+  column's contract type.
+  """
   @enforce_keys [:column, :op, :param]
-  defstruct [:column, :op, :param]
+  defstruct [:column, :op, :param, :type]
 
-  def build(f), do: %__MODULE__{column: f["column"], op: f["op"], param: f["param"]}
+  def build(f, type \\ nil),
+    do: %__MODULE__{column: f["column"], op: f["op"], param: f["param"], type: type}
 end

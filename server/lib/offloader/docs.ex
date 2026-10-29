@@ -7,6 +7,7 @@ defmodule Offloader.Docs do
 
   alias Offloader.Catalog
   alias Offloader.Catalog.Endpoint
+  alias Offloader.Catalog.Endpoint.Param
 
   @base_path "/v1/endpoints"
 
@@ -292,7 +293,12 @@ defmodule Offloader.Docs do
 
   defp openapi_schema(%{type: "enum", enum: values}), do: %{type: "string", enum: values}
   defp openapi_schema(%{type: "date"}), do: %{type: "string", format: "date"}
-  defp openapi_schema(%{type: "integer"}), do: %{type: "integer"}
+
+  defp openapi_schema(%{type: "integer"} = p) do
+    {minimum, maximum} = Param.bounds(p)
+    for {k, v} <- [type: "integer", minimum: minimum, maximum: maximum], v, into: %{}, do: {k, v}
+  end
+
   defp openapi_schema(%{type: "boolean"}), do: %{type: "boolean"}
   defp openapi_schema(_), do: %{type: "string"}
 

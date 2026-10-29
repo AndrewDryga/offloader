@@ -36,6 +36,7 @@ defmodule Offloader.Compiler do
 
   alias Offloader.ApiError
   alias Offloader.Catalog.Endpoint
+  alias Offloader.Catalog.Endpoint.Param
   alias Offloader.Catalog.Identifier
   alias Offloader.Compiler.Plan
 
@@ -180,11 +181,16 @@ defmodule Offloader.Compiler do
     do: {:error, "param #{inspect(name)} must be true or false"}
 
   defp coerce(%{type: "integer", name: name} = param, raw) do
+    {lo, hi} = param.range || Param.range([])
+
     with true <- is_binary(raw),
          {n, ""} <- Integer.parse(raw) do
       cond do
         param.max && n > param.max ->
           {:error, "param #{inspect(name)} exceeds max of #{param.max}"}
+
+        n < lo or n > hi ->
+          {:error, "param #{inspect(name)} must be between #{lo} and #{hi}"}
 
         true ->
           {:ok, n}
@@ -303,7 +309,7 @@ defmodule Offloader.Compiler do
     offset_idx = limit_idx + 1
 
     sql =
-      "SELECT #{projection_sql} FROM #{from_sql(source)}" <>
+      "SELECT #{projection_sql} FROM #{from_sql(source, endpoint)}" <>
         where <>
         group_by_sql(endpoint) <>
         order_by_sql(endpoint, selected) <>
@@ -384,10 +390,19 @@ defmodule Offloader.Compiler do
 
   defp find_select(endpoint, as), do: Enum.find(endpoint.select, &(&1.as == as))
 
-  # local_table reads the snapshot's materialized table; remote_scan reads the source files
-  # directly per request (a subquery). Both come from validated config/manifests.
-  defp from_sql({:table, name}), do: ident(name)
-  defp from_sql({:scan, files, dir}), do: "(" <> Offloader.Sql.read_files_expr(files, dir) <> ")"
+  # local_table reads the snapshot's materialized table, already stored as contract types;
+  # remote_scan reads the source files per request (a subquery), casting the columns this
+  # endpoint reads to the same types. Both come from validated config/manifests.
+  defp from_sql({:table, name}, _endpoint), do: ident(name)
+
+  defp from_sql({:scan, files, dir}, endpoint) do
+    columns =
+      for(s <- endpoint.select, s.type, do: %{name: s.column, type: s.type}) ++
+        for(f <- endpoint.filters, f.type, do: %{name: f.column, type: f.type})
+
+    "(" <>
+      Offloader.Sql.cast_to_contract(Offloader.Sql.read_files_expr(files, dir), columns) <> ")"
+  end
 
   # DuckDB identifier quoting. Inputs are already safe identifiers (validated by
   # Offloader.Catalog); quoting is defense in depth.
