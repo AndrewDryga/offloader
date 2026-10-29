@@ -282,6 +282,8 @@ defmodule Offloader.EngineTest do
     on_exit(fn -> if Process.alive?(eng), do: Engine.stop(eng) end)
 
     assert {:ok, %{rows: [[2]]}} = Engine.execute(eng, "SELECT current_setting('threads')")
+    # DuckDB 2.0 sizes its I/O pool from the host's cores unless told otherwise.
+    assert {:ok, %{rows: [[8]]}} = Engine.execute(eng, "SELECT current_setting('async_threads')")
   end
 
   test "reads run concurrently across the pool and stay correct", %{eng: eng} do

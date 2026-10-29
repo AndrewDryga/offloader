@@ -93,7 +93,8 @@ defmodule Offloader.Config do
   @doc """
   DuckDB per-database thread cap (`OFFLOADER_DUCKDB_THREADS`), or nil for the DuckDB
   default (all host cores). Set this in a container: DuckDB sees host cores, not the
-  cgroup limit, so with the read pool it can oversubscribe and thrash.
+  cgroup limit, so with the read pool it can oversubscribe and thrash. It also sizes
+  DuckDB's async I/O threads, at four per worker thread.
   """
   @spec duckdb_threads() :: pos_integer() | nil
   def duckdb_threads, do: Application.get_env(:offloader, :duckdb_threads)

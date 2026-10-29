@@ -141,7 +141,9 @@ the cache volume (one dataset: its materialized files; all: the whole volume), r
 <li><code>OFFLOADER_DUCKDB_THREADS</code> — set to the container&#39;s <strong>vCPU count</strong>. DuckDB otherwise
 sees every host core and oversubscribes under a cgroup CPU limit; pinning it to the
 allocation keeps scheduling sane. (This is DuckDB&#39;s intra-query parallelism; the read
-<em>pool</em> below is a separate knob for concurrent queries.)</li>
+<em>pool</em> below is a separate knob for concurrent queries.) It also sizes DuckDB&#39;s I/O
+threads for remote reads at four per vCPU. Unset, DuckDB starts four per host core, so a
+4-vCPU container on a 64-core node would start 256 of them.</li>
 <li><code>OFFLOADER_DUCKDB_MEMORY_LIMIT</code> — a <strong>ceiling</strong> on DuckDB&#39;s working memory (query buffers
 plus the buffer pool that caches hot pages), not a target. It need not match your dataset
 size: the server materializes into an on-disk DuckDB file and memory-maps it, so only the

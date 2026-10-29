@@ -624,6 +624,8 @@ defmodule Offloader.Engine do
   # threads/memory_limit are DuckDB-global, so applying them once (on the writer) caps
   # the whole database — including pool connections. In a container, bound threads to
   # the cgroup CPU: DuckDB otherwise sees all host cores and oversubscribes under load.
+  # DuckDB 2.0 also starts async I/O threads at four per host core (48 on 12 cores), and
+  # `threads` doesn't change that, so the same cap sizes them at that ratio.
   defp apply_db_settings(conn) do
     with :ok <- set_threads(conn, Offloader.Config.duckdb_threads()) do
       set_memory_limit(conn, Offloader.Config.duckdb_memory_limit())
@@ -633,8 +635,10 @@ defmodule Offloader.Engine do
   defp set_threads(_conn, nil), do: :ok
 
   defp set_threads(conn, n) when is_integer(n) and n > 0 do
-    case Duckdbex.query(conn, "SET threads TO #{n};") do
-      {:ok, _} -> :ok
+    with {:ok, _} <- Duckdbex.query(conn, "SET threads TO #{n};"),
+         {:ok, _} <- Duckdbex.query(conn, "SET async_threads TO #{4 * n};") do
+      :ok
+    else
       {:error, msg} -> {:error, Error.new(:settings_failed, to_string(msg))}
     end
   end
