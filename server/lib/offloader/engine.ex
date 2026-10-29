@@ -596,17 +596,10 @@ defmodule Offloader.Engine do
     end
   end
 
-  # DuckDB 2.0 bundles ICU, whose TimeZone follows the host. A TIMESTAMPTZ cast to the
-  # contract's TIMESTAMP, or compared with a date param, would then shift with the machine.
-  # DuckDB 1.5 has no ICU here and always uses UTC, so pin UTC wherever the setting exists.
+  # DuckDB bundles ICU, whose TimeZone follows the host: a TIMESTAMPTZ cast to the contract's
+  # TIMESTAMP, or compared with a date param, would shift with the machine. Pin UTC.
   defp pin_utc(conn) do
-    with {:ok, result} <-
-           Duckdbex.query(conn, "SELECT count(*) FROM duckdb_settings() WHERE name = 'TimeZone'") do
-      case Duckdbex.fetch_all(result) do
-        [[0]] -> :ok
-        _ -> with {:ok, _} <- Duckdbex.query(conn, "SET TimeZone = 'UTC';"), do: :ok
-      end
-    end
+    with {:ok, _} <- Duckdbex.query(conn, "SET TimeZone = 'UTC';"), do: :ok
   end
 
   # Cache remote object-store metadata across queries so remote_scan endpoints don't
