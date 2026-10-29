@@ -509,21 +509,22 @@
                                         min="0"
                                         max="95"
                                         step="5"
-                                        value="90"
+                                        value="0"
                                     />
                                     <output
                                         class="range-out"
                                         id="cdn-out"
                                         for="cdn"
-                                        >90%</output
+                                        >0%</output
                                     >
                                 </div>
                                 <span class="hint"
-                                    >If a CDN serves repeat responses at the
-                                    edge, Offloader handles only the misses. Set
-                                    this to 0% for private or tenant-scoped endpoints,
-                                    even if a CDN sits in front. Also use 0%
-                                    when there is no CDN.</span
+                                    >Raise this only for public endpoints behind
+                                    a CDN: the edge serves repeat responses, so
+                                    Offloader handles only the misses. Private
+                                    and tenant-scoped responses are marked
+                                    no-store and always reach Offloader, so keep
+                                    0% for them.</span
                                 >
                             </div>
 

@@ -89,6 +89,10 @@
 <h1 id="warehouse-queries-a-cache-or-snapshots">Warehouse queries, a cache, or snapshots?</h1>
 <p>Use direct warehouse queries for fresh or ad-hoc data, a response cache for
 repeated requests, and snapshots when many requests can share one dataset.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</a></li>
+<li><a href="#use-a-cache-when-the-same-requests-repeat">Use a cache when the same requests repeat</a></li>
+<li><a href="#use-snapshots-when-many-requests-can-share-one-dataset">Use snapshots when many requests can share one dataset</a></li>
+<li><a href="#compare-one-real-endpoint">Compare one real endpoint</a></li></ul></nav></details>
 <p>The right choice depends on how fresh the data must be, which requests repeat,
 and what those requests cost. A cache may be enough. A snapshot API can remove
 warehouse queries from the request path, but adds exports and a service you need
@@ -129,10 +133,6 @@ to run.</p>
 </tr>
 </tbody></table>
 </div>
-<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</a></li>
-<li><a href="#use-a-cache-when-the-same-requests-repeat">Use a cache when the same requests repeat</a></li>
-<li><a href="#use-snapshots-when-many-requests-can-share-one-dataset">Use snapshots when many requests can share one dataset</a></li>
-<li><a href="#compare-one-real-endpoint">Compare one real endpoint</a></li></ul></nav></details>
 <h2 id="keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</h2>
 <p>A screen that must reflect a just-completed transaction may not tolerate a
 snapshot delay. Exploratory queries may also need more freedom than a fixed set

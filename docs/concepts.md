@@ -1,4 +1,4 @@
-# How Offloader works
+# How Offloader works: REST APIs from warehouse snapshots
 
 Offloader serves REST APIs from snapshots of your warehouse data. You run it on
 your own servers, so your product can read the same data many times without
@@ -34,7 +34,7 @@ Your app reads it many times until the next snapshot is ready.
   After
     Your app  ──REST API──▶  Offloader  ──reads──▶  Snapshot
                                   your servers             S3 · GCS
-                                  serving compute
+                                  no warehouse work per request
 ```
 
 Offloader checks each new snapshot, then loads it into DuckDB inside the

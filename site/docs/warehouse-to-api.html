@@ -89,6 +89,10 @@
 <h1 id="serve-a-warehouse-backed-api-from-snapshots">Serve a warehouse-backed API from snapshots</h1>
 <p>If your API can return data that is minutes or hours old, serve it from a
 warehouse snapshot instead of querying the warehouse on every request.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#1-choose-what-the-endpoint-returns">1. Choose what the endpoint returns</a></li>
+<li><a href="#2-publish-a-complete-snapshot">2. Publish a complete snapshot</a></li>
+<li><a href="#3-call-the-sample-endpoint">3. Call the sample endpoint</a></li>
+<li><a href="#4-compare-it-with-your-current-api">4. Compare it with your current API</a></li></ul></nav></details>
 <p>Customer dashboards that show usage totals, billing totals, or leaderboards are
 typical candidates. This guide walks through moving one customer usage endpoint to
 Offloader. Your pipeline exports the data, and Offloader serves it through a REST
@@ -96,10 +100,6 @@ API on your own servers.</p>
 <p><strong>Before you start:</strong> choose one existing endpoint and decide how old its data
 can be. The <a href="quickstart.html">quickstart</a> supplies the container and sample data for
 trying the API locally with Docker and Git.</p>
-<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#1-choose-what-the-endpoint-returns">1. Choose what the endpoint returns</a></li>
-<li><a href="#2-publish-a-complete-snapshot">2. Publish a complete snapshot</a></li>
-<li><a href="#3-call-the-sample-endpoint">3. Call the sample endpoint</a></li>
-<li><a href="#4-compare-it-with-your-current-api">4. Compare it with your current API</a></li></ul></nav></details>
 <h2 id="1-choose-what-the-endpoint-returns">1. Choose what the endpoint returns</h2>
 <p>List the fields your screen needs and the filters callers may use. For customer
 data, identify the column that separates one customer&#39;s rows from another&#39;s.</p>

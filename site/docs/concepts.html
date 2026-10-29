@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How Offloader works — Offloader docs</title>
+<title>How Offloader works: REST APIs from warehouse snapshots — Offloader docs</title>
 <meta name="description" content="Offloader serves REST APIs from snapshots of your warehouse data, on your own servers. Learn how datasets, endpoints and snapshots fit together.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/concepts.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/concepts.html">
-<meta property="og:title" content="How Offloader works — Offloader docs">
+<meta property="og:title" content="How Offloader works: REST APIs from warehouse snapshots — Offloader docs">
 <meta property="og:description" content="Offloader serves REST APIs from snapshots of your warehouse data, on your own servers. Learn how datasets, endpoints and snapshots fit together.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -86,7 +86,7 @@
   <main id="main" class="docs-main">
     <p class="doc-kicker">Start</p>
     <article class="prose">
-<h1 id="how-offloader-works">How Offloader works</h1>
+<h1 id="how-offloader-works-rest-apis-from-warehouse-snapshots">How Offloader works: REST APIs from warehouse snapshots</h1>
 <p>Offloader serves REST APIs from snapshots of your warehouse data. You run it on
 your own servers, so your product can read the same data many times without
 querying the warehouse for every request.</p>
@@ -128,7 +128,7 @@ Your app reads it many times until the next snapshot is ready.</p>
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
       <div class="hop"><span class="hop-l">REST API</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">serving compute</span></div>
+      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">no warehouse work per request</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
     </div>

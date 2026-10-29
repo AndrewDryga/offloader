@@ -91,10 +91,6 @@
 this an Offloader bug, the customer environment, or upstream data? The admin
 <code>/diagnostics</code> and <code>/metrics</code> answer that in under five minutes. Each runbook:
 symptom → signals → likely owner → action → escalation.</p>
-<blockquote>
-<p>Commands assume the admin port is reachable privately and <code>OFFLOADER_ADMIN_TOKEN</code>
-is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer $TOKEN&quot; $ADMIN/diagnostics</code>.</p>
-</blockquote>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#server-does-not-start">Server does not start</a></li>
 <li><a href="#source-credentials-fail-bucket-or-network-unreachable">Source credentials fail / bucket or network unreachable</a></li>
 <li><a href="#bad-manifest-dataset-refresh-fails">Bad manifest / dataset refresh fails</a></li>
@@ -106,6 +102,10 @@ is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer 
 <li><a href="#rollback-to-previous-image">Rollback to previous image</a></li>
 <li><a href="#rollback-to-previous-snapshot">Rollback to previous snapshot</a></li>
 <li><a href="#cache-quarantine-and-rebuild-clear-cache">Cache quarantine and rebuild / clear cache</a></li></ul></nav></details>
+<blockquote>
+<p>Commands assume the admin port is reachable privately and <code>OFFLOADER_ADMIN_TOKEN</code>
+is set. <code>DIAG</code> below means <code>curl -H &quot;Authorization: Bearer $TOKEN&quot; $ADMIN/diagnostics</code>.</p>
+</blockquote>
 <h2 id="server-does-not-start">Server does not start</h2>
 <ul>
 <li><strong>Signals:</strong> container exits on boot; <code>docker logs</code> shows a config/secret error.</li>

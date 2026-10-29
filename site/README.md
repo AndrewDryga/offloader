@@ -29,7 +29,7 @@ npm run check   # read-only comparison of docs HTML and sitemap with their sourc
 The generator (`dev/docs-site/build.mjs`) reuses this site's `styles.css` tokens plus
 `docs.css`, so the docs inherit the same type, color, and light/dark behavior. It renders
 the customer-facing docs only; internal planning docs stay out of the public site.
-The same inventory generates `sitemap.xml`. Both CI and the Pages workflow reject
+The same inventory, plus every top-level `site/*.html` page, generates `sitemap.xml`. Both CI and the Pages workflow reject
 stale output. Existing `.html` URLs remain canonical, including `/docs/index.html`.
 
 ## Design

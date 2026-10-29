@@ -90,6 +90,10 @@
 <p>Every field of an Offloader project, with the exact allowed values. New to the pieces
 (dataset, endpoint, snapshot, project)? Read <a href="concepts.html">Concepts</a> first. For a complete
 working project to copy, see <code>examples/customer-analytics/</code>.</p>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#offloaderyml"><code>offloader.yml</code></a></li>
+<li><a href="#datasetsyml"><code>datasets/*.yml</code></a></li>
+<li><a href="#endpointsyml"><code>endpoints/*.yml</code></a></li>
+<li><a href="#keyskeysyml"><code>keys/keys.yml</code></a></li></ul></nav></details>
 <blockquote>
 <p><strong>Don&#39;t hand-write it.</strong> <code>offloader init</code> scaffolds a valid, fully-commented starter
 project, and <code>offloader scaffold-dataset --from &lt;manifest.json|data.csv&gt;</code> drafts a
@@ -104,10 +108,6 @@ keys/keys.yml       # API keys (hashes only) — omit for a public (auth: none) 
 <p>Run <code>offloader validate --config &lt;path&gt;/offloader.yml</code> to check the whole tree; it reports
 every problem at once.</p>
 <hr>
-<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#offloaderyml"><code>offloader.yml</code></a></li>
-<li><a href="#datasetsyml"><code>datasets/*.yml</code></a></li>
-<li><a href="#endpointsyml"><code>endpoints/*.yml</code></a></li>
-<li><a href="#keyskeysyml"><code>keys/keys.yml</code></a></li></ul></nav></details>
 <h2 id="offloaderyml"><code>offloader.yml</code></h2>
 <p>The top-level project file <code>OFFLOADER_CONFIG</code> points at.</p>
 <div class="table-scroll" tabindex="0">

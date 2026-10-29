@@ -116,7 +116,7 @@ const FIGURES = {
     <div class="flow-track">
       <div class="node"><span class="node-k">Every request</span><strong>Your app</strong></div>
       <div class="hop"><span class="hop-l">REST API</span><span class="arw" aria-hidden="true"></span></div>
-      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">serving compute</span></div>
+      <div class="node node-hero"><span class="node-k">Your servers</span><strong>Offloader</strong><span class="node-sub">no warehouse work per request</span></div>
       <div class="hop"><span class="hop-l">reads</span><span class="arw" aria-hidden="true"></span></div>
       <div class="node"><span class="node-k">Object store</span><strong>Snapshot</strong><span class="node-sub">S3 · GCS</span></div>
     </div>
@@ -211,13 +211,16 @@ function makeScrollRegionsFocusable(html) {
     .replace(/<\/table>/g, "</table>\n</div>");
 }
 
-// A compact contents disclosure keeps long guides easy to scan without crowding the intro.
+// A compact contents disclosure keeps long guides easy to scan. It follows the opening paragraph,
+// so a phone shows it on the first screen however long the rest of the intro runs.
 function addContents(html) {
   const headings = [...html.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)];
   if (headings.length < 3) return html;
   const links = headings.map(([, id, text]) => `<li><a href="#${id}">${text.replace(/<a\b[^>]*>|<\/a>/g, "")}</a></li>`).join("\n");
   const contents = `<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul>${links}</ul></nav></details>\n`;
-  return html.replace(/<h2 /, contents + "<h2 ");
+  const lede = html.match(/<\/h1>\s*<p>[\s\S]*?<\/p>\n?/);
+  const at = lede ? lede.index + lede[0].length : html.indexOf("<h2 ");
+  return html.slice(0, at) + contents + html.slice(at);
 }
 
 // Plain text for <title> and meta tags. Undo marked's HTML escaping in one pass, so esc()
@@ -420,9 +423,14 @@ outputs.set(join(OUT, "index.html"), page({
   main: indexMain,
 }));
 
-// One inventory drives navigation, generated pages, and discovery. Omit lastmod:
-// a build date is not evidence that the page's substance changed.
-const paths = ["/", "/roi.html", "/docs/index.html", ...FLAT.map((p) => `/docs/${p.slug}.html`)];
+// One inventory drives navigation, generated pages, and discovery; every hand-written page at the
+// top of site/ is listed too, sorted so the file is the same on every OS. Omit lastmod: a build
+// date is not evidence that the page's substance changed.
+const topLevel = readdirSync(join(ROOT, "site"))
+  .filter((name) => name.endsWith(".html"))
+  .sort()
+  .map((name) => (name === "index.html" ? "/" : `/${name}`));
+const paths = [...topLevel, "/docs/index.html", ...FLAT.map((p) => `/docs/${p.slug}.html`)];
 outputs.set(join(ROOT, "site", "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   paths.map((path) => `  <url><loc>${ORIGIN}${path}</loc></url>`).join("\n") +

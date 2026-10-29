@@ -90,8 +90,6 @@
 <p>Your warehouse builds a dataset. Offloader already serves it as a REST endpoint your app calls.
 This page adds a second door onto the <strong>same</strong> endpoints so an AI agent — Claude, an internal
 copilot, anything that speaks the Model Context Protocol — can read them too.</p>
-<p>Nothing new is exposed. An agent sees exactly the endpoints you configured, with the same
-params, the same column allowlist, and the same tenant filter. There is no way to send SQL.</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#turn-it-on">Turn it on</a></li>
 <li><a href="#what-an-agent-sees">What an agent sees</a></li>
 <li><a href="#caching-at-the-edge">Caching at the edge</a></li>
@@ -99,6 +97,8 @@ params, the same column allowlist, and the same tenant filter. There is no way t
 <li><a href="#supported-methods">Supported methods</a></li>
 <li><a href="#errors">Errors</a></li>
 <li><a href="#one-thing-to-think-about-before-enabling-it">One thing to think about before enabling it</a></li></ul></nav></details>
+<p>Nothing new is exposed. An agent sees exactly the endpoints you configured, with the same
+params, the same column allowlist, and the same tenant filter. There is no way to send SQL.</p>
 <h2 id="turn-it-on">Turn it on</h2>
 <p>Off by default. Set one environment variable:</p>
 <pre tabindex="0"><code class="language-sh">OFFLOADER_MCP_ENABLED=true
