@@ -18,7 +18,7 @@ defmodule Offloader.ServingModesTest do
 
       on_exit(fn ->
         if Process.alive?(eng), do: Engine.stop(eng)
-        File.rm_rf!(dir)
+        Offloader.TestSupport.rm_rf!(dir)
       end)
 
       %{cat: cat, m: m, eng: eng}
@@ -48,7 +48,7 @@ defmodule Offloader.ServingModesTest do
 
       on_exit(fn ->
         Offloader.TestSupport.stop_if_alive(rt)
-        File.rm_rf!(dir)
+        Offloader.TestSupport.rm_rf!(dir)
       end)
 
       %{rt: rt}

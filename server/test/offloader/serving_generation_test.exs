@@ -20,8 +20,8 @@ defmodule Offloader.ServingGenerationTest do
 
     on_exit(fn ->
       Offloader.TestSupport.stop_if_alive(rt)
-      File.rm_rf!(project)
-      File.rm_rf!(cache)
+      Offloader.TestSupport.rm_rf!(project)
+      Offloader.TestSupport.rm_rf!(cache)
     end)
 
     %{rt: rt, project: project, engine: Runtime.__test_context__(rt).engine}

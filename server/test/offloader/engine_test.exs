@@ -21,7 +21,7 @@ defmodule Offloader.EngineTest do
 
     on_exit(fn ->
       if Process.alive?(eng), do: Engine.stop(eng)
-      File.rm_rf!(dir)
+      Offloader.TestSupport.rm_rf!(dir)
     end)
 
     {eng, dir}
@@ -60,7 +60,7 @@ defmodule Offloader.EngineTest do
   test "file_columns lists each file's top-level columns, nested ones included", %{eng: eng} do
     dir = Path.join(System.tmp_dir!(), "offl_files_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
-    on_exit(fn -> File.rm_rf!(dir) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(dir) end)
 
     write = fn file, select ->
       {:ok, %{rows: _}} = Engine.execute(eng, "COPY (#{select}) TO '#{Path.join(dir, file)}'")

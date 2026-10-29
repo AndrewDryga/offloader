@@ -79,7 +79,7 @@ defmodule Offloader.Config.LoaderTest do
   defp tmp_cache do
     dir = Path.join(System.tmp_dir!(), "offl_cfg_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
-    on_exit(fn -> File.rm_rf!(dir) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(dir) end)
     dir
   end
 
@@ -397,7 +397,7 @@ defmodule Offloader.Config.LoaderTest do
              end)
 
       {:ok, _} = Loader.load("gs://my-bucket/proj", cache)
-      File.rm_rf!(Path.join([cache, "configs", building]))
+      Offloader.TestSupport.rm_rf!(Path.join([cache, "configs", building]))
       :ok = :sys.resume(rt)
       Task.await(refresh)
 
@@ -487,7 +487,7 @@ defmodule Offloader.Config.LoaderTest do
 
       release(root, "v2")
       point(root, "v2")
-      File.rm_rf!(old)
+      Offloader.TestSupport.rm_rf!(old)
 
       assert {:ok, _} = serve.("2026-05-31")
     end

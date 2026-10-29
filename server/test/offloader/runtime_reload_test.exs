@@ -26,8 +26,8 @@ defmodule Offloader.RuntimeReloadTest do
 
     on_exit(fn ->
       Offloader.TestSupport.stop_if_alive(rt)
-      File.rm_rf!(project)
-      File.rm_rf!(cache)
+      Offloader.TestSupport.rm_rf!(project)
+      Offloader.TestSupport.rm_rf!(cache)
     end)
 
     assert Runtime.ready?(rt)

@@ -11,7 +11,7 @@ defmodule Offloader.WarmStartTest do
 
   defp tmp(name) do
     dir = Path.join(System.tmp_dir!(), "offl_warm_#{name}_#{System.unique_integer([:positive])}")
-    on_exit(fn -> File.rm_rf!(dir) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(dir) end)
     dir
   end
 

@@ -39,7 +39,7 @@ defmodule Offloader.ColumnTypesTest do
 
     on_exit(fn ->
       if Process.alive?(eng), do: Engine.stop(eng)
-      File.rm_rf!(dir)
+      Offloader.TestSupport.rm_rf!(dir)
     end)
 
     {:ok, ds} =

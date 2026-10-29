@@ -36,7 +36,7 @@ defmodule Offloader.DynamicRefreshTest do
 
   defp tmp_dir do
     dir = Path.join(System.tmp_dir!(), "offl_dyn_#{System.unique_integer([:positive])}")
-    on_exit(fn -> File.rm_rf!(dir) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(dir) end)
     dir
   end
 

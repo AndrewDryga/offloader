@@ -55,7 +55,7 @@ defmodule Offloader.GcsLiveTest do
 
         on_exit(fn ->
           if Process.alive?(eng), do: Engine.stop(eng)
-          File.rm_rf!(dir)
+          Offloader.TestSupport.rm_rf!(dir)
         end)
 
         case Engine.materialize(eng, "aram_live", manifest) do

@@ -97,7 +97,7 @@ defmodule Offloader.ManifestTest do
 
       path = Path.join(root, "m.json")
       File.write!(path, Jason.encode!(raw))
-      on_exit(fn -> File.rm_rf!(root) end)
+      on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
 
       assert :schema_data_mismatch in codes(Manifest.load(path))
     end
@@ -230,7 +230,7 @@ defmodule Offloader.ManifestTest do
 
     path = Path.join(root, "manifest.json")
     File.write!(path, Jason.encode!(raw))
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
     Manifest.load(path)
   end
 
@@ -242,7 +242,7 @@ defmodule Offloader.ManifestTest do
     File.mkdir_p!(root)
     path = Path.join(root, name)
     File.write!(path, body)
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
     path
   end
 end

@@ -17,7 +17,7 @@ defmodule Offloader.RefreshTest do
 
     on_exit(fn ->
       Offloader.TestSupport.stop_if_alive(rt)
-      File.rm_rf!(dir)
+      Offloader.TestSupport.rm_rf!(dir)
     end)
 
     %{rt: rt}
@@ -68,7 +68,7 @@ defmodule Offloader.RefreshTest do
 
     path = Path.join(root, "manifest.json")
     File.write!(path, Jason.encode!(manifest))
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
     path
   end
 
@@ -77,7 +77,7 @@ defmodule Offloader.RefreshTest do
   defp parquet_manifest(name, selects) do
     root = tmp_root()
     File.mkdir_p!(root)
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
 
     {:ok, db} = Duckdbex.open()
     {:ok, conn} = Duckdbex.connection(db)
@@ -251,7 +251,7 @@ defmodule Offloader.RefreshTest do
 
     on_exit(fn ->
       if Process.alive?(eng), do: Engine.stop(eng)
-      File.rm_rf!(edir)
+      Offloader.TestSupport.rm_rf!(edir)
     end)
 
     # Active = the good snapshot; the source now offers @second_snapshot, which we quarantine.
@@ -290,7 +290,7 @@ defmodule Offloader.RefreshTest do
     File.mkdir_p!(root)
     path = Path.join(root, name)
     File.write!(path, body)
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
     path
   end
 end

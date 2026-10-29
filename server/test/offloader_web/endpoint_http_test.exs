@@ -16,7 +16,7 @@ defmodule OffloaderWeb.EndpointHTTPTest do
 
     on_exit(fn ->
       Offloader.TestSupport.stop_if_alive(rt)
-      File.rm_rf!(dir)
+      Offloader.TestSupport.rm_rf!(dir)
     end)
 
     :ok

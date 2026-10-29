@@ -15,7 +15,7 @@ defmodule OffloaderWeb.ResilienceHTTPTest do
   defp tmp!(tag) do
     dir = Path.join(System.tmp_dir!(), "offl_res_#{tag}_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
-    on_exit(fn -> File.rm_rf!(dir) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(dir) end)
     dir
   end
 

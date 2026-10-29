@@ -128,7 +128,7 @@ defmodule Offloader.CatalogTest do
       File.write!(path, content)
     end)
 
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> Offloader.TestSupport.rm_rf!(root) end)
     Path.join(root, "offloader.yml")
   end
 

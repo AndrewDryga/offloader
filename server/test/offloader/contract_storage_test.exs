@@ -55,7 +55,7 @@ defmodule Offloader.ContractStorageTest do
 
     on_exit(fn ->
       if Process.alive?(eng), do: Engine.stop(eng)
-      File.rm_rf!(dir)
+      Offloader.TestSupport.rm_rf!(dir)
     end)
 
     %{eng: eng, ds: dataset("INTEGER"), narrow: narrow, wide: wide}

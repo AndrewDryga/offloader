@@ -17,7 +17,7 @@ defmodule Offloader.EnginePoolTest do
 
     on_exit(fn ->
       if Process.alive?(eng), do: Engine.stop(eng)
-      File.rm_rf!(dir)
+      Offloader.TestSupport.rm_rf!(dir)
     end)
 
     # Sanity: the single slot works when free.
