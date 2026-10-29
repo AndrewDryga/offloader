@@ -109,6 +109,12 @@ params, the same column allowlist, and the same tenant filter. There is no way t
 <p>That&#39;s the whole setup. Offloader speaks MCP revision <strong><code>2026-07-28</code></strong>, which is stateless —
 there is no connection to open, no session to keep alive, and no separate event stream. Each
 request stands alone, which is what makes the rest of this page possible.</p>
+<p>Clients on the older <code>initialize</code> handshake (revisions <code>2025-03-26</code> through <code>2025-11-25</code>), which
+many agent tools still use, work on the same URL. Offloader answers their <code>initialize</code> without
+opening a session, so their requests stand alone too. They read the same endpoints with the same
+keys and tenant filters. What they lack are the mirrored headers described
+<a href="#caching-at-the-edge">below</a>, so their responses are never cacheable, and edge rules keyed on
+those headers don&#39;t apply to them.</p>
 <h2 id="what-an-agent-sees">What an agent sees</h2>
 <p>Every endpoint you&#39;ve configured shows up twice, because the protocol has two ways to read data
 and they behave differently:</p>
@@ -165,6 +171,7 @@ server.</p>
 <code>freshness.max_staleness_minutes</code>, capped at one hour.</li>
 <li><strong><code>cacheScope</code></strong> — <code>&quot;public&quot;</code> if a <strong>shared</strong> cache (a CDN) may hold it, <code>&quot;private&quot;</code> if not.</li>
 </ul>
+<p>An agent&#39;s MCP client uses them to reuse a fresh result instead of asking again.</p>
 <p><code>cacheScope</code> is <code>&quot;public&quot;</code> only when the response has no tenant attached — that is, when you run
 <code>auth: none</code> and the endpoint is not tenant-scoped. It is exactly the same decision the REST path
 makes when it chooses between <code>Cache-Control: public, max-age=…</code> and <code>private, no-store</code>, taken in
@@ -180,18 +187,29 @@ MCP-Protocol-Version: 2026-07-28
 Mcp-Method: resources/read
 Mcp-Name: offloader://customer_usage_summary?from=2026-05-30&amp;to=2026-06-01
 </code></pre>
-<p><code>Mcp-Name</code> carries the <strong>whole resource URI</strong> — endpoint and params together. That single header
-is a complete cache key, so an edge can cache, route, and rate-limit without parsing the body at
-all.</p>
-<p>Offloader <strong>requires</strong> those headers and rejects a request whose header disagrees with its body
-(<code>-32020 HeaderMismatch</code>). That strictness is the point: a cache that keys on <code>Mcp-Name</code> is only
-safe if the server refuses to execute anything else.</p>
+<p><code>Mcp-Method</code> names the operation and <code>Mcp-Name</code> carries the <strong>whole resource URI</strong>, endpoint and
+params together. The two headers make a complete cache key, so an edge can cache, route, and
+rate-limit without parsing the body.</p>
+<p>Offloader <strong>requires</strong> those headers on <code>2026-07-28</code> requests and rejects one whose headers
+disagree with its body (<code>-32020 HeaderMismatch</code>), including an <code>Mcp-Name</code> on a method that has no
+name. That strictness is the point: a cache keyed on these headers is only safe if the server
+refuses to execute anything else.</p>
+<p>Older clients don&#39;t send the mirrored headers, so there is nothing to check them against. Their
+responses carry no <code>ttlMs</code> or <code>cacheScope</code> and always come back <code>private, no-store</code>, even for
+public data and even if the request carries an <code>Mcp-Name</code> header.</p>
 <blockquote>
-<p>Caching POST responses is not a CDN default. You&#39;ll need a cache rule on the <code>/mcp</code> route keyed
-on <code>Mcp-Name</code>. Cache only responses that Offloader marks <code>Cache-Control: public</code> (it does this
-only in an <code>auth: none</code> deployment), and keep the cache lifetime it sends. Authenticated reads
-come back <code>private, no-store</code>. Never put them in a shared cache. Public reads carry the same
-<code>CDN-Tag</code> as the REST response for that endpoint, so one tag purge covers both surfaces.</p>
+<p>Caching POST responses is not a CDN default, and a plain cache rule isn&#39;t enough. The cached body
+carries the JSON-RPC <code>id</code> of the request that filled the cache, and MCP clients match responses
+by <code>id</code>, so you need an edge function that puts each request&#39;s <code>id</code> into the cached response.
+Key the cache on <code>Mcp-Method</code> plus <code>Mcp-Name</code>, and only for requests that send
+<code>MCP-Protocol-Version: 2026-07-28</code>. Cache only responses that Offloader marks
+<code>Cache-Control: public</code> (it does this only in an <code>auth: none</code> deployment), and keep the cache
+lifetime it sends. Authenticated reads come back <code>private, no-store</code>. Never put them in a shared
+cache. Public reads carry the same <code>CDN-Tag</code> as the REST response for that endpoint, so one tag
+purge covers both surfaces.</p>
+<p>The same goes for routing or rate limits keyed on these headers: apply them only to <code>2026-07-28</code>
+requests. An older client&#39;s request doesn&#39;t carry the headers, so limit it some other way (by
+key or IP) or turn it away at the edge.</p>
 </blockquote>
 <h2 id="authentication">Authentication</h2>
 <p>Identical to the REST path, because it&#39;s the same key model:</p>
@@ -203,8 +221,8 @@ bound tenant apply exactly as they do over REST.</li>
 <p>Discovery is scoped to the key. <code>tools/list</code> and <code>resources/templates/list</code> return <strong>only</strong> the
 endpoints that key grants, so an agent never learns that an endpoint it can&#39;t call exists. Calling
 one anyway returns the same <code>not found</code> an unknown endpoint returns.</p>
-<p><code>server/discover</code> answers without a key: it reports the protocol version and capabilities, never
-data or endpoint names.</p>
+<p><code>server/discover</code> and <code>initialize</code> answer without a key: they report protocol versions and
+capabilities, never data or endpoint names.</p>
 <h2 id="supported-methods">Supported methods</h2>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -216,7 +234,15 @@ data or endpoint names.</p>
 </thead>
 <tbody><tr>
 <td><code>server/discover</code></td>
-<td>Protocol version + capabilities. No key required.</td>
+<td>Protocol versions + capabilities. No key required.</td>
+</tr>
+<tr>
+<td><code>initialize</code></td>
+<td>For clients on the older handshake: agrees on a version. No key required, and no session is created.</td>
+</tr>
+<tr>
+<td><code>ping</code></td>
+<td>For clients on the older handshake.</td>
 </tr>
 <tr>
 <td><code>tools/list</code></td>
@@ -242,7 +268,9 @@ data or endpoint names.</p>
 </div>
 <p>Not implemented: <code>prompts/*</code>, <code>subscriptions/listen</code>, sampling, elicitation, and roots. Offloader
 serves data and never needs to ask the client for anything. A snapshot swap is picked up when
-<code>ttlMs</code> expires rather than pushed as a notification.</p>
+<code>ttlMs</code> expires rather than pushed as a notification. Older clients get no event stream and have
+no session to end, so <code>GET /mcp</code> and <code>DELETE /mcp</code> return 405. JSON-RPC batches, which only
+<code>2025-03-26</code> allowed, are refused: send one request per POST.</p>
 <h2 id="errors">Errors</h2>
 <div class="table-scroll" tabindex="0">
 <table>
@@ -261,16 +289,24 @@ serves data and never needs to ask the client for anything. A snapshot swap is p
 <td>HTTP 503</td>
 </tr>
 <tr>
-<td>Missing/mismatched <code>Mcp-Method</code>, <code>Mcp-Name</code>, or version header</td>
+<td>Missing, mismatched, or misplaced <code>Mcp-Method</code>, <code>Mcp-Name</code>, or version header (<code>2026-07-28</code> requests)</td>
 <td>HTTP 400, code <code>-32020</code></td>
 </tr>
 <tr>
 <td>Protocol version we don&#39;t speak</td>
-<td>HTTP 400, code <code>-32022</code>, with the versions we do</td>
+<td>HTTP 400, code <code>-32022</code>, listing every version we do</td>
 </tr>
 <tr>
 <td>Unknown method</td>
-<td>HTTP 404, code <code>-32601</code></td>
+<td>HTTP 404, code <code>-32601</code> (HTTP 200 for a client on the older handshake)</td>
+</tr>
+<tr>
+<td><code>GET</code> or <code>DELETE</code> on <code>/mcp</code></td>
+<td>HTTP 405</td>
+</tr>
+<tr>
+<td>A JSON-RPC batch</td>
+<td>HTTP 400, code <code>-32600</code></td>
 </tr>
 <tr>
 <td>Bad param, or an endpoint the key can&#39;t reach — on <code>tools/call</code></td>

@@ -1,8 +1,9 @@
 defmodule OffloaderWeb.MCPHTTPTest do
-  # The MCP surface (POST /mcp, revision 2026-07-28) over real HTTP against a booted
-  # Runtime and real DuckDB. Covers the protocol handshake-less contract (version +
-  # mirrored headers), and — the part that matters — that the cache advertisement and
-  # the tenant boundary agree with the REST path. async: false (singleton + DuckDB).
+  # The MCP surface (POST /mcp) over real HTTP against a booted Runtime and real DuckDB.
+  # Covers revision 2026-07-28's handshake-less contract (version + mirrored headers), the
+  # initialize-era clients served on the same URL, and — the part that matters — that the
+  # cache advertisement and the tenant boundary agree with the REST path. async: false
+  # (singleton + DuckDB).
   use ExUnit.Case, async: false
   import Phoenix.ConnTest
   import Plug.Conn
@@ -54,9 +55,25 @@ defmodule OffloaderWeb.MCPHTTPTest do
 
     build_conn()
     |> put_req_header("content-type", "application/json")
-    |> put_req_header("mcp-protocol-version", version)
+    |> put_header("mcp-protocol-version", version)
     |> put_header("mcp-method", Keyword.get(opts, :mcp_method, method))
     |> put_header("mcp-name", Keyword.get(opts, :mcp_name, mirrored_name(method, params)))
+    |> put_bearer(opts[:token])
+    |> post("/mcp", JSON.encode_to_iodata!(body) |> IO.iodata_to_binary())
+  end
+
+  # An initialize-era request: no `_meta` version and no mirrored headers, just the version
+  # header those clients send after `initialize`. `version: nil` omits it, as 2025-03-26
+  # clients do, `notification: true` omits the `id`, and `mcp_name:` forges a mirrored header.
+  defp legacy(method, params \\ %{}, opts \\ []) do
+    body = %{"jsonrpc" => "2.0", "method" => method, "params" => params}
+    body = if opts[:notification], do: body, else: Map.put(body, "id", 1)
+
+    build_conn()
+    |> put_req_header("content-type", "application/json")
+    |> put_req_header("accept", "application/json, text/event-stream")
+    |> put_header("mcp-protocol-version", Keyword.get(opts, :version, "2025-11-25"))
+    |> put_header("mcp-name", opts[:mcp_name])
     |> put_bearer(opts[:token])
     |> post("/mcp", JSON.encode_to_iodata!(body) |> IO.iodata_to_binary())
   end
@@ -85,7 +102,13 @@ defmodule OffloaderWeb.MCPHTTPTest do
     test "server/discover advertises the version and capabilities without a key" do
       result = result(rpc("server/discover"))
 
-      assert result["supportedVersions"] == [@version]
+      assert result["supportedVersions"] == [
+               "2026-07-28",
+               "2025-11-25",
+               "2025-06-18",
+               "2025-03-26"
+             ]
+
       assert result["resultType"] == "complete"
       assert Map.has_key?(result["capabilities"], "tools")
       assert Map.has_key?(result["capabilities"], "resources")
@@ -214,6 +237,14 @@ defmodule OffloaderWeb.MCPHTTPTest do
       assert error["code"] == -32_020
     end
 
+    test "an Mcp-Name on a method without a name is a HeaderMismatch" do
+      # A cache keyed on Mcp-Name would otherwise file this list under the resource's key.
+      error =
+        rpc("tools/list", %{}, mcp_name: "offloader://champion?champion_id=1") |> rpc_error(400)
+
+      assert error["code"] == -32_020
+    end
+
     test "a base64-sentinel Mcp-Name is decoded before comparison" do
       uri = "offloader://champion?champion_id=1"
       encoded = "=?base64?" <> Base.encode64(uri) <> "?="
@@ -222,11 +253,51 @@ defmodule OffloaderWeb.MCPHTTPTest do
                "public"
     end
 
-    test "a version the server does not speak is rejected with the supported list" do
-      error = rpc("tools/list", %{}, version: "2025-06-18") |> rpc_error(400)
+    test "a version the server does not speak is rejected with every version it does" do
+      error = rpc("tools/list", %{}, version: "1900-01-01") |> rpc_error(400)
 
       assert error["code"] == -32_022
-      assert error["data"]["supported"] == [@version]
+
+      assert error["data"] == %{
+               "supported" => MCP.supported_versions(),
+               "requested" => "1900-01-01"
+             }
+    end
+
+    # Where the eras meet: either half of 2026-07-28's version declaration holds the request
+    # to its rules, and only an `initialize` without `_meta` is let through as initialize-era.
+    test "a 2026-07-28 header without the _meta version is a HeaderMismatch" do
+      assert legacy("tools/list", %{}, version: @version) |> rpc_error(400) |> Map.get("code") ==
+               -32_020
+    end
+
+    test "a _meta version without the header is a HeaderMismatch" do
+      error = rpc("tools/list", %{}, version: nil, body_version: @version) |> rpc_error(400)
+      assert error["code"] == -32_020
+    end
+
+    test "an initialize left with a 2026-07-28 header is still answered as initialize-era" do
+      result =
+        result(legacy("initialize", %{"protocolVersion" => "2025-06-18"}, version: @version))
+
+      assert result["protocolVersion"] == "2025-06-18"
+    end
+
+    test "a request naming an initialize-era version in _meta is pointed at initialize" do
+      error = rpc("tools/list", %{}, version: "2025-11-25") |> rpc_error(400)
+
+      assert error["code"] == -32_022
+      assert error["message"] =~ "initialize"
+    end
+
+    test "a batch is refused with a clear error" do
+      conn =
+        build_conn()
+        |> put_req_header("content-type", "application/json")
+        |> post("/mcp", ~s([{"jsonrpc":"2.0","id":1,"method":"ping"}]))
+
+      assert %{"code" => -32_600, "message" => message} = rpc_error(conn, 400)
+      assert message =~ "batches"
     end
 
     test "a header/body version disagreement is a HeaderMismatch" do
@@ -259,7 +330,7 @@ defmodule OffloaderWeb.MCPHTTPTest do
     end
 
     test "server/discover still answers without a key" do
-      assert result(rpc("server/discover"))["supportedVersions"] == [@version]
+      assert result(rpc("server/discover"))["supportedVersions"] == MCP.supported_versions()
     end
 
     test "tools/list shows only the endpoints the presented key grants" do
@@ -386,6 +457,130 @@ defmodule OffloaderWeb.MCPHTTPTest do
       metrics = Offloader.Metrics.Requests.to_prometheus()
       refute metrics =~ invented
       assert metrics =~ ~s(endpoint="<unresolved>")
+    end
+  end
+
+  # Clients that open with `initialize` (2025-03-26 to 2025-11-25) on the same URL: most agent
+  # clients still do by default, and a 2026-07-28-only server leaves them nothing to fall back to.
+  describe "an initialize-era client, against a tenant-scoped project" do
+    setup do: boot(@tenant_project)
+
+    test "initialize echoes a version it speaks, with no key and no session" do
+      conn =
+        legacy(
+          "initialize",
+          %{
+            "protocolVersion" => "2025-06-18",
+            "capabilities" => %{},
+            "clientInfo" => %{"name" => "test", "version" => "1"}
+          },
+          version: nil
+        )
+
+      result = result(conn)
+      assert result["protocolVersion"] == "2025-06-18"
+      assert Map.keys(result["capabilities"]) |> Enum.sort() == ["resources", "tools"]
+      assert result["serverInfo"]["name"] == "offloader"
+      assert is_binary(result["instructions"])
+      assert get_resp_header(conn, "mcp-session-id") == []
+    end
+
+    test "initialize offers the newest initialize-era version when it can't echo the one asked" do
+      for asked <- ["2024-11-05", "2026-07-28", nil] do
+        result = result(legacy("initialize", %{"protocolVersion" => asked}, version: nil))
+        assert result["protocolVersion"] == "2025-11-25"
+      end
+    end
+
+    test "a notification is accepted with 202 and no body" do
+      conn = legacy("notifications/initialized", %{}, notification: true)
+
+      assert conn.status == 202
+      assert conn.resp_body == ""
+    end
+
+    test "reads need the key and keep its endpoint scope and tenant" do
+      assert legacy("tools/list") |> rpc_error(401)
+
+      tools = result(legacy("tools/list", %{}, token: @globex))["tools"]
+      assert Enum.map(tools, & &1["name"]) == ["customer_usage_summary"]
+
+      call = %{"name" => "customer_usage_summary", "arguments" => @range}
+      rows = legacy("tools/call", call, token: @acme) |> result() |> payload()
+      assert rows["data"] == read_summary(@acme)
+    end
+  end
+
+  describe "an initialize-era client, against a public project" do
+    setup do: boot(@public_project)
+
+    # A legacy request carries no validated Mcp-Name, so nothing in front of the server can key
+    # a cache on the resource it reads; its revisions define no cache fields either. The abuse
+    # case: claim an old version to skip header validation, forge Mcp-Name to point a cache at
+    # another resource, and hope the response is stored under it.
+    test "a read is never advertised as cacheable, in-band or over HTTP" do
+      conn =
+        legacy("resources/read", %{"uri" => "offloader://champion?champion_id=1"},
+          mcp_name: "offloader://champion?champion_id=2"
+        )
+
+      result = result(conn)
+
+      assert [row] = payload(result)["data"]
+      assert row["champion_id"] == "1"
+
+      for key <- ["ttlMs", "cacheScope", "resultType", "_meta"],
+          do: refute(Map.has_key?(result, key))
+
+      assert get_resp_header(conn, "cache-control") == ["private, no-store"]
+      assert get_resp_header(conn, "cdn-tag") == []
+    end
+
+    test "a request without a version header is served as 2025-03-26" do
+      assert [%{"name" => "champion"}] = result(legacy("tools/list", %{}, version: nil))["tools"]
+    end
+
+    test "a version header the server doesn't speak is rejected with every version it does" do
+      error = legacy("tools/list", %{}, version: "2024-11-05") |> rpc_error(400)
+
+      assert error["code"] == -32_022
+
+      assert error["data"] == %{
+               "supported" => MCP.supported_versions(),
+               "requested" => "2024-11-05"
+             }
+    end
+
+    test "a version header that isn't UTF-8 is rejected, not echoed into a crash" do
+      error = legacy("tools/list", %{}, version: <<0xFF>>) |> rpc_error(400)
+
+      assert error["code"] == -32_022
+      assert error["data"] == %{"supported" => MCP.supported_versions()}
+    end
+
+    test "an unknown method is method-not-found inside a 200" do
+      assert legacy("prompts/list") |> rpc_error(200) |> Map.get("code") == -32_601
+    end
+
+    test "ping answers an empty result" do
+      assert result(legacy("ping")) == %{}
+    end
+
+    test "GET and DELETE are 405, allowing only POST" do
+      for method <- [:get, :delete] do
+        conn =
+          build_conn()
+          |> put_req_header("accept", "text/event-stream")
+          |> dispatch(@endpoint, method, "/mcp")
+
+        assert conn.status == 405
+        assert get_resp_header(conn, "allow") == ["POST"]
+      end
+    end
+
+    test "GET is 404 while MCP is disabled" do
+      Application.put_env(:offloader, :mcp_enabled, false)
+      assert dispatch(build_conn(), @endpoint, :get, "/mcp") |> rpc_error(404)
     end
   end
 

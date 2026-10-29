@@ -1,9 +1,10 @@
 defmodule Offloader.MCP do
   @moduledoc """
-  A Model Context Protocol (revision `2026-07-28`) projection of the endpoint
-  registry, generated from the loaded `Catalog` — the same source `Offloader.Docs`
-  generates OpenAPI from, so an agent discovers exactly the contracts the runtime
-  enforces and there is no second copy to drift.
+  A Model Context Protocol projection of the endpoint registry, generated from the
+  loaded `Catalog` — the same source `Offloader.Docs` generates OpenAPI from, so an
+  agent discovers exactly the contracts the runtime enforces and there is no second
+  copy to drift. Served over revision `2026-07-28` and, for clients still on the
+  `initialize` handshake, over 2025-03-26 through 2025-11-25.
 
   This is a protocol adapter, not a new capability. Every tool and resource maps 1:1
   onto a configured endpoint and is served through `Runtime.serve/5`, so the
@@ -30,21 +31,29 @@ defmodule Offloader.MCP do
   alias Offloader.Catalog.Endpoint.Param
 
   @protocol_version "2026-07-28"
+  # The initialize-era revisions that define Streamable HTTP, newest first.
+  @legacy_versions ["2025-11-25", "2025-06-18", "2025-03-26"]
   @uri_prefix "offloader://"
   @mime "application/json"
   @server_info_key "io.modelcontextprotocol/serverInfo"
 
   @reserved ~w(limit offset columns)
 
-  @doc "The single MCP revision this server speaks."
+  @doc "The per-request revision this server speaks; requests that carry their version in `_meta`."
   @spec protocol_version() :: String.t()
   def protocol_version, do: @protocol_version
 
+  @doc "The initialize-era revisions this server also speaks, newest first."
+  @spec legacy_versions() :: [String.t()]
+  def legacy_versions, do: @legacy_versions
+
+  @doc "Every version this server speaks, newest first."
+  @spec supported_versions() :: [String.t()]
+  def supported_versions, do: [@protocol_version | @legacy_versions]
+
   @doc "`_meta` every result carries: the spec asks servers to identify themselves per result."
   @spec result_meta() :: map()
-  def result_meta do
-    %{@server_info_key => %{name: "offloader", version: Offloader.version()}}
-  end
+  def result_meta, do: %{@server_info_key => server_info()}
 
   # ── discovery ────────────────────────────────────────────────────────────────
 
@@ -52,11 +61,30 @@ defmodule Offloader.MCP do
   @spec discover() :: map()
   def discover do
     %{
-      supportedVersions: [@protocol_version],
-      capabilities: %{tools: %{}, resources: %{}},
+      supportedVersions: supported_versions(),
+      capabilities: capabilities(),
       instructions: instructions()
     }
   end
+
+  @doc """
+  The `initialize` result for a client still on the handshake: the version it asked for when
+  this server speaks it, otherwise the newest initialize-era one, and the client decides.
+  """
+  @spec initialize(term()) :: map()
+  def initialize(requested) do
+    %{
+      protocolVersion:
+        if(requested in @legacy_versions, do: requested, else: hd(@legacy_versions)),
+      capabilities: capabilities(),
+      serverInfo: server_info(),
+      instructions: instructions()
+    }
+  end
+
+  defp capabilities, do: %{tools: %{}, resources: %{}}
+
+  defp server_info, do: %{name: "offloader", version: Offloader.version()}
 
   # Guidance the model reads before calling anything. Two things worth its attention:
   # results are a periodic snapshot (not live), and the rows are third-party data —

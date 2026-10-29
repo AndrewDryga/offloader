@@ -1,13 +1,25 @@
 defmodule OffloaderWeb.MCPController do
   @moduledoc """
-  The MCP endpoint (`POST /mcp`) on the product API port, speaking revision
-  `2026-07-28` over Streamable HTTP.
+  The MCP endpoint (`POST /mcp`) on the product API port, over Streamable HTTP.
 
-  That revision is stateless — no `initialize` handshake, no session header, no GET
-  stream — so this is one route that answers each POST on its own. Every request
+  Revision `2026-07-28` is stateless — no `initialize` handshake, no session header, no
+  GET stream — so this is one route that answers each POST on its own. Every request
   carries its protocol version and is authorized independently, exactly like the REST
   path: reads run through `Runtime.serve/5`, so the tenant filter, endpoint allowlist,
   and column allowlist are the same ones the compiler already enforces.
+
+  ## Clients still on the `initialize` handshake
+
+  In late 2026 most agent clients still open with `initialize` (revisions 2025-03-26 to
+  2025-11-25), and against a 2026-07-28-only server they have nothing to fall back to. The spec lets
+  one endpoint serve both eras, so the era is chosen per request: an `initialize`, or a
+  request with neither a version in `_meta` nor a `2026-07-28` header, is initialize-era;
+  everything else is held to 2026-07-28's rules. Initialize-era requests are served
+  statelessly too. `initialize` is answered like `server/discover`, with no session ID;
+  a notification gets a bare 202; later requests name the agreed version in
+  `MCP-Protocol-Version`, or nothing on 2025-03-26. Methods, keys, and tenant filters
+  are the same. Their results carry no cache fields and are never shareable: with no
+  validated `Mcp-Name`, nothing in front of the server could key a cache on them.
 
   ## Why the mirrored headers are enforced, not tolerated
 
@@ -51,12 +63,24 @@ defmodule OffloaderWeb.MCPController do
 
     with :ok <- check_enabled(),
          {:ok, request} <- parse_request(body),
-         :ok <- check_version(conn, request),
-         :ok <- check_headers(conn, request) do
-      dispatch(conn, request)
+         {:ok, era} <- check_version(conn, request),
+         :ok <- check_headers(conn, request, era) do
+      conn |> assign(:mcp_era, era) |> dispatch(request)
     else
+      :notification ->
+        send_resp(conn, 202, "")
+
       {:error, status, code, message, data} ->
         rpc_error(conn, id_of(body), status, code, message, data)
+    end
+  end
+
+  # Initialize-era clients open a GET event stream and end sessions with DELETE. This
+  # server keeps neither, and 405 is how both eras say so.
+  def method_not_allowed(conn, _params) do
+    case check_enabled() do
+      :ok -> conn |> put_resp_header("allow", "POST") |> send_resp(405, "")
+      {:error, status, code, message, data} -> rpc_error(conn, nil, status, code, message, data)
     end
   end
 
@@ -70,6 +94,11 @@ defmodule OffloaderWeb.MCPController do
       else: error(404, @method_not_found, "the MCP endpoint is not enabled on this server")
   end
 
+  # A notification (no `id`) asks for nothing back, and this server acts on none.
+  defp parse_request(%{"jsonrpc" => "2.0", "method" => method} = body)
+       when is_binary(method) and not is_map_key(body, "id"),
+       do: :notification
+
   defp parse_request(%{"jsonrpc" => "2.0", "method" => method} = body) when is_binary(method) do
     case Map.get(body, "params", %{}) do
       params when is_map(params) ->
@@ -79,6 +108,11 @@ defmodule OffloaderWeb.MCPController do
         error(400, @invalid_request, "params must be an object")
     end
   end
+
+  # Only 2025-03-26 allowed batches; 2025-06-18 dropped them. Plug.Parsers hands a
+  # top-level JSON array over as `_json`.
+  defp parse_request(%{"_json" => list}) when is_list(list),
+    do: error(400, @invalid_request, "batches are not supported: send one request per POST")
 
   defp parse_request(body) when is_map(body),
     do: error(400, @invalid_request, "expected a JSON-RPC 2.0 request with a method")
@@ -90,12 +124,29 @@ defmodule OffloaderWeb.MCPController do
 
   # ── protocol version ─────────────────────────────────────────────────────────
 
-  # The header and the body's `_meta` must agree before either is trusted, then the
-  # agreed version must be one we speak.
+  # A request that names its version in `_meta`, or whose header names 2026-07-28, is
+  # modern: the header and `_meta` must agree before either is trusted, then the version
+  # must be one we speak. Anything else comes from an initialize-era client, which sends
+  # the header after `initialize`, except on 2025-03-26, which predates it.
   defp check_version(conn, request) do
     header = header_value(conn, "mcp-protocol-version")
-    declared = get_in(request.params, ["_meta", @version_meta_key])
 
+    declared =
+      case request.params do
+        %{"_meta" => %{@version_meta_key => version}} -> version
+        _ -> nil
+      end
+
+    cond do
+      # A client falling back from a 2026-07-28 probe may still send that header.
+      request.method == "initialize" and is_nil(declared) -> {:ok, :legacy}
+      declared != nil or header == MCP.protocol_version() -> check_modern(header, declared)
+      is_nil(header) or header in MCP.legacy_versions() -> {:ok, :legacy}
+      true -> unsupported_version(header)
+    end
+  end
+
+  defp check_modern(header, declared) do
     cond do
       is_nil(header) ->
         error(400, @header_mismatch, "the MCP-Protocol-Version header is required")
@@ -108,21 +159,36 @@ defmodule OffloaderWeb.MCPController do
         )
 
       header != MCP.protocol_version() ->
-        error(400, @unsupported_version, "unsupported protocol version", %{
-          supported: [MCP.protocol_version()]
-        })
+        unsupported_version(header)
 
       true ->
-        :ok
+        {:ok, :modern}
     end
+  end
+
+  # `requested` comes from a header, which can carry bytes that aren't UTF-8 and would
+  # crash the JSON encoder, so it's echoed only when valid.
+  defp unsupported_version(requested) do
+    data = %{supported: MCP.supported_versions()}
+    data = if String.valid?(requested), do: Map.put(data, :requested, requested), else: data
+
+    message =
+      if requested in MCP.legacy_versions(),
+        do: "protocol version #{requested} is served after an initialize handshake",
+        else: "unsupported protocol version"
+
+    error(400, @unsupported_version, message, data)
   end
 
   # ── mirrored headers (SEP-2243) ──────────────────────────────────────────────
 
-  defp check_headers(conn, request) do
+  # Initialize-era revisions define no mirrored headers.
+  defp check_headers(_conn, _request, :legacy), do: :ok
+
+  defp check_headers(conn, request, :modern) do
     with :ok <- match_header(conn, "mcp-method", request.method, "Mcp-Method") do
       case required_name(request) do
-        :not_required -> :ok
+        :not_required -> refute_name(conn)
         {:ok, expected} -> match_header(conn, "mcp-name", expected, "Mcp-Name")
         :missing -> :ok
       end
@@ -135,6 +201,19 @@ defmodule OffloaderWeb.MCPController do
   defp required_name(%{method: "tools/call", params: params}), do: fetch_string(params, "name")
   defp required_name(%{method: "resources/read", params: params}), do: fetch_string(params, "uri")
   defp required_name(_request), do: :not_required
+
+  # A name on a method that has none would let a cache keyed on `Mcp-Name` file this
+  # method's result under some resource's key.
+  defp refute_name(conn) do
+    if header_value(conn, "mcp-name"),
+      do:
+        error(
+          400,
+          @header_mismatch,
+          "the Mcp-Name header applies only to tools/call and resources/read"
+        ),
+      else: :ok
+  end
 
   defp fetch_string(params, key) do
     case Map.get(params, key) do
@@ -245,7 +324,7 @@ defmodule OffloaderWeb.MCPController do
       case read(conn, name, arguments) do
         {:ok, tenant, response} ->
           conn
-          |> CachePolicy.put_cdn_tag(tenant, name)
+          |> put_cdn_tag(tenant, name)
           |> send_result(
             id,
             %{contents: [resource_content(uri, encode(response))]},
@@ -260,8 +339,25 @@ defmodule OffloaderWeb.MCPController do
     end
   end
 
-  defp dispatch(conn, %{method: method, id: id}),
-    do: rpc_error(conn, id, 404, @method_not_found, "unknown method #{inspect(method)}", nil)
+  defp dispatch(%{assigns: %{mcp_era: :legacy}} = conn, %{method: "initialize"} = request),
+    do: send_result(conn, request.id, MCP.initialize(request.params["protocolVersion"]), %{})
+
+  defp dispatch(%{assigns: %{mcp_era: :legacy}} = conn, %{method: "ping", id: id}),
+    do: send_result(conn, id, %{}, %{})
+
+  # 2026-07-28 answers an unknown method with a 404. Initialize-era clients expect the
+  # JSON-RPC error inside a 200, as the SDK servers send it: the TypeScript client treats
+  # any other status as a transport failure.
+  defp dispatch(conn, %{method: method, id: id}) do
+    status = if conn.assigns.mcp_era == :modern, do: 404, else: 200
+    rpc_error(conn, id, status, @method_not_found, "unknown method #{inspect(method)}", nil)
+  end
+
+  # Only a 2026-07-28 read can sit in a shared cache, so only it gets the purge tag.
+  defp put_cdn_tag(%{assigns: %{mcp_era: :modern}} = conn, tenant, name),
+    do: CachePolicy.put_cdn_tag(conn, tenant, name)
+
+  defp put_cdn_tag(conn, _tenant, _name), do: conn
 
   # ── serving ──────────────────────────────────────────────────────────────────
 
@@ -394,6 +490,14 @@ defmodule OffloaderWeb.MCPController do
       ttlMs: ttl_seconds * 1000,
       cacheScope: if(CachePolicy.shared?(tenant), do: "public", else: "private")
     }
+  end
+
+  # An initialize-era result is the bare payload those revisions define, and never
+  # shareable: the request carried no validated `Mcp-Name` to key a cache on.
+  defp send_result(%{assigns: %{mcp_era: :legacy}} = conn, id, payload, _cache) do
+    conn
+    |> put_resp_header("cache-control", "private, no-store")
+    |> send_json(200, %{jsonrpc: "2.0", id: id, result: payload})
   end
 
   defp send_result(conn, id, payload, cache) do

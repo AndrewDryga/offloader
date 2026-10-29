@@ -112,9 +112,10 @@ The engineer's-eye view (the plain-language version is in [concepts](https://off
 - Expose generated docs/OpenAPI + a client `/schema`, Prometheus metrics (pool,
   refresh, per-endpoint latency), and redacted diagnostics on a separate admin port.
 - Optionally serve the **same endpoints to AI agents** over the Model Context Protocol
-  (revision `2026-07-28`) at `POST /mcp` — generated from the same registry, with the same
-  key scoping and tenant filters, and no SQL surface. Off unless `OFFLOADER_MCP_ENABLED=true`;
-  see [AI agents (MCP)](https://offloader.dryga.com/docs/mcp.html).
+  (revision `2026-07-28`, and clients still on the older `initialize` handshake) at
+  `POST /mcp` — generated from the same registry, with the same key scoping and tenant
+  filters, and no SQL surface. Off unless `OFFLOADER_MCP_ENABLED=true`; see
+  [AI agents (MCP)](https://offloader.dryga.com/docs/mcp.html).
 - Preserve the previous good snapshot on refresh failure (`rollback`), and ship a
   signed container image via CI on every version tag.
 
