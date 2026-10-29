@@ -45,10 +45,11 @@ stale output. Existing `.html` URLs remain canonical, including `/docs/index.htm
 
 ## Fonts (self-hosted, OFL)
 
-`fonts/` contains [Space Grotesk](https://github.com/floriankarsten/space-grotesk) and
-[JetBrains Mono](https://github.com/JetBrains/JetBrainsMono), both under the **SIL Open Font
-License 1.1**. For a production deploy, ship the upstream `OFL.txt` alongside these files to
-satisfy the license's bundling requirement.
+`fonts/` contains [Space Grotesk](https://github.com/floriankarsten/space-grotesk) (500, 600,
+700) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (400, 500), both under the
+**SIL Open Font License 1.1**; each family's license ships next to it (`*-OFL.txt`). Each file is
+one weight of the family's variable font, trimmed to the Latin set plus the arrows block
+(U+2190–21FF). `../dev/scripts/site-fonts.py` rebuilds them from the pinned sources.
 
 Long documentation pages get an “On this page” disclosure from their level-two
 headings. Keep those headings useful as navigation labels. Wide tables stay
