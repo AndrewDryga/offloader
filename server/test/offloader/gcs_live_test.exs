@@ -72,9 +72,9 @@ defmodule Offloader.GcsLiveTest do
                 ["data"]
               )
 
-            assert [[champion_id, data]] = res.rows
+            assert [[champion_id, %Offloader.RawJSON{json: data}]] = res.rows
             assert champion_id == "1"
-            assert is_map(data) and is_integer(data["num_games"])
+            assert is_integer(JSON.decode!(data)["num_games"])
 
           {:error, %Engine.Error{message: message}} ->
             # The bucket can transiently reference parts a concurrent export just
