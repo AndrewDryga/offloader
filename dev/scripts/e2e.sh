@@ -82,6 +82,14 @@ for ep in customer_usage_summary customer_usage_daily top_accounts_by_usage; do
   echo "  ok  $ep  ($(jq '.data | length' "$WORK/body") rows, snapshot $(jq -r '.meta.snapshot_id' "$WORK/body"))"
 done
 
+echo "e2e: responses are compressed for clients that ask"
+url="$API/v1/endpoints/customer_usage_summary?from=2026-05-30&to=2026-06-01"
+curl -s -D "$WORK/headers" -o "$WORK/body.gz" -H "Authorization: Bearer $KEY" -H "Accept-Encoding: gzip" "$url"
+grep -qi '^content-encoding: gzip' "$WORK/headers" || { cat "$WORK/headers"; fail "gzip was not applied"; }
+grep -qi '^vary:.*accept-encoding' "$WORK/headers" || { cat "$WORK/headers"; fail "no Vary: Accept-Encoding"; }
+gunzip -c "$WORK/body.gz" | jq -e '(.data | length) >= 1' >/dev/null || fail "gzip body did not decode to the response"
+echo "  ok  Accept-Encoding: gzip -> gzip body, Vary: Accept-Encoding"
+
 echo "e2e: denial paths fail closed"
 expect 401 "no-such-key" "/v1/endpoints/customer_usage_summary?from=2026-05-30&to=2026-06-01"
 echo "  ok  missing/invalid key -> 401"

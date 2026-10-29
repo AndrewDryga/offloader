@@ -54,6 +54,10 @@ These are properties of the serving path, not of one protocol, so they hold iden
 an agent reading over [MCP](mcp.md): the same compiled query, the same key check, the same
 inserted tenant filter, the same column allowlist.
 
+Compressed responses don't open a BREACH-style leak, which needs another site to make a visitor's
+browser send authenticated requests. A key travels in the `Authorization` header, never in a
+cookie, so a browser doesn't attach it on its own, and public responses hold no secrets.
+
 Secrets stay out of the open. Logs, metrics, diagnostics, and support bundles
 never include API keys, tokens, credentialed URLs, or raw request params by
 default — bundles are redacted and list exactly what's inside. And the intended

@@ -128,7 +128,8 @@ Authorization: Bearer &lt;token&gt;          # omit for a public (auth: none) AP
 </div>
 <p>A value with a literal <code>+</code> is sent URL-encoded (<code>%2B</code>); a space decodes to <code>+</code> on the way in.</p>
 <h2 id="the-response">The response</h2>
-<p>Always the same envelope: <code>data</code> (the rows) + <code>meta</code> (what you&#39;re reading).</p>
+<p>Always the same envelope: <code>data</code> (the rows) + <code>meta</code> (what you&#39;re reading). Send
+<code>Accept-Encoding: zstd</code> or <code>gzip</code> to get it compressed; <code>Content-Encoding</code> says which you got.</p>
 <pre tabindex="0"><code class="language-json">{
   &quot;data&quot;: [
     { &quot;account_id&quot;: &quot;acct_zephyr&quot;, &quot;active_users_total&quot;: 244, &quot;api_calls_total&quot;: 56839, &quot;storage_gb_avg&quot;: 34.300000000000004 }

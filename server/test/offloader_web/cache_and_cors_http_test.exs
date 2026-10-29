@@ -231,4 +231,56 @@ defmodule OffloaderWeb.CacheAndCorsHTTPTest do
       assert get_resp_header(conn, "access-control-allow-methods") != []
     end
   end
+
+  # Bandit compresses a response when the client's Accept-Encoding allows it, but skips one with a
+  # strong ETag or `Cache-Control: no-transform`. Public responses stay compressible only while
+  # their ETag is weak. ConnTest skips the HTTP adapter, so these requests go through a real
+  # Bandit listener started with the endpoint's own `http:` options.
+  describe "responses are compressed for clients that accept it" do
+    setup do
+      boot(@public)
+      {:ok, _} = Application.ensure_all_started(:inets)
+
+      {:ok, server} =
+        Application.fetch_env!(:offloader, OffloaderWeb.ApiEndpoint)
+        |> Keyword.get(:http, [])
+        |> Keyword.merge(
+          plug: OffloaderWeb.ApiEndpoint,
+          ip: :loopback,
+          port: 0,
+          startup_log: false
+        )
+        |> Bandit.start_link()
+
+      on_exit(fn -> Offloader.TestSupport.stop_if_alive(server) end)
+      {:ok, {_ip, port}} = ThousandIsland.listener_info(server)
+      %{url: ~c"http://127.0.0.1:#{port}/v1/endpoints/champion?champion_id=1"}
+    end
+
+    defp fetch(url, headers) do
+      {:ok, {{_, 200, _}, resp_headers, body}} =
+        :httpc.request(:get, {url, headers}, [], body_format: :binary)
+
+      {Map.new(resp_headers, fn {k, v} -> {to_string(k), to_string(v)} end), body}
+    end
+
+    test "zstd and gzip bodies carry the same data, and caches keep the variants apart", %{
+      url: url
+    } do
+      {plain_headers, plain} = fetch(url, [])
+      refute Map.has_key?(plain_headers, "content-encoding")
+      data = JSON.decode!(plain)["data"]
+
+      for {coding, decode} <- [
+            {"zstd", &IO.iodata_to_binary(:zstd.decompress(&1))},
+            {"gzip", &:zlib.gunzip/1}
+          ] do
+        {headers, body} = fetch(url, [{~c"accept-encoding", String.to_charlist(coding)}])
+        assert headers["content-encoding"] == coding
+        assert headers["vary"] =~ "accept-encoding"
+        assert headers["etag"] == plain_headers["etag"]
+        assert JSON.decode!(decode.(body))["data"] == data
+      end
+    end
+  end
 end

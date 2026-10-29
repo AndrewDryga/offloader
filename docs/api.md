@@ -26,7 +26,8 @@ A value with a literal `+` is sent URL-encoded (`%2B`); a space decodes to `+` o
 
 ## The response
 
-Always the same envelope: `data` (the rows) + `meta` (what you're reading).
+Always the same envelope: `data` (the rows) + `meta` (what you're reading). Send
+`Accept-Encoding: zstd` or `gzip` to get it compressed; `Content-Encoding` says which you got.
 
 ```json
 {
