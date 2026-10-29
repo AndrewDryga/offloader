@@ -292,8 +292,17 @@ defmodule Offloader.Runtime do
   end
 
   @impl true
-  def terminate(_reason, _state) do
+  def terminate(_reason, state) do
     :persistent_term.erase({__MODULE__, self()})
+
+    # The engine is linked, but a normal stop doesn't reach it: close it here, or its DuckDB
+    # database and threads outlive the Runtime that started it.
+    try do
+      Engine.stop(state.engine)
+    catch
+      :exit, _ -> :ok
+    end
+
     :ok
   end
 
