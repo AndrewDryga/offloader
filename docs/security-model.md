@@ -74,10 +74,21 @@ pipeline** that publishes data to object storage, along with the object-store
 permissions themselves.
 
 Treat `auth: none` as publishing. Anyone who can reach the API port can read every
-endpoint, and a private network doesn't change that: Offloader doesn't check a request's
-`Host` or `Origin`, so a web page can use DNS rebinding to make a visitor's browser read an
-internal address. If the data isn't meant to be public, give it API keys. A browser never
-sends those on its own.
+endpoint, and a private network alone doesn't change that: a web page can use DNS rebinding
+to make a visitor's browser read an internal address. On a private network, set
+`OFFLOADER_ALLOWED_HOSTS` to the names your clients use. Offloader then refuses a request
+addressed to any other name, and a rebinding page can only send a name the attacker owns.
+If the data isn't meant to be public at all, give it API keys. A browser never sends those
+on its own.
+
+That check only helps if nothing else lets a web page in. On a private network, don't set
+`OFFLOADER_CORS_ORIGINS=*`: it lets any page read the API by its real name, no rebinding needed,
+so list the origins that may call it instead. Behind a proxy, forward the client's `Host`
+(nginx: `proxy_set_header Host $host`) or enforce the names at the proxy, because a proxy that
+rewrites `Host` to its upstream address makes every request look allowed. Requests addressed to an
+IP address or to `localhost` always pass, since a rebinding page can't send those. The setting
+covers the API port only: the admin port's open pages (docs, schema, metrics and status) hold no
+data, but keep that port off networks people browse from.
 
 A fourth applies only if you enable the [agent surface](mcp.md): **what your columns
 contain.** Rows served to an agent land in a model's context, and a model reads its

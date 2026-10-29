@@ -176,6 +176,7 @@ no session to end, so `GET /mcp` and `DELETE /mcp` return 405. JSON-RPC batches,
 | Situation | What comes back |
 | --- | --- |
 | Missing or bad bearer token | HTTP 401 |
+| Addressed to a host name the server doesn't answer to (`OFFLOADER_ALLOWED_HOSTS`) | HTTP 403 |
 | Service still starting | HTTP 503 |
 | Missing, mismatched, or misplaced `Mcp-Method`, `Mcp-Name`, or version header (`2026-07-28` requests) | HTTP 400, code `-32020` |
 | Protocol version we don't speak | HTTP 400, code `-32022`, listing every version we do |

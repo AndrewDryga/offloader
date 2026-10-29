@@ -10,6 +10,8 @@ defmodule OffloaderWeb.ApiEndpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  # Before anything reads the request: one addressed to an unlisted host name is refused.
+  plug OffloaderWeb.Plugs.AllowedHosts
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :json],

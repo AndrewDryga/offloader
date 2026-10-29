@@ -3,10 +3,11 @@ defmodule Offloader.ApiErrorTest do
 
   alias Offloader.ApiError
 
-  @families [:invalid_param, :unauthorized, :not_found, :not_ready, :internal]
+  @families [:invalid_param, :unauthorized, :forbidden, :not_found, :not_ready, :internal]
   @statuses %{
     invalid_param: 422,
     unauthorized: 401,
+    forbidden: 403,
     not_found: 404,
     not_ready: 503,
     internal: 500

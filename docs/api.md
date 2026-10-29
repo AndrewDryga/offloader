@@ -84,13 +84,14 @@ look identical on purpose, so probing can't map what exists. Every error body is
 ```
 
 `error.family` is the stable machine-readable code (`invalid_param`, `unauthorized`,
-`not_found`, `not_ready`, `internal`); `error.message` is safe to log but never echoes a raw
-param, secret, or SQL.
+`forbidden`, `not_found`, `not_ready`, `internal`); `error.message` is safe to log but never
+echoes a raw param, secret, or SQL.
 
 | HTTP | When | What the client should do |
 | --- | --- | --- |
 | `200` | OK | — |
 | `401` | Missing / invalid / revoked key | Fix the `Authorization` header. |
+| `403` | Addressed to a host name the server doesn't answer to (`OFFLOADER_ALLOWED_HOSTS`) | Call it by one of its configured names. |
 | `404` | Unknown endpoint, or the key isn't granted it (indistinguishable) | Check the name and the key's grants. |
 | `422` | A param is missing / mistyped / out of range, or an undeclared param was sent | Fix the params. |
 | `503` | The snapshot isn't materialized yet (`not_ready`) | Retry with backoff; it clears once ready. |

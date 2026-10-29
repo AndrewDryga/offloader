@@ -47,6 +47,7 @@ PHX_SERVER=1 \
   OFFLOADER_CACHE_DIR="$WORK/cache" \
   OFFLOADER_API_PORT="$API_PORT" \
   OFFLOADER_ADMIN_PORT="$ADMIN_PORT" \
+  OFFLOADER_ALLOWED_HOSTS=offloader.test \
   mix run --no-halt >"$WORK/server.log" 2>&1 &
 PID=$!
 
@@ -89,6 +90,15 @@ grep -qi '^content-encoding: gzip' "$WORK/headers" || { cat "$WORK/headers"; fai
 grep -qi '^vary:.*accept-encoding' "$WORK/headers" || { cat "$WORK/headers"; fail "no Vary: Accept-Encoding"; }
 gunzip -c "$WORK/body.gz" | jq -e '(.data | length) >= 1' >/dev/null || fail "gzip body did not decode to the response"
 echo "  ok  Accept-Encoding: gzip -> gzip body, Vary: Accept-Encoding"
+
+echo "e2e: only listed host names are answered (IP addresses and /healthz always are)"
+host_code() { curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY" -H "Host: $1" "$2"; }
+[ "$(host_code evil.example "$url")" = "403" ] || fail "a request for an unlisted host name was served"
+[ "$(host_code offloader.test "$url")" = "200" ] || fail "a request for a listed host name was refused"
+# What a browser sends: the name with the port.
+[ "$(host_code "offloader.test:$API_PORT" "$url")" = "200" ] || fail "a listed host name with its port was refused"
+[ "$(host_code evil.example "$API/healthz")" = "200" ] || fail "/healthz was refused for an unlisted host"
+echo "  ok  Host: evil.example -> 403, Host: offloader.test[:port] -> 200, /healthz -> 200"
 
 echo "e2e: denial paths fail closed"
 expect 401 "no-such-key" "/v1/endpoints/customer_usage_summary?from=2026-05-30&to=2026-06-01"

@@ -14,6 +14,11 @@ defmodule Offloader.Docs do
   @errors [
     %{status: 401, family: "unauthorized", when: "missing, invalid, or revoked API key"},
     %{
+      status: 403,
+      family: "forbidden",
+      when: "addressed to a host name the server doesn't answer to (OFFLOADER_ALLOWED_HOSTS)"
+    },
+    %{
       status: 404,
       family: "not_found",
       when: "unknown endpoint, or one your key is not granted (indistinguishable)"
@@ -259,6 +264,7 @@ defmodule Offloader.Docs do
             content: %{"application/json" => %{schema: response_schema(ep)}}
           },
           "401" => %{description: "Unauthorized"},
+          "403" => %{description: "Host name not allowed"},
           "404" => %{description: "Unknown or unauthorized endpoint"},
           "422" => %{description: "Invalid parameter"}
         }

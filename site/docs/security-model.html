@@ -170,10 +170,20 @@ means loopback, an internal network, a proxy, or your IAM is your call. You put
 pipeline</strong> that publishes data to object storage, along with the object-store
 permissions themselves.</p>
 <p>Treat <code>auth: none</code> as publishing. Anyone who can reach the API port can read every
-endpoint, and a private network doesn&#39;t change that: Offloader doesn&#39;t check a request&#39;s
-<code>Host</code> or <code>Origin</code>, so a web page can use DNS rebinding to make a visitor&#39;s browser read an
-internal address. If the data isn&#39;t meant to be public, give it API keys. A browser never
-sends those on its own.</p>
+endpoint, and a private network alone doesn&#39;t change that: a web page can use DNS rebinding
+to make a visitor&#39;s browser read an internal address. On a private network, set
+<code>OFFLOADER_ALLOWED_HOSTS</code> to the names your clients use. Offloader then refuses a request
+addressed to any other name, and a rebinding page can only send a name the attacker owns.
+If the data isn&#39;t meant to be public at all, give it API keys. A browser never sends those
+on its own.</p>
+<p>That check only helps if nothing else lets a web page in. On a private network, don&#39;t set
+<code>OFFLOADER_CORS_ORIGINS=*</code>: it lets any page read the API by its real name, no rebinding needed,
+so list the origins that may call it instead. Behind a proxy, forward the client&#39;s <code>Host</code>
+(nginx: <code>proxy_set_header Host $host</code>) or enforce the names at the proxy, because a proxy that
+rewrites <code>Host</code> to its upstream address makes every request look allowed. Requests addressed to an
+IP address or to <code>localhost</code> always pass, since a rebinding page can&#39;t send those. The setting
+covers the API port only: the admin port&#39;s open pages (docs, schema, metrics and status) hold no
+data, but keep that port off networks people browse from.</p>
 <p>A fourth applies only if you enable the <a href="mcp.html">agent surface</a>: <strong>what your columns
 contain.</strong> Rows served to an agent land in a model&#39;s context, and a model reads its
 context as instructions. If a column holds text an outsider can write — a support ticket,

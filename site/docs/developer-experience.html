@@ -151,6 +151,11 @@ offloader scaffold-dataset --from sample.csv --id events --out my-project/datase
 comma-separated origin list (unset ⇒ no CORS). See <a href="public-serving.html">serving public data</a>.</li>
 <li><code>OFFLOADER_MCP_ENABLED</code> — serve the same endpoints to AI agents at <code>POST /mcp</code>
 (<code>true</code> ⇒ on; unset ⇒ off). See <a href="mcp.html">AI agents (MCP)</a>.</li>
+<li><code>OFFLOADER_ALLOWED_HOSTS</code> — the host names the API answers to, comma-separated (unset ⇒ any).
+Set it when the API sits on a private network, so a web page can&#39;t reach it through DNS
+rebinding. Requests to an IP address or <code>localhost</code>, and <code>/healthz</code>, always pass. Behind a
+proxy, forward the client&#39;s <code>Host</code>. See the
+<a href="security-model.html#what-youre-responsible-for">security model</a>.</li>
 <li><code>OFFLOADER_COMPRESSION</code> — <code>off</code> stops compressing API responses (unset ⇒ zstd or gzip, as
 the client asks). See <a href="public-serving.html#3-put-a-cdn-in-front">serving public data</a>
 for when that helps.</li>

@@ -207,8 +207,8 @@ look identical on purpose, so probing can&#39;t map what exists. Every error bod
   &quot;meta&quot;:  { &quot;request_id&quot;: &quot;GL6f4CKamol9&quot; } }
 </code></pre>
 <p><code>error.family</code> is the stable machine-readable code (<code>invalid_param</code>, <code>unauthorized</code>,
-<code>not_found</code>, <code>not_ready</code>, <code>internal</code>); <code>error.message</code> is safe to log but never echoes a raw
-param, secret, or SQL.</p>
+<code>forbidden</code>, <code>not_found</code>, <code>not_ready</code>, <code>internal</code>); <code>error.message</code> is safe to log but never
+echoes a raw param, secret, or SQL.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -227,6 +227,11 @@ param, secret, or SQL.</p>
 <td><code>401</code></td>
 <td>Missing / invalid / revoked key</td>
 <td>Fix the <code>Authorization</code> header.</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td>Addressed to a host name the server doesn&#39;t answer to (<code>OFFLOADER_ALLOWED_HOSTS</code>)</td>
+<td>Call it by one of its configured names.</td>
 </tr>
 <tr>
 <td><code>404</code></td>

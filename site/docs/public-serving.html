@@ -100,8 +100,8 @@ it cheaply and cache it at the edge.</p>
 <h2 id="1-run-it-public">1. Run it public</h2>
 <p>Set <code>auth: none</code> in <code>offloader.yml</code>. The API then needs no bearer token — accepted only when <strong>no
 endpoint is tenant-scoped</strong> (enforced at config load), so it can never expose per-tenant data
-unauthenticated. Anyone who can reach the port can read every endpoint, even on a private network,
-so use it only for data you&#39;d publish (see the
+unauthenticated. Anyone who can reach the port can read every endpoint, so use it for data you&#39;d
+publish. On a private network, also set <code>OFFLOADER_ALLOWED_HOSTS</code> (see the
 <a href="security-model.html#what-youre-responsible-for">security model</a>).</p>
 <pre tabindex="0"><code class="language-yaml">version: 1
 auth: none
@@ -164,7 +164,8 @@ belongs in no shared cache.</p>
 <p>A same-origin front-end (served behind the same CDN/domain) needs nothing. For a <strong>cross-origin</strong>
 browser call, set the allowed origins:</p>
 <ul>
-<li><code>OFFLOADER_CORS_ORIGINS=*</code> — for a fully public API. Sends <code>Access-Control-Allow-Origin: *</code>.</li>
+<li><code>OFFLOADER_CORS_ORIGINS=*</code> — for a fully public API. Sends <code>Access-Control-Allow-Origin: *</code>.
+Don&#39;t use it for an API on a private network: any web page could read it.</li>
 <li><code>OFFLOADER_CORS_ORIGINS=https://app.example.com,https://www.example.com</code> — echoes a listed origin
 and allows credentials (for an authed API). An off-list origin gets no CORS headers.</li>
 </ul>

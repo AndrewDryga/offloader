@@ -10,12 +10,14 @@ defmodule Offloader.ApiError do
   @enforce_keys [:family, :message]
   defstruct [:family, :message]
 
-  @type family :: :invalid_param | :unauthorized | :not_found | :not_ready | :internal
+  @type family ::
+          :invalid_param | :unauthorized | :forbidden | :not_found | :not_ready | :internal
   @type t :: %__MODULE__{family: family(), message: String.t()}
 
   @statuses %{
     invalid_param: 422,
     unauthorized: 401,
+    forbidden: 403,
     not_found: 404,
     not_ready: 503,
     internal: 500

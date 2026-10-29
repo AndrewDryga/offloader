@@ -9,8 +9,8 @@ it cheaply and cache it at the edge.
 
 Set `auth: none` in `offloader.yml`. The API then needs no bearer token — accepted only when **no
 endpoint is tenant-scoped** (enforced at config load), so it can never expose per-tenant data
-unauthenticated. Anyone who can reach the port can read every endpoint, even on a private network,
-so use it only for data you'd publish (see the
+unauthenticated. Anyone who can reach the port can read every endpoint, so use it for data you'd
+publish. On a private network, also set `OFFLOADER_ALLOWED_HOSTS` (see the
 [security model](security-model.md#what-youre-responsible-for)).
 
 ```yaml
@@ -87,6 +87,7 @@ A same-origin front-end (served behind the same CDN/domain) needs nothing. For a
 browser call, set the allowed origins:
 
 - `OFFLOADER_CORS_ORIGINS=*` — for a fully public API. Sends `Access-Control-Allow-Origin: *`.
+  Don't use it for an API on a private network: any web page could read it.
 - `OFFLOADER_CORS_ORIGINS=https://app.example.com,https://www.example.com` — echoes a listed origin
   and allows credentials (for an authed API). An off-list origin gets no CORS headers.
 

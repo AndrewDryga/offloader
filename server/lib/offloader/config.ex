@@ -37,6 +37,13 @@ defmodule Offloader.Config do
   def cors_origins, do: Application.get_env(:offloader, :cors_origins)
 
   @doc """
+  Host names the API answers to (`OFFLOADER_ALLOWED_HOSTS`), lowercased, or nil to answer to
+  any. See `OffloaderWeb.Plugs.AllowedHosts`.
+  """
+  @spec allowed_hosts() :: [String.t()] | nil
+  def allowed_hosts, do: Application.get_env(:offloader, :allowed_hosts)
+
+  @doc """
   Whether `POST /mcp` serves the endpoint registry over the Model Context Protocol
   (`OFFLOADER_MCP_ENABLED`). Off by default: it is an additional consumer surface, so
   an operator turns it on deliberately rather than acquiring one by upgrading.

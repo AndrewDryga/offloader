@@ -123,6 +123,30 @@ config :offloader,
   # Serve the endpoint registry over MCP at POST /mcp. Off unless explicitly enabled —
   # it is an extra consumer surface, not something an upgrade should switch on.
   mcp_enabled: System.get_env("OFFLOADER_MCP_ENABLED") in ["1", "true", "yes"],
+  # Host names the API answers to, comma-separated (unset or blank: any). Set it when the API
+  # sits on a private network: a DNS-rebinding page can only address it by a name it owns. A
+  # port is dropped (the compared host has none); a scheme, path, wildcard or non-ASCII name
+  # would never match and quietly refuse every request by name, so it stops the boot instead.
+  allowed_hosts:
+    (case System.get_env("OFFLOADER_ALLOWED_HOSTS", "")
+          |> String.split(",")
+          |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.map(fn entry ->
+            if entry =~ ~r{[/*]|[^\x21-\x7e]},
+              do:
+                raise(
+                  "OFFLOADER_ALLOWED_HOSTS: #{inspect(entry)} isn't a host name; list names " <>
+                    "like api.example.com, with no scheme, path or wildcard"
+                ),
+              else:
+                entry
+                |> String.replace(~r/(?<=[a-z0-9_.-]):\d+$/, "")
+                |> String.trim_trailing(".")
+          end) do
+       [] -> nil
+       hosts -> hosts
+     end),
   # Product-API CORS allow-list for browser front-ends: "*" or a comma-separated origin
   # list, or unset (no CORS headers).
   cors_origins:

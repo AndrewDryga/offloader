@@ -73,6 +73,11 @@ Everything else has a sensible default:
   comma-separated origin list (unset ⇒ no CORS). See [serving public data](public-serving.md).
 - `OFFLOADER_MCP_ENABLED` — serve the same endpoints to AI agents at `POST /mcp`
   (`true` ⇒ on; unset ⇒ off). See [AI agents (MCP)](mcp.md).
+- `OFFLOADER_ALLOWED_HOSTS` — the host names the API answers to, comma-separated (unset ⇒ any).
+  Set it when the API sits on a private network, so a web page can't reach it through DNS
+  rebinding. Requests to an IP address or `localhost`, and `/healthz`, always pass. Behind a
+  proxy, forward the client's `Host`. See the
+  [security model](security-model.md#what-youre-responsible-for).
 - `OFFLOADER_COMPRESSION` — `off` stops compressing API responses (unset ⇒ zstd or gzip, as
   the client asks). See [serving public data](public-serving.md#3-put-a-cdn-in-front)
   for when that helps.

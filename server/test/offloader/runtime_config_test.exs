@@ -33,6 +33,25 @@ defmodule Offloader.RuntimeConfigTest do
     end
   end
 
+  test "OFFLOADER_ALLOWED_HOSTS is a lowercased list; unset or blank means no check" do
+    hosts = fn value ->
+      get_in(read_with(:test, %{"OFFLOADER_ALLOWED_HOSTS" => value}), [:offloader, :allowed_hosts])
+    end
+
+    assert hosts.(nil) == nil
+    assert hosts.(" , ") == nil
+
+    assert hosts.(" API.example.com:443 , offloader.internal. ") == [
+             "api.example.com",
+             "offloader.internal"
+           ]
+
+    # These could never match, so they would quietly refuse every request by name.
+    for bad <- ["https://api.example.com", "*.internal", "api.example.com/v1", "пример.рф"] do
+      assert_raise RuntimeError, ~r/isn't a host name/, fn -> hosts.(bad) end
+    end
+  end
+
   test "in a container the switch sits alongside the port the API binds" do
     vars = %{
       "OFFLOADER_COMPRESSION" => "off",
