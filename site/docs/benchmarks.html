@@ -88,46 +88,118 @@
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
 <h1 id="benchmarking">Benchmarking</h1>
-<p>The harness measures cold/warm load, memory, disk, and p50/p95/p99 latency at concurrency
-1, 10, and 50 — so you can size and tune Offloader on your own data before a pilot.</p>
+<p>The benchmark script measures startup time, memory, disk use and p50/p95/p99
+latency with 1, 10 and 50 concurrent requests. Use it to size and tune Offloader
+on your own data before a pilot.</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#run-it">Run it</a></li>
 <li><a href="#what-each-number-means">What each number means</a></li>
 <li><a href="#how-to-read-it">How to read it</a></li>
-<li><a href="#what-these-numbers-are-and-arent">What these numbers are (and aren&#39;t)</a></li></ul></nav></details>
+<li><a href="#what-these-numbers-are-and-arent">What these numbers are (and aren&#39;t)</a></li>
+<li><a href="#compare-the-full-cost">Compare the full cost</a></li></ul></nav></details>
 <h2 id="run-it">Run it</h2>
 <pre tabindex="0"><code class="language-sh">./dev/scripts/benchmark.sh [out_dir]
 # quick run (default 300 req/scenario); deeper run:
 BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
 </code></pre>
-<p>It boots the server in production mode against the bundled example with a temp cache, times the
-cold boot to <code>/ready</code>, runs the load, restarts to time a warm boot, and writes <code>summary.json</code> +
-<code>summary.md</code>. It can also compare serving modes (<code>local_table</code> vs <code>remote_scan</code>).</p>
+<p>The script starts the server in production mode using the bundled example and a
+temporary cache. It times startup until <code>/ready</code>, runs the requests, then restarts
+the server to measure startup with a warm cache. Results go into <code>summary.json</code>
+and <code>summary.md</code>. It can also compare <code>local_table</code> and <code>remote_scan</code> serving modes.</p>
 <h2 id="what-each-number-means">What each number means</h2>
 <ul>
-<li><strong>cold_load_ms / warm_load_ms</strong> — process start until <code>/ready</code> returns 200 (the
-snapshot is materialized and the instance can serve). Warm reuses the on-disk
-cache and the DuckDB extension cache.</li>
-<li><strong>rss_mb / cache_disk_bytes</strong> — resident memory and materialized-cache footprint.</li>
-<li><strong>scenarios</strong> — <code>local_table</code> varies a param per request so every read is a fresh
-materialized-table query (cache miss); <code>cache_hit</code> repeats identical params to
-exercise the response cache. Each is measured at concurrency 1/10/50 with
+<li><code>cold_load_ms / warm_load_ms</code>: time from process start until <code>/ready</code> returns
+200, when the snapshot is loaded and the server can answer requests. A warm
+start reuses the on-disk cache and DuckDB extension cache.</li>
+<li><code>rss_mb / cache_disk_bytes</code>: process memory in RAM and disk space used by the
+snapshot cache.</li>
+<li><code>scenarios</code>: <code>local_table</code> changes a parameter on every request, forcing a new
+query of the loaded table. <code>cache_hit</code> repeats the same parameters to test the
+response cache. Each runs at concurrency 1/10/50 and reports
 p50/p95/p99/max latency (ms) and requests/sec.</li>
 </ul>
 <h2 id="how-to-read-it">How to read it</h2>
 <ul>
-<li>Watch <strong>p95/p99 at concurrency 50</strong>, not the average — tail latency is what a
-product API is judged on.</li>
-<li>A large <code>local_table</code> vs <code>cache_hit</code> gap means the response cache is earning its
-keep for repeated params.</li>
+<li>Watch p95/p99 at concurrency 50 to see how slow requests behave under load.
+An average can hide delays your users notice.</li>
+<li>A large gap between <code>local_table</code> and <code>cache_hit</code> shows how much the response
+cache helps when the same request repeats.</li>
 <li>Reads run through the DuckDB connection pool (<code>OFFLOADER_POOL_SIZE</code>) in the caller
 process, so throughput scales with the pool rather than a single connection.</li>
 </ul>
 <h2 id="what-these-numbers-are-and-arent">What these numbers are (and aren&#39;t)</h2>
-<p>These latency and throughput figures come from a fixed nested-JSON payload on a single
-machine, so treat them as <strong>relative</strong> — good for comparing modes and settings, not as a
-production SLA. Your real latency and savings depend on your own data, payloads, and hardware:
-measure them with a pilot benchmark before you commit.</p>
+<p>The bundled test uses a fixed nested-JSON response on one machine. Use its results
+to compare modes and settings, not as a production SLA. Test with your own data,
+responses and hardware to find out how fast the API will be and what it will cost.</p>
 <p>For a small, repeatable first check, try <a href="cache-check.html">One endpoint, two cache settings</a>.</p>
+<h2 id="compare-the-full-cost">Compare the full cost</h2>
+<p>Choose one customer dashboard endpoint and replay the same requests against direct
+warehouse queries, a response cache, and Offloader. Keep the dataset, returned
+fields, tenant permissions and acceptable data age the same. Include popular
+requests and varied filters so the cache sees both hits and misses.</p>
+<p>Save the test dates, software versions, machine size and request count with the
+results. Run cold and warm tests separately. Check that responses match before
+comparing speed.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Direct warehouse</th>
+<th>Response cache</th>
+<th>Offloader</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Successful requests, errors and timeouts</td>
+<td>Record</td>
+<td>Record</td>
+<td>Record</td>
+</tr>
+<tr>
+<td>p50 / p95 / p99 end-to-end latency</td>
+<td>Record</td>
+<td>Separate hits and misses</td>
+<td>Separate hits and misses</td>
+</tr>
+<tr>
+<td>Warehouse queries and billed usage</td>
+<td>All queries</td>
+<td>Misses and refreshes</td>
+<td>Export queries</td>
+</tr>
+<tr>
+<td>Data age seen by the caller</td>
+<td>Record</td>
+<td>Record</td>
+<td>Record</td>
+</tr>
+<tr>
+<td>Monthly compute cost</td>
+<td>Warehouse + API</td>
+<td>Warehouse + cache + API</td>
+<td>Exports + serving hosts + app API</td>
+</tr>
+<tr>
+<td>Monthly storage and transfer cost</td>
+<td>Record</td>
+<td>Record</td>
+<td>Include snapshots and downloads</td>
+</tr>
+<tr>
+<td>Setup and operating time</td>
+<td>Record separately</td>
+<td>Record separately</td>
+<td>Include export failures and recovery</td>
+</tr>
+</tbody></table>
+</div>
+<p>Use your provider&#39;s bill to calculate costs. If you estimate a month from a short
+test, show the traffic and refresh schedule you assumed. Fewer queries can free
+warehouse capacity without reducing a bill you&#39;ve already committed to. Report
+measured usage, estimated monthly costs and actual savings separately.</p>
+<p>Also test a failed refresh and a tenant trying to read another tenant&#39;s data.
+Record what callers receive and how long recovery takes. The bundled benchmark
+measures Offloader only. It does not run the warehouse or Redis comparisons for you.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="cache-check.html"><span>Previous</span><b>Check the cache</b></a>

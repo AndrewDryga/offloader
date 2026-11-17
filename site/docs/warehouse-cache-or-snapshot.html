@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Warehouse queries, a cache, or snapshots? — Offloader docs</title>
-<meta name="description" content="Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset.">
+<title>Serving customer dashboards: warehouse queries, a cache, or snapshots? — Offloader docs</title>
+<meta name="description" content="Compare warehouse queries, Redis response caching and Offloader snapshots for customer dashboards. Check freshness, cache misses and the full cost.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
-<meta property="og:title" content="Warehouse queries, a cache, or snapshots? — Offloader docs">
-<meta property="og:description" content="Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset.">
+<meta property="og:title" content="Serving customer dashboards: warehouse queries, a cache, or snapshots? — Offloader docs">
+<meta property="og:description" content="Compare warehouse queries, Redis response caching and Offloader snapshots for customer dashboards. Check freshness, cache misses and the full cost.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -87,17 +87,17 @@
   <main id="main" class="docs-main">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
-<h1 id="warehouse-queries-a-cache-or-snapshots">Warehouse queries, a cache, or snapshots?</h1>
-<p>Use direct warehouse queries for fresh or ad-hoc data, a response cache for
-repeated requests, and snapshots when many requests can share one dataset.</p>
+<h1 id="serving-customer-dashboards-warehouse-queries-a-cache-or-snapshots">Serving customer dashboards: warehouse queries, a cache, or snapshots?</h1>
+<p>Customer dashboards can query the warehouse, reuse responses from a cache such as
+Redis, or read a published dataset through Offloader.</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</a></li>
 <li><a href="#use-a-cache-when-the-same-requests-repeat">Use a cache when the same requests repeat</a></li>
 <li><a href="#use-snapshots-when-many-requests-can-share-one-dataset">Use snapshots when many requests can share one dataset</a></li>
+<li><a href="#when-a-serving-database-is-a-better-fit">When a serving database is a better fit</a></li>
 <li><a href="#compare-one-real-endpoint">Compare one real endpoint</a></li></ul></nav></details>
-<p>The right choice depends on how fresh the data must be, which requests repeat,
-and what those requests cost. A cache may be enough. A snapshot API can remove
-warehouse queries from the request path, but adds exports and a service you need
-to run.</p>
+<p>Choose based on how fresh the data must be and how often requests repeat. A cache
+may be enough. With snapshots, customer requests no longer query the warehouse,
+but you pay to export the data and run the API.</p>
 <div class="table-scroll" tabindex="0">
 <table>
 <thead>
@@ -139,6 +139,11 @@ to run.</p>
 snapshot delay. Exploratory queries may also need more freedom than a fixed set
 of endpoints allows. Measure your current API first: query optimization or
 warehouse acceleration may solve the problem without another service.</p>
+<p>Check the options your warehouse already offers. <a href="https://docs.cloud.google.com/bigquery/docs/cached-results">BigQuery&#39;s query cache</a>
+can reuse eligible query results, and <a href="https://docs.cloud.google.com/bigquery/docs/bi-engine-intro">BI Engine</a>
+accelerates supported queries. <a href="https://docs.snowflake.com/en/user-guide/interactive">Snowflake Interactive Analytics</a>
+is built to handle many application queries at once with low latency. Test these
+options with your own queries and compare the speed, data age and bill.</p>
 <h2 id="use-a-cache-when-the-same-requests-repeat">Use a cache when the same requests repeat</h2>
 <p>A cache can be a smaller change when callers often ask the same question and you
 know when saved answers should expire. Include everything that changes the answer
@@ -159,6 +164,12 @@ do when the data is too old. Try the
 <p>You can use caching with snapshots too. Offloader&#39;s response cache distinguishes
 endpoint versions, tenants, parameters, and snapshot IDs, so a response from an
 older snapshot does not get reused after an update.</p>
+<h2 id="when-a-serving-database-is-a-better-fit">When a serving database is a better fit</h2>
+<p>If you already keep small summary tables in Postgres, your application may be able
+to serve them directly. For continuously arriving data or a wider range of
+analytical queries, consider a database such as ClickHouse. Offloader serves REST
+endpoints you define over published Parquet datasets. Callers use the filters you
+allow, rather than sending arbitrary SQL.</p>
 <h2 id="compare-one-real-endpoint">Compare one real endpoint</h2>
 <p>Use the same data, freshness requirement, and realistic requests for each option.
 Check:</p>
@@ -173,6 +184,10 @@ and operating time add?</li>
 even after you remove queries. Compare invoices as well as query counts. The
 <a href="benchmarks.html">benchmark guide</a>, <a href="quickstart.html">quickstart</a>, and
 <a href="https://offloader.dryga.com/roi.html">ROI calculator</a> help you test the options.</p>
+<p>Try the <a href="cache-check.html">cache check</a> to test cached responses, tenant isolation
+and stale data with a small synthetic dataset. It doesn&#39;t measure warehouse
+savings. Use the <a href="benchmarks.html#compare-the-full-cost">cost worksheet</a> to compare
+costs for your own endpoint.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="warehouse-to-api.html"><span>Previous</span><b>Warehouse to API</b></a>

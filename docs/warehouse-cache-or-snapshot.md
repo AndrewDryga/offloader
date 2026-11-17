@@ -1,12 +1,11 @@
-# Warehouse queries, a cache, or snapshots?
+# Serving customer dashboards: warehouse queries, a cache, or snapshots?
 
-Use direct warehouse queries for fresh or ad-hoc data, a response cache for
-repeated requests, and snapshots when many requests can share one dataset.
+Customer dashboards can query the warehouse, reuse responses from a cache such as
+Redis, or read a published dataset through Offloader.
 
-The right choice depends on how fresh the data must be, which requests repeat,
-and what those requests cost. A cache may be enough. A snapshot API can remove
-warehouse queries from the request path, but adds exports and a service you need
-to run.
+Choose based on how fresh the data must be and how often requests repeat. A cache
+may be enough. With snapshots, customer requests no longer query the warehouse,
+but you pay to export the data and run the API.
 
 | | Direct queries | Response cache | Offloader snapshots |
 | --- | --- | --- | --- |
@@ -21,6 +20,12 @@ A screen that must reflect a just-completed transaction may not tolerate a
 snapshot delay. Exploratory queries may also need more freedom than a fixed set
 of endpoints allows. Measure your current API first: query optimization or
 warehouse acceleration may solve the problem without another service.
+
+Check the options your warehouse already offers. [BigQuery's query cache](https://docs.cloud.google.com/bigquery/docs/cached-results)
+can reuse eligible query results, and [BI Engine](https://docs.cloud.google.com/bigquery/docs/bi-engine-intro)
+accelerates supported queries. [Snowflake Interactive Analytics](https://docs.snowflake.com/en/user-guide/interactive)
+is built to handle many application queries at once with low latency. Test these
+options with your own queries and compare the speed, data age and bill.
 
 ## Use a cache when the same requests repeat
 
@@ -49,6 +54,14 @@ You can use caching with snapshots too. Offloader's response cache distinguishes
 endpoint versions, tenants, parameters, and snapshot IDs, so a response from an
 older snapshot does not get reused after an update.
 
+## When a serving database is a better fit
+
+If you already keep small summary tables in Postgres, your application may be able
+to serve them directly. For continuously arriving data or a wider range of
+analytical queries, consider a database such as ClickHouse. Offloader serves REST
+endpoints you define over published Parquet datasets. Callers use the filters you
+allow, rather than sending arbitrary SQL.
+
 ## Compare one real endpoint
 
 Use the same data, freshness requirement, and realistic requests for each option.
@@ -64,3 +77,8 @@ Reserved capacity and shared workloads can keep the warehouse bill unchanged
 even after you remove queries. Compare invoices as well as query counts. The
 [benchmark guide](benchmarks.md), [quickstart](quickstart.md), and
 [ROI calculator](https://offloader.dryga.com/roi.html) help you test the options.
+
+Try the [cache check](cache-check.md) to test cached responses, tenant isolation
+and stale data with a small synthetic dataset. It doesn't measure warehouse
+savings. Use the [cost worksheet](benchmarks.md#compare-the-full-cost) to compare
+costs for your own endpoint.

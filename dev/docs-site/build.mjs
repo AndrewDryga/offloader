@@ -78,7 +78,7 @@ const GROUPS = [
       ["warehouse-to-api", "docs/warehouse-to-api.md", "Warehouse to API", "Evaluate one customer-facing endpoint using a published snapshot.",
         "If your API can return data that is minutes or hours old, serve it from a warehouse snapshot instead of querying the warehouse on every request."],
       ["warehouse-cache-or-snapshot", "docs/warehouse-cache-or-snapshot.md", "Choose a serving path", "Compare direct warehouse queries, response caching and snapshot serving.",
-        "Use direct warehouse queries for fresh or ad-hoc data, a response cache for repeated requests, and snapshots when many requests can share one dataset."],
+        "Compare warehouse queries, Redis response caching and Offloader snapshots for customer dashboards. Check freshness, cache misses and the full cost."],
       ["cache-check", "docs/cache-check.md", "Check the cache", "Repeat a small test of cached results, tenant boundaries and stale data.",
         "Repeat a local Offloader cache check: compare data, verify tenant boundaries, reject invalid keys and inspect stale snapshot behavior."],
       ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data.",

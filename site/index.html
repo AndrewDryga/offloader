@@ -347,10 +347,13 @@
                             <span class="step-n">04</span>
                             <h3>A newer snapshot swaps in</h3>
                             <p class="step-desc">
-                                When a newer snapshot passes validation,
-                                Offloader switches to it without taking the API
-                                down. If it fails, the last good snapshot keeps
-                                serving.
+                                When a configured source finds a new export,
+                                Offloader checks it before switching. Live
+                                refreshes keep the API available. If the new
+                                snapshot fails validation, the last good one
+                                keeps serving. For a fixed manifest, update the
+                                configuration and sync or restart to load the
+                                new one. See <a href="docs/warehouse-to-api.html#2-publish-a-complete-snapshot">how updates work</a>.
                             </p>
                         </li>
                     </ol>
