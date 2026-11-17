@@ -26,7 +26,7 @@ jobs:
         id: beam
         with:
           otp-version: "29.1.2"
-          elixir-version: "1.20.4"
+          elixir-version: "1.20.5"
 
       # The toolchain is part of the key, so a version bump never restores a _build
       # compiled by the previous OTP/Elixir.
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: tools/go.mod
           cache-dependency-path: tools/go.sum
@@ -113,7 +113,7 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

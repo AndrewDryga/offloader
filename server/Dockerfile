@@ -2,7 +2,7 @@
 # release (bundled ERTS) in the Elixir image, then run it on a slim Debian with only
 # the C libraries the DuckDB NIF and crypto need. Config and secrets are NEVER baked
 # in — the container reads them from env vars + a mounted config at runtime.
-ARG ELIXIR_IMAGE=hexpm/elixir:1.20.4-erlang-29.1.2-debian-trixie-20261027-slim
+ARG ELIXIR_IMAGE=hexpm/elixir:1.20.5-erlang-29.1.2-debian-trixie-20261104-slim
 ARG RUNTIME_IMAGE=debian:trixie-slim
 
 # ── builder ──────────────────────────────────────────────────────────────────────
