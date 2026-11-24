@@ -241,12 +241,12 @@ const BRAND_MARK = `<svg class="brand-mark" width="1em" height="1em" viewBox="0 
 function header(active) {
   return `<header class="site" role="banner">
   <nav class="wrap nav" aria-label="Primary">
-    <a class="brand" href="../index.html" aria-label="Offloader home">${BRAND_MARK}<span class="brand-word">Offloader</span></a>
+    <a class="brand" href="../" aria-label="Offloader home">${BRAND_MARK}<span class="brand-word">Offloader</span></a>
     <ul class="nav-links">
-      <li><a href="../index.html#how">How it works</a></li>
-      <li><a href="../index.html#proof">Proof</a></li>
-      <li><a href="../index.html#pricing">Pricing</a></li>
-      <li><a href="../index.html#fit">Fit</a></li>
+      <li><a href="../#how">How it works</a></li>
+      <li><a href="../#proof">Proof</a></li>
+      <li><a href="../#pricing">Pricing</a></li>
+      <li><a href="../#fit">Fit</a></li>
       <li><a href="index.html"${active === "docs" ? ' aria-current="true"' : ""}>Docs</a></li>
       <li><a href="https://cal.com/andrew-dryga/offloader" target="_blank" rel="noopener" class="nav-cta">Book a call</a></li>
     </ul>
@@ -290,9 +290,9 @@ const FOOT = `<footer class="site-foot">
     <nav class="foot-nav" aria-label="Footer">
       <div>
         <h3>Product</h3>
-        <a href="../index.html#how">How it works</a>
-        <a href="../index.html#pricing">Pricing</a>
-        <a href="../index.html#faq">FAQ</a>
+        <a href="../#how">How it works</a>
+        <a href="../#pricing">Pricing</a>
+        <a href="../#faq">FAQ</a>
       </div>
       <div>
         <h3>Docs</h3>
