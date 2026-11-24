@@ -1,0 +1,34 @@
+measurement,direct_warehouse_and_app,response_cache_and_app,offloader_and_export,unit_or_assumption
+software_versions,,,,exact versions
+dataset_checksum,,,,SHA256
+dataset_size,,,,bytes / rows
+tenants,,,,count
+requested_freshness,,,,seconds
+observed_period,,,,start/end UTC
+requests,,,,count
+successful_requests,,,,count
+errors,,,,count
+timeouts,,,,count
+concurrency,,,,count
+p50,,,,ms
+p95,,,,ms
+p99,,,,ms
+cache_hits,,,,count
+cache_misses,,,,count
+cold_start,,,,ms
+data_age_p95,,,,seconds
+warehouse_usage,,,,provider units
+warehouse_cost,,,,Warehouse queries that serve requests. Count export queries only in export_cost.
+export_cost,,,,Source queries and compute used to publish snapshots or refresh the cache.
+storage_cost,,,,actual period currency
+transfer_cost,,,,actual period currency
+application_compute_cost,,,,actual period currency
+cache_or_offloader_compute_cost,,,,actual period currency
+license_cost,,,,Actual cost for the period in the same currency.
+total_period_cost,,,,"Sum warehouse, export, storage, transfer, app, cache or serving, and license costs. Count each charge once."
+setup_time,,,,hours
+operating_time,,,,hours
+tenant_rejection,,,,actual observed result
+failed_refresh,,,,actual observed result
+recovery_time,,,,seconds
+monthly_projection,,,,Estimate only. State the request volume and refresh schedule used.

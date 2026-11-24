@@ -81,8 +81,8 @@ const GROUPS = [
         "Compare warehouse queries, Redis response caching and Offloader snapshots for customer dashboards. Check freshness, cache misses and the full cost."],
       ["cache-check", "docs/cache-check.md", "Check the cache", "Repeat a small test of cached results, tenant boundaries and stale data.",
         "Repeat a local Offloader cache check: compare data, verify tenant boundaries, reject invalid keys and inspect stale snapshot behavior."],
-      ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Measure latency, throughput, and footprint on your own data.",
-        "Measure Offloader on your own data before a pilot: load time, memory, disk, and p50, p95 and p99 latency at 1, 10 and 50 concurrent requests."],
+      ["benchmarks", "docs/benchmarks.md", "Benchmarks", "Replay 100 dashboard requests, then measure your own endpoint.",
+        "See how often a dashboard reads the source with direct queries, a response cache or Offloader snapshots. Repeat the test and price your own endpoint."],
     ],
   },
 ];

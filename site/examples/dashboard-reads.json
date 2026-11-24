@@ -1,0 +1,934 @@
+{
+  "image": "ghcr.io/andrewdryga/offloader@sha256:d8bebb86b6de6bab853c88e28847043cc253e9a5807b5f4c76e5c572ce27254f",
+  "fixture_source": "examples/customer-analytics/data/customer_usage/customer_usage.csv",
+  "fixture_sha256": "798ae838581d8026af8db4600ee3fc1dfd0be2f1290be79df2ed08b1b620a4b4",
+  "python": "3.14.6",
+  "sqlite": "3.53.4",
+  "platform": "Darwin arm64",
+  "versions": [
+    {
+      "revision": "dashboard-v1",
+      "watermark": "2026-11-24T01:43:21Z",
+      "direct_queries": 50,
+      "cache_miss_queries": 12,
+      "export_queries": 1,
+      "export_bytes": 2433,
+      "snapshot_http_p50_ms": 3.1544999999999996,
+      "snapshot_http_p95_ms": 3.827,
+      "requests": [
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 7.992
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.619
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.739
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.717
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.696
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.521
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.495
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.265
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.827
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.418
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.206
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.753
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.563
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.307
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.154
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.482
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.079
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.628
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 2.76
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 5.907
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.232
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.403
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.355
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.825
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 2.538
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.155
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.016
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.409
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 2.43
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.88
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 2.873
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.007
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.188
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.209
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 2.899
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.561
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 2.573
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.141
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 100496,
+          "snapshot_http_ms": 3.064
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.029
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-05-30",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 29003,
+          "snapshot_http_ms": 2.753
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-05-30",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 13716,
+          "snapshot_http_ms": 2.65
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 61571,
+          "snapshot_http_ms": 3.074
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 26441,
+          "snapshot_http_ms": 3.006
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-31",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 32568,
+          "snapshot_http_ms": 2.72
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-31",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 12725,
+          "snapshot_http_ms": 2.617
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-31",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 71493,
+          "snapshot_http_ms": 2.824
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-31",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 30814,
+          "snapshot_http_ms": 3.177
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-06-01",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 38925,
+          "snapshot_http_ms": 3.801
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-06-01",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 18089,
+          "snapshot_http_ms": 3.456
+        }
+      ]
+    },
+    {
+      "revision": "dashboard-v2",
+      "watermark": "2026-11-24T01:43:22Z",
+      "direct_queries": 50,
+      "cache_miss_queries": 12,
+      "export_queries": 1,
+      "export_bytes": 2433,
+      "snapshot_http_p50_ms": 3.452,
+      "snapshot_http_p95_ms": 7.388,
+      "requests": [
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.404
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 4.611
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 4.151
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.778
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.121
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.969
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.555
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.395
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.592
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.155
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.026
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.672
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 2.876
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.777
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 2.749
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 7.388
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.071
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.567
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 2.159
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.298
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 2.728
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.724
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 2.282
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 2.345
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 6.226
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.042
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.053
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.306
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 5.089
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.869
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 9.062
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 10.347
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 5.323
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 5.661
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 4.595
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.5
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 3.31
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 4.717
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 2,
+          "api_calls": 101496,
+          "snapshot_http_ms": 5.497
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-06-01",
+          "response_cache_hit": true,
+          "accounts": 1,
+          "api_calls": 44530,
+          "snapshot_http_ms": 3.195
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-05-30",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 30003,
+          "snapshot_http_ms": 2.551
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-05-30",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 13716,
+          "snapshot_http_ms": 2.959
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-30",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 62571,
+          "snapshot_http_ms": 3.687
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-30",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 26441,
+          "snapshot_http_ms": 3.397
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-31",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 32568,
+          "snapshot_http_ms": 3.613
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-31",
+          "end": "2026-05-31",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 12725,
+          "snapshot_http_ms": 3.71
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-05-31",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 71493,
+          "snapshot_http_ms": 3.757
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-05-31",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 30814,
+          "snapshot_http_ms": 3.151
+        },
+        {
+          "tenant": "acme",
+          "start": "2026-06-01",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 2,
+          "api_calls": 38925,
+          "snapshot_http_ms": 3.691
+        },
+        {
+          "tenant": "globex",
+          "start": "2026-06-01",
+          "end": "2026-06-01",
+          "response_cache_hit": false,
+          "accounts": 1,
+          "api_calls": 18089,
+          "snapshot_http_ms": 3.842
+        }
+      ]
+    }
+  ]
+}

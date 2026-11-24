@@ -180,14 +180,16 @@ Check:</p>
 <li>Which warehouse costs disappear? What do exports, storage, servers, licenses,
 and operating time add?</li>
 </ul>
-<p>Reserved capacity and shared workloads can keep the warehouse bill unchanged
-even after you remove queries. Compare invoices as well as query counts. The
-<a href="benchmarks.html">benchmark guide</a>, <a href="quickstart.html">quickstart</a>, and
-<a href="https://offloader.dryga.com/roi.html">ROI calculator</a> help you test the options.</p>
-<p>Try the <a href="cache-check.html">cache check</a> to test cached responses, tenant isolation
-and stale data with a small synthetic dataset. It doesn&#39;t measure warehouse
-savings. Use the <a href="benchmarks.html#compare-the-full-cost">cost worksheet</a> to compare
-costs for your own endpoint.</p>
+<p>In our <a href="benchmarks.html#how-often-does-a-dashboard-query-the-source">100-request dashboard replay</a>,
+a response cache needed 24 source queries. Offloader used two full exports.
+Your busiest dashboard may have a very different mix of repeat views and new
+filters. Use the <a href="benchmarks.html#compare-the-full-cost">cost worksheet</a> to price
+those reads and exports with your own numbers. If your warehouse runs on reserved
+capacity, the bill may stay the same until you can downsize it.</p>
+<p>The <a href="cache-check.html">cache check</a> tests how Offloader handles tenant data, rejected requests and
+stale responses when you turn on its own cache. To try it with the bundled
+project, start with the <a href="quickstart.html">quickstart</a>. For a monthly estimate, enter
+your workload in the <a href="https://offloader.dryga.com/roi.html">ROI calculator</a>.</p>
 </article>
     <nav class="doc-pager" aria-label="Pagination">
       <a class="pg prev" href="warehouse-to-api.html"><span>Previous</span><b>Warehouse to API</b></a>

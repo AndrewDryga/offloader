@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Benchmarking — Offloader docs</title>
-<meta name="description" content="Measure Offloader on your own data before a pilot: load time, memory, disk, and p50, p95 and p99 latency at 1, 10 and 50 concurrent requests.">
+<title>Dashboard benchmarks — Offloader docs</title>
+<meta name="description" content="See how often a dashboard reads the source with direct queries, a response cache or Offloader snapshots. Repeat the test and price your own endpoint.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/benchmarks.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/benchmarks.html">
-<meta property="og:title" content="Benchmarking — Offloader docs">
-<meta property="og:description" content="Measure Offloader on your own data before a pilot: load time, memory, disk, and p50, p95 and p99 latency at 1, 10 and 50 concurrent requests.">
+<meta property="og:title" content="Dashboard benchmarks — Offloader docs">
+<meta property="og:description" content="See how often a dashboard reads the source with direct queries, a response cache or Offloader snapshots. Repeat the test and price your own endpoint.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="light dark">
@@ -87,16 +87,74 @@
   <main id="main" class="docs-main">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
-<h1 id="benchmarking">Benchmarking</h1>
-<p>The benchmark script measures startup time, memory, disk use and p50/p95/p99
-latency with 1, 10 and 50 concurrent requests. Use it to size and tune Offloader
-on your own data before a pilot.</p>
-<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#run-it">Run it</a></li>
+<h1 id="dashboard-benchmarks">Dashboard benchmarks</h1>
+<details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#how-often-does-a-dashboard-query-the-source">How often does a dashboard query the source?</a></li>
+<li><a href="#run-it">Run it</a></li>
 <li><a href="#what-each-number-means">What each number means</a></li>
 <li><a href="#how-to-read-it">How to read it</a></li>
-<li><a href="#what-these-numbers-are-and-arent">What these numbers are (and aren&#39;t)</a></li>
 <li><a href="#compare-the-full-cost">Compare the full cost</a></li></ul></nav></details>
+<h2 id="how-often-does-a-dashboard-query-the-source">How often does a dashboard query the source?</h2>
+<p>We replayed 100 requests for account usage totals. Direct queries read the source
+100 times. A response cache cut that to 24. Offloader answered all 100 requests
+from two exports, one for each version of the data.</p>
+<div class="table-scroll" tabindex="0">
+<table>
+<thead>
+<tr>
+<th>Serving path</th>
+<th>Reads against the source</th>
+<th>What the dashboard received</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Query on every request</td>
+<td>100 aggregate queries</td>
+<td>Account totals for the requested tenant and dates</td>
+</tr>
+<tr>
+<td>Cache each answer until the data changes</td>
+<td>24 aggregate queries</td>
+<td>The same totals, with 76 requests served from cache</td>
+</tr>
+<tr>
+<td>Publish a snapshot with Offloader</td>
+<td>2 full exports, 2,433 bytes each</td>
+<td>The same totals, grouped by DuckDB for each request</td>
+</tr>
+</tbody></table>
+</div>
+<p>For each of two demo tenants, we requested the same three-day view 20 times
+and five other date ranges once. Then we added 1,000 API calls to one Acme
+account and ran the same 50 requests again. Acme’s three-day total went up by 1,000. Globex’s stayed
+the same. All three paths returned matching account rows on every request.</p>
+<p>The test uses SQLite as a local stand-in for a warehouse and a Python dictionary
+as the response cache. At each update we emptied the cache and started Offloader
+on the new CSV export before sending traffic. We checked the snapshot ID and
+watermark on every response. This gives each path the same data and gives the
+cache a reliable signal to expire old answers. To learn how long your users
+might see old data during a refresh, time that separately on your own pipeline.</p>
+<p><strong>Would the two exports cost less?</strong> For each version, the cache ran 12 small
+queries. The snapshot path read all 36 rows once. Compare the cost of that export
+with the cost of those 12 queries, then add what each service costs to run.
+A warehouse bill depends on the work each query does and how you pay for it.
+This test used no paid warehouse.</p>
+<h3 id="repeat-the-comparison">Repeat the comparison</h3>
+<p>From the repository root, with Python 3 and Docker running:</p>
+<pre tabindex="0"><code class="language-sh">python3 dev/scripts/compare-dashboard-reads.py &gt; dashboard-reads.json
+</code></pre>
+<p>The <a href="https://github.com/AndrewDryga/offloader/blob/main/dev/scripts/compare-dashboard-reads.py">replay script</a> starts a local
+Offloader container for each version and removes it afterward. It checks the rows
+against the direct SQL result and stops on a mismatch.
+<a href="https://offloader.dryga.com/examples/dashboard-reads.json">Download the November 24 UTC results</a>
+for every request, the fixture checksum, software versions and pinned image. The
+timings cover the local Offloader HTTP calls. The direct and cached queries ran
+inside Python, so we measured source reads across all three paths and timed only
+the HTTP path.</p>
+<p>To test your own endpoint, replay a day of requests including its busiest hour.
+Write down how old its data can be, check a few known customer totals and price
+each option with the <a href="#compare-the-full-cost">cost worksheet</a>.</p>
 <h2 id="run-it">Run it</h2>
+<p>To measure startup, memory and request latency on your machine, run the load test.</p>
 <pre tabindex="0"><code class="language-sh">./dev/scripts/benchmark.sh [out_dir]
 # quick run (default 300 req/scenario); deeper run:
 BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
@@ -104,7 +162,7 @@ BENCH_REQUESTS=5000 ./dev/scripts/benchmark.sh ./bench-out
 <p>The script starts the server in production mode using the bundled example and a
 temporary cache. It times startup until <code>/ready</code>, runs the requests, then restarts
 the server to measure startup with a warm cache. Results go into <code>summary.json</code>
-and <code>summary.md</code>. It can also compare <code>local_table</code> and <code>remote_scan</code> serving modes.</p>
+and <code>summary.md</code>.</p>
 <h2 id="what-each-number-means">What each number means</h2>
 <ul>
 <li><code>cold_load_ms / warm_load_ms</code>: time from process start until <code>/ready</code> returns
@@ -112,32 +170,26 @@ and <code>summary.md</code>. It can also compare <code>local_table</code> and <c
 start reuses the on-disk cache and DuckDB extension cache.</li>
 <li><code>rss_mb / cache_disk_bytes</code>: process memory in RAM and disk space used by the
 snapshot cache.</li>
-<li><code>scenarios</code>: <code>local_table</code> changes a parameter on every request, forcing a new
-query of the loaded table. <code>cache_hit</code> repeats the same parameters to test the
-response cache. Each runs at concurrency 1/10/50 and reports
-p50/p95/p99/max latency (ms) and requests/sec.</li>
+<li><code>scenarios</code>: one set of requests varies the page offset, the other repeats the
+same request. Both run at concurrency 1, 10 and 50 and report throughput and
+p50, p95, p99 and maximum latency in milliseconds.</li>
 </ul>
 <h2 id="how-to-read-it">How to read it</h2>
-<ul>
-<li>Watch p95/p99 at concurrency 50 to see how slow requests behave under load.
-An average can hide delays your users notice.</li>
-<li>A large gap between <code>local_table</code> and <code>cache_hit</code> shows how much the response
-cache helps when the same request repeats.</li>
-<li>Reads run through the DuckDB connection pool (<code>OFFLOADER_POOL_SIZE</code>) in the caller
-process, so throughput scales with the pool rather than a single connection.</li>
-</ul>
-<h2 id="what-these-numbers-are-and-arent">What these numbers are (and aren&#39;t)</h2>
-<p>The bundled test uses a fixed nested-JSON response on one machine. Use its results
-to compare modes and settings, not as a production SLA. Test with your own data,
-responses and hardware to find out how fast the API will be and what it will cost.</p>
-<p>For a small, repeatable first check, try <a href="cache-check.html">One endpoint, two cache settings</a>.</p>
+<p>Check errors first, then look at p95 and p99 during the busiest run. With the
+small demo dataset, most page offsets return no rows. Later rounds also reuse
+offsets from the first round. A difference between the two sets of timings can
+come from response size as well as caching.</p>
+<p>For a <a href="cache-check.html">cache correctness check</a>, compare the same requests with
+caching on and off. For a capacity decision, use an endpoint that returns as
+much data as your customers actually read.</p>
 <h2 id="compare-the-full-cost">Compare the full cost</h2>
 <p>Choose one customer dashboard endpoint and replay the same requests against direct
 warehouse queries, a response cache, and Offloader. Keep the dataset, returned
 fields, tenant permissions and acceptable data age the same. Include popular
 requests and varied filters so the cache sees both hits and misses.</p>
-<p>Save the test dates, software versions, machine size and request count with the
-results. Run cold and warm tests separately. Check that responses match before
+<p><a href="https://offloader.dryga.com/examples/dashboard-costs.csv">Download the cost worksheet (CSV)</a>
+to record all three options over the same period and in the same currency.
+Save the test dates, software versions, machine size and request count with the results. Run cold and warm tests separately. Check that responses match before
 comparing speed.</p>
 <div class="table-scroll" tabindex="0">
 <table>
