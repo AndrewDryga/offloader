@@ -187,20 +187,24 @@ free ports. Use the URLs it prints; these differ from the Docker example above. 
 <details>
 <summary>Let an AI agent migrate your existing endpoints</summary>
 
-Already have analytics endpoints (raw SQL, an ORM, a hand-rolled API)? Point a coding agent at
-both your code and this repo, and paste:
+Pick one endpoint. Give your coding agent the handler or SQL, the Parquet schema and a few
+sample rows for two test tenants. It can work from those files without a warehouse login.
+If you use [co:op](https://coop.dryga.com/sandbox-guide.html), put them in the sandbox project.
 
-> You are migrating our existing analytics endpoints to Offloader. Read Offloader's
-> `docs/config-reference.md` and the `examples/customer-analytics/` project for the exact schema.
-> For **each** of our current endpoints: (1) write a `datasets/<id>.yml` whose `schema` matches
-> the exported Parquet columns, including tenant and filter columns; (2) write an `endpoints/<name>.yml` reproducing its params, filters,
-> aggregation, ordering, and limits using only Offloader's declarative `query:` — no raw SQL;
-> (3) preserve tenant isolation by setting the dataset's `tenant_column` and the endpoint's
-> `tenant:`. Then run `offloader validate --config my-project/offloader.yml` and
-> `offloader endpoint test` against a running instance, and fix every reported error until both
-> pass. Finally, list any endpoint you could not express and exactly why.
+> Port this endpoint to Offloader. Follow the [customer analytics example](https://github.com/AndrewDryga/offloader/tree/main/examples/customer-analytics).
+> Keep the same parameters, filters, totals, sort order and limits. Set `tenant_column` in
+> the dataset and `tenant.column` in the endpoint. Flag anything Offloader's query syntax can't express.
 
-It produces a project you own and can diff — review it before serving.
+Review the changes against the [config reference](config-reference.md), then run
+`offloader validate --config my-project/offloader.yml`. On a local instance, send the same
+request with each tenant's key. Compare the results with the old endpoint, including row
+order. [`offloader endpoint test`](cli.md#offloader-endpoint-test) checks the status code.
+You still need to check whose rows came back.
+
+Try the [demo request](#2-call-your-first-endpoint) with the Acme key. You should see
+`acct_zephyr` and `acct_apollo`. Switch just the key to `offl_demo_globex_key` and you
+should see only `acct_orion`.
+
 </details>
 
 ## 6. Next

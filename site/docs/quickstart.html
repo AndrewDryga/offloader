@@ -223,20 +223,22 @@ free ports. Use the URLs it prints; these differ from the Docker example above. 
 <a href="developer-experience.html">config guide</a> walks through every file; the
 <a href="config-reference.html">config reference</a> lists every field.</p>
 <details>
-<summary>Let an AI agent migrate your existing endpoints</summary><p>Already have analytics endpoints (raw SQL, an ORM, a hand-rolled API)? Point a coding agent at
-both your code and this repo, and paste:</p>
+<summary>Let an AI agent migrate your existing endpoints</summary><p>Pick one endpoint. Give your coding agent the handler or SQL, the Parquet schema and a few
+sample rows for two test tenants. It can work from those files without a warehouse login.
+If you use <a href="https://coop.dryga.com/sandbox-guide.html">co:op</a>, put them in the sandbox project.</p>
 <blockquote>
-<p>You are migrating our existing analytics endpoints to Offloader. Read Offloader&#39;s
-<code>docs/config-reference.md</code> and the <code>examples/customer-analytics/</code> project for the exact schema.
-For <strong>each</strong> of our current endpoints: (1) write a <code>datasets/&lt;id&gt;.yml</code> whose <code>schema</code> matches
-the exported Parquet columns, including tenant and filter columns; (2) write an <code>endpoints/&lt;name&gt;.yml</code> reproducing its params, filters,
-aggregation, ordering, and limits using only Offloader&#39;s declarative <code>query:</code> — no raw SQL;
-(3) preserve tenant isolation by setting the dataset&#39;s <code>tenant_column</code> and the endpoint&#39;s
-<code>tenant:</code>. Then run <code>offloader validate --config my-project/offloader.yml</code> and
-<code>offloader endpoint test</code> against a running instance, and fix every reported error until both
-pass. Finally, list any endpoint you could not express and exactly why.</p>
+<p>Port this endpoint to Offloader. Follow the <a href="https://github.com/AndrewDryga/offloader/tree/main/examples/customer-analytics">customer analytics example</a>.
+Keep the same parameters, filters, totals, sort order and limits. Set <code>tenant_column</code> in
+the dataset and <code>tenant.column</code> in the endpoint. Flag anything Offloader&#39;s query syntax can&#39;t express.</p>
 </blockquote>
-<p>It produces a project you own and can diff — review it before serving.</p>
+<p>Review the changes against the <a href="config-reference.html">config reference</a>, then run
+<code>offloader validate --config my-project/offloader.yml</code>. On a local instance, send the same
+request with each tenant&#39;s key. Compare the results with the old endpoint, including row
+order. <a href="cli.html#offloader-endpoint-test"><code>offloader endpoint test</code></a> checks the status code.
+You still need to check whose rows came back.</p>
+<p>Try the <a href="#2-call-your-first-endpoint">demo request</a> with the Acme key. You should see
+<code>acct_zephyr</code> and <code>acct_apollo</code>. Switch just the key to <code>offl_demo_globex_key</code> and you
+should see only <code>acct_orion</code>.</p>
 </details><h2 id="6-next">6. Next</h2>
 <ul>
 <li><a href="developer-experience.html">Config guide</a> — publish your own datasets and endpoints, and load
