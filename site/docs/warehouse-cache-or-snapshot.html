@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Serving customer dashboards: warehouse queries, a cache, or snapshots? — Offloader docs</title>
+<title>Dashboard reads from a warehouse, cache or snapshot — Offloader docs</title>
 <meta name="description" content="Compare warehouse queries, Redis response caching and Offloader snapshots for customer dashboards. Check freshness, cache misses and the full cost.">
 <link rel="canonical" href="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Offloader">
 <meta property="og:url" content="https://offloader.dryga.com/docs/warehouse-cache-or-snapshot.html">
-<meta property="og:title" content="Serving customer dashboards: warehouse queries, a cache, or snapshots? — Offloader docs">
+<meta property="og:title" content="Dashboard reads from a warehouse, cache or snapshot — Offloader docs">
 <meta property="og:description" content="Compare warehouse queries, Redis response caching and Offloader snapshots for customer dashboards. Check freshness, cache misses and the full cost.">
 <meta property="og:image" content="https://offloader.dryga.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -87,7 +87,7 @@
   <main id="main" class="docs-main">
     <p class="doc-kicker">Evaluate</p>
     <article class="prose">
-<h1 id="serving-customer-dashboards-warehouse-queries-a-cache-or-snapshots">Serving customer dashboards: warehouse queries, a cache, or snapshots?</h1>
+<h1 id="dashboard-reads-from-a-warehouse-cache-or-snapshot">Dashboard reads from a warehouse, cache or snapshot</h1>
 <p>Customer dashboards can query the warehouse, reuse responses from a cache such as
 Redis, or read a published dataset through Offloader.</p>
 <details class="doc-contents"><summary>On this page</summary><nav aria-label="On this page"><ul><li><a href="#keep-direct-queries-for-fresh-data-or-ad-hoc-questions">Keep direct queries for fresh data or ad-hoc questions</a></li>

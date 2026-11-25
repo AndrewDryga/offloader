@@ -1,4 +1,4 @@
-# Serving customer dashboards: warehouse queries, a cache, or snapshots?
+# Dashboard reads from a warehouse, cache or snapshot
 
 Customer dashboards can query the warehouse, reuse responses from a cache such as
 Redis, or read a published dataset through Offloader.

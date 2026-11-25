@@ -1,4 +1,4 @@
-# How Offloader works: REST APIs from warehouse snapshots
+# REST APIs from warehouse snapshots
 
 Offloader serves REST APIs from snapshots of your warehouse data. You run it on
 your own servers, so your product can read the same data many times without
